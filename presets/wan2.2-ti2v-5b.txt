@@ -1,0 +1,12 @@
+# name: Wan 2.2 TI2V 5B (Q4_K_M)
+# defaults: steps=25 cfg=5 width=832 height=480 sampler=euler video_frames=33 fps=16 flow_shift=5.0
+--diffusion-model
+diffusion_models/Wan2.2-TI2V-5B-Q4_K_M.gguf
+--llm
+text_encoders/umt5-xxl-encoder-Q4_K_M.gguf
+--vae
+vae/Wan2.1_VAE.pth
+--vae-tiling
+--vae-tile-size
+512
+--flash-attn

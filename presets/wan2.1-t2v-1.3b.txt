@@ -1,0 +1,12 @@
+# name: Wan 2.1 T2V 1.3B (Q8_0)
+# defaults: steps=20 cfg=5 width=832 height=480 sampler=euler video_frames=33 fps=16 flow_shift=3.0
+--diffusion-model
+diffusion_models/Wan2.1-T2V-1.3B-Q8_0.gguf
+--llm
+text_encoders/umt5-xxl-encoder-Q4_K_M.gguf
+--vae
+vae/Wan2.1_VAE.pth
+--vae-tiling
+--vae-tile-size
+512
+--flash-attn

@@ -39,6 +39,19 @@ namespace catalog_data {
     { "https://huggingface.co/Comfy-Org/flux2-dev/resolve/main/split_files/vae/flux2-vae.safetensors",     \
       "vae/flux2-vae.safetensors", 336213556ull, 336211292ull }
 
+// Video generation models: Wan 2.1/2.2 and LTX-Video.
+#define PS5SD_WAN_UMT5                                                                                    \
+    { "https://huggingface.co/city96/umt5-xxl-encoder-gguf/resolve/main/umt5-xxl-encoder-Q4_K_M.gguf",     \
+      "text_encoders/umt5-xxl-encoder-Q4_K_M.gguf", 3655145312ull, 0 }
+
+#define PS5SD_WAN_VAE                                                                                     \
+    { "https://huggingface.co/Wan-AI/Wan2.1-T2V-1.3B/resolve/main/Wan2.1_VAE.pth",                         \
+      "vae/Wan2.1_VAE.pth", 507609880ull, 0 }
+
+#define PS5SD_LTX_T5                                                                                      \
+    { "https://huggingface.co/city96/t5-v1_1-xxl-encoder-gguf/resolve/main/t5-v1_1-xxl-encoder-Q4_K_M.gguf", \
+      "text_encoders/t5-v1_1-xxl-encoder-Q4_K_M.gguf", 2896123072ull, 0 }
+
 inline std::vector<CatalogEntry> entries() {
     return {
         {
@@ -116,6 +129,78 @@ inline std::vector<CatalogEntry> entries() {
             "512\n",
             true,
             "fast photoreal images",
+        },
+        {
+            "wan2.2-ti2v-5b",
+            "Wan 2.2 TI2V 5B (Q4_K_M)",
+            "Best quality local video (T2V & I2V). 480p/540p, 16-24 fps.",
+            {
+                { "https://huggingface.co/QuantStack/Wan2.2-TI2V-5B-GGUF/resolve/main/Wan2.2-TI2V-5B-Q4_K_M.gguf",
+                  "diffusion_models/Wan2.2-TI2V-5B-Q4_K_M.gguf", 3433116000ull, 0 },
+                PS5SD_WAN_UMT5,
+                PS5SD_WAN_VAE,
+            },
+            "# name: Wan 2.2 TI2V 5B (Q4_K_M)\n"
+            "# defaults: steps=25 cfg=5 width=832 height=480 sampler=euler video_frames=33 fps=16 flow_shift=5.0\n"
+            "--diffusion-model\n"
+            "diffusion_models/Wan2.2-TI2V-5B-Q4_K_M.gguf\n"
+            "--llm\n"
+            "text_encoders/umt5-xxl-encoder-Q4_K_M.gguf\n"
+            "--vae\n"
+            "vae/Wan2.1_VAE.pth\n"
+            "--vae-tiling\n"
+            "--vae-tile-size\n"
+            "512\n"
+            "--flash-attn\n",
+            true,
+            "high quality T2V & I2V video",
+        },
+        {
+            "wan2.1-t2v-1.3b",
+            "Wan 2.1 T2V 1.3B (Q8_0)",
+            "Lightweight & stable video generation. Great for 480p loops.",
+            {
+                { "https://huggingface.co/samuelchristlie/Wan2.1-T2V-1.3B-GGUF/resolve/main/Wan2.1-T2V-1.3B-Q8_0.gguf",
+                  "diffusion_models/Wan2.1-T2V-1.3B-Q8_0.gguf", 1535768800ull, 0 },
+                PS5SD_WAN_UMT5,
+                PS5SD_WAN_VAE,
+            },
+            "# name: Wan 2.1 T2V 1.3B (Q8_0)\n"
+            "# defaults: steps=20 cfg=5 width=832 height=480 sampler=euler video_frames=33 fps=16 flow_shift=3.0\n"
+            "--diffusion-model\n"
+            "diffusion_models/Wan2.1-T2V-1.3B-Q8_0.gguf\n"
+            "--llm\n"
+            "text_encoders/umt5-xxl-encoder-Q4_K_M.gguf\n"
+            "--vae\n"
+            "vae/Wan2.1_VAE.pth\n"
+            "--vae-tiling\n"
+            "--vae-tile-size\n"
+            "512\n"
+            "--flash-attn\n",
+            true,
+            "lightweight fast video",
+        },
+        {
+            "ltx-video-2b",
+            "LTX-Video 2B (Q8_0)",
+            "Fast distilled video model (8-12 steps). Supports camera controls.",
+            {
+                { "https://huggingface.co/city96/LTX-Video-0.9.6-distilled-gguf/resolve/main/ltxv-2b-0.9.6-distilled-04-25-Q8_0.gguf",
+                  "diffusion_models/ltxv-2b-distilled-Q8_0.gguf", 2087907840ull, 0 },
+                PS5SD_LTX_T5,
+            },
+            "# name: LTX-Video 2B (Q8_0)\n"
+            "# defaults: steps=10 cfg=3 width=768 height=512 sampler=euler video_frames=33 fps=24\n"
+            "--diffusion-model\n"
+            "diffusion_models/ltxv-2b-distilled-Q8_0.gguf\n"
+            "--llm\n"
+            "text_encoders/t5-v1_1-xxl-encoder-Q4_K_M.gguf\n"
+            "--vae-tiling\n"
+            "--vae-tile-size\n"
+            "512\n"
+            "--flash-attn\n",
+            true,
+            "fast distilled 8-step video",
         },
         {
             "flux3-klein-q6",
@@ -200,6 +285,9 @@ inline std::vector<CatalogEntry> entries() {
 #undef PS5SD_SDXL_VAE
 #undef PS5SD_KLEIN_LLM
 #undef PS5SD_KLEIN_VAE
+#undef PS5SD_WAN_UMT5
+#undef PS5SD_WAN_VAE
+#undef PS5SD_LTX_T5
 
 }  // namespace catalog_data
 }  // namespace ps5sd

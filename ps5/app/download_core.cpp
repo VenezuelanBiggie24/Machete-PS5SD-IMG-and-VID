@@ -256,7 +256,7 @@ bool classify_url(const std::string & text, Source & out, std::string & error) {
 
 bool is_model_file_name(const std::string & name) {
     const std::string n = lower(name);
-    for (const char * ext : { ".gguf", ".safetensors", ".ckpt", ".sft" }) {
+    for (const char * ext : { ".gguf", ".safetensors", ".ckpt", ".sft", ".pth", ".bin" }) {
         const std::string e = ext;
         if (n.size() > e.size() && n.compare(n.size() - e.size(), e.size(), e) == 0) {
             return true;
@@ -303,7 +303,7 @@ bool valid_dest(const std::string & dest, std::string & error) {
         }
     }
     if (!is_model_file_name(segs.back())) {
-        error = "only .gguf, .safetensors, .ckpt and .sft files go into the models directory: " + dest;
+        error = "only .gguf, .safetensors, .ckpt, .sft, .pth and .bin files go into the models directory: " + dest;
         return false;
     }
     return true;
@@ -572,7 +572,19 @@ std::string download_key(const std::string & kind, const std::string & dest) {
 }
 
 bool gallery_name_ok(const std::string & name) {
-    if (name.size() <= 4 || name.size() > 200 || name[0] == '.' || lower(name).compare(name.size() - 4, 4, ".png") != 0) {
+    if (name.size() <= 4 || name.size() > 200 || name[0] == '.') {
+        return false;
+    }
+    const std::string n = lower(name);
+    bool ext_ok = false;
+    for (const char * ext : { ".png", ".jpg", ".jpeg", ".mp4", ".webm", ".gif" }) {
+        const std::string e = ext;
+        if (n.size() >= e.size() && n.compare(n.size() - e.size(), e.size(), e) == 0) {
+            ext_ok = true;
+            break;
+        }
+    }
+    if (!ext_ok) {
         return false;
     }
     for (const char c : name) {
@@ -794,6 +806,11 @@ bool parse_civitai_version(const std::string & text, const std::string & file_id
         bytes = static_cast<uint64_t>(std::llround((*pick)["sizeKB"].get<double>() * 1024.0));
     }
     const std::string type = j.contains("model") && j["model"].is_object() ? str_of(j["model"], "type") : "";
+    const std::string nl = lower(name);
+    if (type == "Checkpoint" && (nl.size() > 4 && (nl.compare(nl.size() - 4, 4, ".pth") == 0 || nl.compare(nl.size() - 4, 4, ".bin") == 0))) {
+        error = "a checkpoint must not be a .pth: " + name;
+        return false;
+    }
     if (name.empty() || !(is_model_file_name(name) || (type == "Upscaler" && is_upscaler_file_name(name)))) {
         error = "the file of this model version is not a model file: " + name;
         return false;

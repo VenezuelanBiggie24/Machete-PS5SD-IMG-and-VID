@@ -199,10 +199,14 @@ int main() {
                       "per-file installed");
             }
         }
-        check(featured == 3 && find_catalog("sdxl-full")->featured && find_catalog("z-image-turbo")->featured,
-              "SDXL full, Klein Q4 and Z-Image Turbo are featured");
+        check(featured == 6 && find_catalog("sdxl-full")->featured && find_catalog("z-image-turbo")->featured &&
+                  find_catalog("wan2.2-ti2v-5b")->featured && find_catalog("wan2.1-t2v-1.3b")->featured &&
+                  find_catalog("ltx-video-2b")->featured,
+              "SDXL full, Klein Q4, Z-Image Turbo and 3 video models are featured");
         check(j["entries"][0]["id"] == "sdxl-full" && j["entries"][1]["id"] == "flux3-klein-q4" &&
-                  j["entries"][2]["id"] == "z-image-turbo" && j["entries"][0]["good_for"].is_string(),
+                  j["entries"][2]["id"] == "z-image-turbo" && j["entries"][0]["good_for"].is_string() &&
+                  j["entries"][3]["id"] == "wan2.2-ti2v-5b" && j["entries"][4]["id"] == "wan2.1-t2v-1.3b" &&
+                  j["entries"][5]["id"] == "ltx-video-2b",
               "featured order and good_for");
         check(std::string(find_catalog("sdxl-full")->preset).find("--type\nq8_0\n") != std::string::npos,
               "the full SDXL is converted to Q8_0 while it loads");
@@ -302,7 +306,9 @@ int main() {
     check(pieces_within("0001", 10, 35, 35) && !pieces_within("0001", 10, 35, 34), "the short last piece");
     check(!pieces_within("1", 0, 35, 35), "no piece size");
     check(pieces_in_order("1101", 10, 35, 35) == "1100", "in order: a done piece after a gap is fetched again");
-    check(gallery_name_ok("sd_20261020_185438_001.png") && gallery_name_ok("my-image.PNG"), "gallery: image names");
+    check(gallery_name_ok("sd_20261020_185438_001.png") && gallery_name_ok("my-image.PNG") &&
+              gallery_name_ok("video_001.mp4") && gallery_name_ok("clip.webm") && gallery_name_ok("anim.gif"),
+          "gallery: image and video names");
     check(!gallery_name_ok("../model.txt") && !gallery_name_ok("../x.png") && !gallery_name_ok("a/b.png") &&
               !gallery_name_ok(".png") && !gallery_name_ok(".hidden.png") && !gallery_name_ok("x.txt") &&
               !gallery_name_ok("a b.png") && !gallery_name_ok(""),
@@ -312,6 +318,9 @@ int main() {
         check(upload_target("models/vae/my vae.safetensors", kind, name, e) && kind == "models" &&
                   name == "vae/my vae.safetensors",
               "upload: a model in a folder");
+        check(upload_target("models/vae/Wan2.1_VAE.pth", kind, name, e) && kind == "models" &&
+                  name == "vae/Wan2.1_VAE.pth",
+              "upload: a .pth VAE in a folder");
         check(upload_target("loras/style.safetensors", kind, name, e) && kind == "loras", "upload: a LoRA");
         check(!upload_target("loras/x/style.safetensors", kind, name, e), "upload: no folders for LoRAs");
         check(upload_target("presets/my-model.txt", kind, name, e), "upload: a preset");

@@ -135,6 +135,14 @@
   .stage { display: flex; align-items: center; justify-content: center; min-height: 20rem; background: var(--field);
     border: 1px solid var(--border); border-radius: 12px; padding: 0.5rem; text-align: center; }
   .stage img { display: block; max-width: 100%; max-height: 78vh; width: auto; height: auto; border-radius: 6px; }
+  .stage video { display: block; max-width: 100%; max-height: 78vh; width: auto; height: auto; border-radius: 6px; outline: none; }
+  .modetoggle { display: flex; margin: 0.6rem 0 1rem; }
+  .modetoggle button { flex: 1; min-height: 2.8rem; font-size: 0.95rem; margin: 0 0.25rem; }
+  .modetoggle button.on { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 600; }
+  .ram-warn { color: var(--warn); background: rgba(245, 194, 107, 0.1); border: 1px solid var(--warn); border-radius: 8px; padding: 0.6rem 0.8rem; font-size: 0.82rem; margin: 0.6rem 0; line-height: 1.4; }
+  .i2v-box { display: flex; align-items: center; background: var(--field); border: 1px solid var(--border); border-radius: 10px; padding: 0.5rem; margin-top: 0.4rem; }
+  .i2v-thumb { width: 4.5rem; height: 4.5rem; border-radius: 6px; object-fit: cover; margin-right: 0.8rem; border: 1px solid var(--border); }
+  .i2v-details { flex: 1; min-width: 0; }
   .stage .empty { color: var(--faint); padding: 3rem 1rem; font-size: 1.05rem; }
   .strip { display: flex; flex-wrap: wrap; margin: 0.6rem -0.25rem 0; }
   .strip button { position: relative; width: 4.5rem; height: 4.5rem; min-height: 0; margin: 0.25rem; padding: 0; overflow: hidden;
@@ -345,6 +353,11 @@
     <div class="bar ind" id="cm-bar" style="display:none;margin:0.5rem 0 0"><div></div></div>
     <div class="hint" id="cm-sub" style="display:none"></div>
 
+    <div class="modetoggle" id="modetoggle">
+      <button type="button" class="on" id="mode-img">Image Mode</button>
+      <button type="button" id="mode-vid">Video Mode (T2V &amp; I2V)</button>
+    </div>
+
     <label for="prompt">Prompt</label>
     <textarea id="prompt" class="big" rows="5" placeholder="What should it draw?"></textarea>
 
@@ -363,9 +376,66 @@
 
       <div class="lbl">Size</div>
       <div class="presets" id="presets"></div>
+      <div id="vid-ram-warn" class="ram-warn" style="display:none"></div>
       <div class="row" style="margin-top:0.5rem">
         <div><label for="w">Width</label><input id="w" type="number" min="64" max="2048" step="64"></div>
         <div><label for="h">Height</label><input id="h" type="number" min="64" max="2048" step="64"></div>
+      </div>
+
+      <div id="video-settings" style="display:none">
+        <div class="row">
+          <div>
+            <div class="lbl">Video Frames (4k + 1)</div>
+            <div class="presets" id="vframe-presets" style="margin-bottom:0.4rem">
+              <button type="button" id="vf17">17</button>
+              <button type="button" class="on" id="vf33">33</button>
+              <button type="button" id="vf49">49</button>
+              <button type="button" id="vf65">65</button>
+            </div>
+            <input id="vid-frames" type="number" min="9" max="129" step="4" value="33">
+          </div>
+          <div>
+            <div class="lbl">Framerate (FPS)</div>
+            <div class="presets" id="vfps-presets" style="margin-bottom:0.4rem">
+              <button type="button" class="on" id="vfps16">16 fps</button>
+              <button type="button" id="vfps24">24 fps</button>
+            </div>
+            <input id="vid-fps" type="number" min="8" max="60" step="1" value="16">
+          </div>
+        </div>
+
+        <div class="row">
+          <div>
+            <div class="lbl">Flow Shift (Wan / LTX)</div>
+            <div class="step">
+              <button type="button" id="shift-">&minus;</button>
+              <input id="flowshift" type="number" min="1.0" max="10.0" step="0.5" value="5.0">
+              <button type="button" id="shift+">+</button>
+            </div>
+          </div>
+          <div>
+            <div class="lbl">Motion Strength (I2V)</div>
+            <div class="step">
+              <button type="button" id="motion-">&minus;</button>
+              <input id="motion" type="number" min="0.05" max="1.0" step="0.05" value="0.75">
+              <button type="button" id="motion+">+</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="lbl">Start Image (Image-to-Video)</div>
+        <div id="i2v-box" class="i2v-box" style="display:none">
+          <img id="i2v-thumb" class="i2v-thumb" alt="Start image">
+          <div class="i2v-details">
+            <div class="mname" id="i2v-name">Start frame</div>
+            <button type="button" class="danger" id="i2v-clear" style="min-height:2.2rem;padding:0 0.8rem;margin-top:0.3rem">Remove image</button>
+          </div>
+        </div>
+        <div id="i2v-empty">
+          <input type="file" id="i2v-file" accept="image/*" style="display:none">
+          <button type="button" id="i2v-pick" style="min-height:2.8rem;width:100%">Upload Start Image</button>
+          <p class="hint">Upload an image or click "Animate this image" on any generated image to animate it.</p>
+        </div>
       </div>
 
       <div class="row">
@@ -417,7 +487,7 @@
           <label for="seed">Seed</label>
           <div class="seed"><input id="seed" type="number" step="1" value="-1"><button type="button" id="rnd">Random</button></div>
         </div>
-        <div>
+        <div id="batch-row">
           <div class="lbl">Images per run</div>
           <div class="step"><button type="button" id="batch-">&minus;</button><input id="batch" type="number" min="1" max="8" step="1" value="1" aria-label="Images per run"><button type="button" id="batch+">+</button></div>
         </div>
@@ -568,18 +638,22 @@
 
 <div class="foot">stable-diffusion.cpp on PlayStation 5</div>
 
-<div class="lb" id="lb" style="display:none" role="dialog" aria-modal="true" aria-label="Image viewer">
+<div class="lb" id="lb" style="display:none" role="dialog" aria-modal="true" aria-label="Media viewer">
   <div class="lb-bar">
     <span class="lb-title" id="lb-title"></span>
     <a id="lb-dl" href="#">Download</a>
     <a id="lb-open" href="#" target="_blank">Open full size</a>
     <button type="button" id="lb-up" style="display:none">Upscale</button>
+    <button type="button" id="lb-animate">Animate this image</button>
     <button type="button" class="danger" id="lb-del">Delete</button>
     <button type="button" id="lb-close">Close</button>
   </div>
   <div class="lb-body">
     <button type="button" class="nav" id="lb-prev" aria-label="Newer">&lsaquo;</button>
-    <div class="lb-img"><img id="lb-img" alt=""></div>
+    <div class="lb-img">
+      <img id="lb-img" alt="">
+      <video id="lb-video" controls autoplay loop muted playsinline style="display:none;max-width:100%;max-height:80vh"></video>
+    </div>
     <button type="button" class="nav" id="lb-next" aria-label="Older">&rsaquo;</button>
   </div>
 </div>
@@ -619,6 +693,7 @@
 <script>
 (function () {
   var PRESETS = [[512, 512], [512, 768], [768, 512], [640, 640], [768, 768], [768, 1024], [1024, 768], [1024, 1024]];
+  var VIDEO_PRESETS = [[832, 480], [480, 832], [640, 640], [768, 512], [960, 544]];
   var PAGE = 24;
   var SURPRISE = [
     'a lighthouse on a rocky coast at dusk, dramatic clouds, oil painting',
@@ -634,6 +709,9 @@
   var $ = function (id) { return document.getElementById(id); };
 
   var st = {
+    mode: 'image',       // 'image' or 'video'
+    initImage: null,     // data URL or image path for I2V
+    initImageName: '',
     useJobs: false,      // /sdcpp/v1/img_gen is available (job polling with previews)
     canCancelGen: false, // the server can stop a job that is already generating
     busy: false,
@@ -897,6 +975,9 @@
   function pickPreset(name) {
     var n = (name || '').toLowerCase();
     var xl = /xl|pony|juggernaut/.test(n);
+    if (/wan2\.2|wan-2\.2/i.test(n)) return mkPreset('Wan 2.2', 832, 25, 5, 'euler');
+    if (/wan2\.1|wan-2\.1/i.test(n)) return mkPreset('Wan 2.1', 832, 20, 5, 'euler');
+    if (/ltx/i.test(n)) return mkPreset('LTX-Video', 768, 10, 3, 'euler');
     if (/sdxs/.test(n)) return mkPreset('SDXS', 512, 1, 1);
     if (/turbo/.test(n)) return mkPreset(xl ? 'SDXL Turbo' : 'SD Turbo', 512, 1, 1);
     if (/lightning|hyper/.test(n)) return mkPreset('Lightning', xl ? 1024 : 512, 4, 1);
@@ -931,6 +1012,12 @@
         steps: parseInt(d.hires_steps, 10) || 0, den: parseFloat(d.hires_denoise) || 0.5 };
       any = true;
     }
+    n = parseInt(d.video_frames, 10);
+    if (n > 0) { p.video_frames = n; any = true; }
+    n = parseInt(d.fps, 10);
+    if (n > 0) { p.fps = n; any = true; }
+    n = parseFloat(d.flow_shift);
+    if (!isNaN(n) && n > 0) { p.flow_shift = n; any = true; }
     if (any && entry.name) p.label = entry.name;
     return p;
   }
@@ -947,21 +1034,127 @@
 
   function presetNote(p) {
     return 'Defaults for this model (' + p.label + '): ' + p.steps + (p.steps === 1 ? ' step' : ' steps') + ', CFG ' + p.cfg + ', ' + p.w + '×' + p.h +
+      (p.video_frames ? ', ' + p.video_frames + ' frames' : '') +
       (p.loras && p.loras.length ? ', ' + p.loras.length + (p.loras.length === 1 ? ' LoRA' : ' LoRAs') : '') + '.';
+  }
+
+  function isVideoFile(name) {
+    return /\.(mp4|webm|avi|gif)$/i.test(name || '');
+  }
+
+  function isVideoModel(name, entry) {
+    var n = ((entry && entry.id) || name || '').toLowerCase();
+    if (entry && entry.defaults && (entry.defaults.video_frames || entry.defaults.fps || entry.defaults.flow_shift)) return true;
+    return /wan|ltx|video/i.test(n);
+  }
+
+  function setVideoMode(isVideo) {
+    st.mode = isVideo ? 'video' : 'image';
+    var bi = $('mode-img'), bv = $('mode-vid');
+    if (bi) bi.className = isVideo ? 'btn' : 'btn on';
+    if (bv) bv.className = isVideo ? 'btn on' : 'btn';
+    show('video-settings', isVideo);
+    show('batch-row', !isVideo);
+    buildPresets();
+    markPreset();
+    checkRamWarn();
+    summary();
+  }
+
+  function setVideoFrames(n) {
+    $('vid-frames').value = n;
+    var list = [17, 33, 49, 65];
+    for (var i = 0; i < list.length; i++) {
+      var b = $('vf' + list[i]);
+      if (b) b.className = (list[i] === n) ? 'on' : '';
+    }
+    checkRamWarn();
+    persist();
+  }
+
+  function setVideoFps(n) {
+    $('vid-fps').value = n;
+    var list = [16, 24];
+    for (var i = 0; i < list.length; i++) {
+      var b = $('vfps' + list[i]);
+      if (b) b.className = (list[i] === n) ? 'on' : '';
+    }
+    persist();
+  }
+
+  function setInitImage(dataUrlOrSrc, name) {
+    st.initImage = dataUrlOrSrc || null;
+    st.initImageName = name || 'Start frame';
+    if (st.initImage) {
+      $('i2v-thumb').src = st.initImage;
+      text($('i2v-name'), st.initImageName);
+      show('i2v-box', true, 'flex');
+      show('i2v-empty', false);
+    } else {
+      show('i2v-box', false);
+      show('i2v-empty', true);
+      $('i2v-file').value = '';
+    }
+    persist();
+  }
+
+  function onInitImageFile() {
+    var file = $('i2v-file').files && $('i2v-file').files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function (e) {
+      setInitImage(e.target.result, file.name);
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function animateImage(src) {
+    setVideoMode(true);
+    setInitImage(src, 'Start frame');
+    setView('create');
+    toast('Image loaded into Video (I2V) mode.');
+  }
+
+  function checkRamWarn() {
+    var warnBox = $('vid-ram-warn');
+    if (!warnBox) return;
+    if (st.mode !== 'video') {
+      show('vid-ram-warn', false);
+      return;
+    }
+    var w = parseInt($('w').value, 10) || 512;
+    var h = parseInt($('h').value, 10) || 512;
+    var frames = parseInt($('vid-frames').value, 10) || 33;
+    var totalPixels = w * h;
+    if (totalPixels > 1280 * 720 || (totalPixels > 832 * 480 && frames > 33)) {
+      text(warnBox, 'Caution: ' + w + '×' + h + ' with ' + frames + ' frames may approach the 11.0 GiB GDDR6 memory limit during 3D attention on PS5. Presets like 832×480 with 33 frames are recommended for stability.');
+      show('vid-ram-warn', true);
+    } else {
+      show('vid-ram-warn', false);
+    }
   }
 
   // ---------- form <-> settings ----------
   function getForm() {
     return {
-      w: size8('w', 512), h: size8('h', 512),
-      steps: Math.round(num('steps', 20, 1, 150)), cfg: num('cfg', 7, 0, 30),
-      sampler: $('sampler').value, scheduler: $('scheduler').value,
+      mode: st.mode,
+      w: size8('w', st.mode === 'video' ? 832 : 512),
+      h: size8('h', st.mode === 'video' ? 480 : 512),
+      steps: Math.round(num('steps', st.mode === 'video' ? 25 : 20, 1, 150)),
+      cfg: num('cfg', st.mode === 'video' ? 5 : 7, 0, 30),
+      sampler: $('sampler').value,
+      scheduler: $('scheduler').value,
       seed: parseInt($('seed').value, 10),
       loras: loraSel.slice(),
       hr: {
         on: $('hr-on').checked, up: $('hr-up').value || 'Latent',
         scale: num('hr-scale', 1.5, 1.25, 4), steps: Math.round(num('hr-steps', 0, 0, 150)), den: num('hr-den', 0.5, 0.05, 1)
-      }
+      },
+      video_frames: Math.round(num('vid-frames', 33, 9, 129)),
+      fps: Math.round(num('vid-fps', 16, 8, 60)),
+      flow_shift: num('flowshift', 5.0, 1.0, 10.0),
+      motion_strength: num('motion', 0.75, 0.05, 1.0),
+      init_image: st.initImage
     };
   }
 
@@ -1001,6 +1194,7 @@
   }
 
   function setForm(o) {
+    if (o.mode) setVideoMode(o.mode === 'video');
     if (o.w) $('w').value = o.w;
     if (o.h) $('h').value = o.h;
     if (o.steps) $('steps').value = o.steps;
@@ -1008,6 +1202,11 @@
     setSelect('sampler', o.sampler || 'default');
     setSelect('scheduler', o.scheduler || 'default');
     if (o.seed !== undefined && o.seed !== null && !isNaN(o.seed)) $('seed').value = o.seed;
+    if (o.video_frames) setVideoFrames(o.video_frames);
+    if (o.fps) setVideoFps(o.fps);
+    if (o.flow_shift) $('flowshift').value = o.flow_shift;
+    if (o.motion_strength) $('motion').value = o.motion_strength;
+    if (o.init_image !== undefined) setInitImage(o.init_image);
     loraSel = [];
     var ls = o.loras && o.loras.length ? o.loras : [];
     for (var i = 0; i < ls.length; i++) {
@@ -1016,6 +1215,7 @@
     drawLoraPicker();
     setHires(o.hr);
     markPreset();
+    checkRamWarn();
     summary();
   }
 
@@ -1030,13 +1230,26 @@
   function summary() {
     var seed = parseInt($('seed').value, 10);
     var steps = Math.round(num('steps', 20, 1, 150));
-    text($('summary'), parseInt($('w').value, 10) + '×' + parseInt($('h').value, 10) + ' · ' + steps +
-      (steps === 1 ? ' step' : ' steps') + ' · CFG ' + num('cfg', 7, 0, 30) +
-      ' · seed ' + (isNaN(seed) || seed < 0 ? 'random' : seed) +
-      (loraSel.length ? ' · ' + loraSel.length + (loraSel.length === 1 ? ' LoRA' : ' LoRAs') : '') +
-      (batchCount() > 1 ? ' · ' + batchCount() + ' images' : '') +
-      ($('hr-on').checked ? ' · hires ×' + num('hr-scale', 1.5, 1.25, 4) : ''));
-    drawHires();
+    var textSummary = '';
+    if (st.mode === 'video') {
+      textSummary = parseInt($('w').value, 10) + '×' + parseInt($('h').value, 10) +
+        ' · ' + steps + (steps === 1 ? ' step' : ' steps') +
+        ' · ' + (parseInt($('vid-frames').value, 10) || 33) + ' frames' +
+        ' · ' + (parseInt($('vid-fps').value, 10) || 16) + ' fps' +
+        ' · shift ' + num('flowshift', 5, 1, 10) +
+        (st.initImage ? ' · I2V' : ' · T2V') +
+        ' · seed ' + (isNaN(seed) || seed < 0 ? 'random' : seed) +
+        (loraSel.length ? ' · ' + loraSel.length + (loraSel.length === 1 ? ' LoRA' : ' LoRAs') : '');
+    } else {
+      textSummary = parseInt($('w').value, 10) + '×' + parseInt($('h').value, 10) + ' · ' + steps +
+        (steps === 1 ? ' step' : ' steps') + ' · CFG ' + num('cfg', 7, 0, 30) +
+        ' · seed ' + (isNaN(seed) || seed < 0 ? 'random' : seed) +
+        (loraSel.length ? ' · ' + loraSel.length + (loraSel.length === 1 ? ' LoRA' : ' LoRAs') : '') +
+        (batchCount() > 1 ? ' · ' + batchCount() + ' images' : '') +
+        ($('hr-on').checked ? ' · hires ×' + num('hr-scale', 1.5, 1.25, 4) : '');
+      drawHires();
+    }
+    text($('summary'), textSummary);
     if (st.view === 'presets') drawSaveBox();
   }
 
@@ -1048,6 +1261,15 @@
     var key = entry ? entry.id : (name || '');
     var changed = key !== st.mkey;
     st.model = name;
+    st.mkey = key;
+    st.mid = entry ? entry.id : '';
+    st.preset = presetFor(name, entry);
+    text($('presetnote'), presetNote(st.preset));
+    if (isVideoModel(name, entry)) {
+      setVideoMode(true);
+    } else {
+      setVideoMode(false);
+    }
     st.mkey = key;
     st.mid = entry ? entry.id : '';
     st.preset = presetFor(name, entry);
@@ -1247,14 +1469,31 @@
 
   function showImage(src, label) {
     var stage = $('stage');
-    var img = stage.getElementsByTagName('img')[0];
+    var vid = $('stage-vid');
+    if (vid) { try { stage.removeChild(vid); } catch (e) {} }
+    var img = $('stage-img');
     if (!img) {
       clear(stage);
       img = document.createElement('img');
+      img.id = 'stage-img';
       stage.appendChild(img);
     }
     img.alt = label || 'generated image';
     img.src = src;
+  }
+
+  function showVideo(src, mime) {
+    var stage = $('stage');
+    clear(stage);
+    var vid = document.createElement('video');
+    vid.id = 'stage-vid';
+    vid.controls = true;
+    vid.autoplay = true;
+    vid.loop = true;
+    vid.muted = true;
+    vid.setAttribute('playsinline', '');
+    vid.src = src;
+    stage.appendChild(vid);
   }
 
   function link(href, label, name, blank) {
@@ -1274,12 +1513,17 @@
     return b;
   }
 
-  function showActions(href, name, openHref, withParams) {
+  function showActions(href, name, openHref, withParams, isVideo) {
     var box = $('actions');
     clear(box);
     if (!href) return;
-    box.appendChild(link(href, 'Download', name, false));
+    box.appendChild(link(href, isVideo ? 'Download video' : 'Download', name, false));
     if (openHref) box.appendChild(link(openHref, 'Open full size', null, true));
+    if (!isVideo) {
+      box.appendChild(actionButton('Animate this image', function () {
+        animateImage(href);
+      }));
+    }
     if (withParams && st.last) {
       var r = st.results && st.results[st.pick];
       var seed = r ? r.seed : st.last.seed;
@@ -1512,6 +1756,36 @@
     }
   }
 
+  function succeedVideo(res, seed) {
+    var seconds = (new Date().getTime() - st.t0) / 1000;
+    end();
+    progress(1);
+    status('Video done in ' + clock(seconds));
+    signal(true, 'Video generation done in ' + clock(seconds) + '.');
+    var mime = res.mime_type || 'video/mp4';
+    var src = res.b64_json ? ('data:' + mime + ';base64,' + res.b64_json) : null;
+    var ext = (mime.indexOf('webm') !== -1 ? '.webm' : (mime.indexOf('gif') !== -1 ? '.gif' : '.mp4'));
+    var name = 'sd_vid_' + seed + ext;
+    st.results = [{ src: src, seed: seed, url: null, name: name, isVideo: true, mime: mime }];
+    st.pick = 0;
+    drawStrip();
+    showVideo(src, mime);
+    text($('sub'), (st.last ? st.last.w + '×' + st.last.h + ' · ' + (st.last.video_frames || 33) + ' frames @ ' + (st.last.fps || 16) + ' fps · ' : '') + 'seed ' + seed);
+    showActions(src, name, src, true, true);
+    var known = st.known;
+    loadGallery(function (list) {
+      if (!known || !list || !st.results || !st.results[0]) return;
+      for (var i = 0; i < list.length; i++) {
+        if (!known[list[i].name]) {
+          st.results[0].url = list[i].url;
+          st.results[0].name = list[i].name;
+          showActions(list[i].url, list[i].name, list[i].url, true, true);
+          break;
+        }
+      }
+    });
+  }
+
   function pickResult(i) {
     var r = st.results && st.results[i];
     if (!r) return;
@@ -1520,13 +1794,18 @@
       var b = $('pick' + k);
       if (b) b.className = k === i ? 'on' : '';
     }
-    showImage(r.src, 'generated image');
-    var l = st.last;
-    var nth = st.results.length > 1 ? 'image ' + (i + 1) + ' of ' + st.results.length + ' · ' : '';
-    var size = l ? l.w + '×' + l.h : '';
-    if (l && l.hr && l.hr.on) size += ' → ' + Math.round(l.w * l.hr.scale / 8) * 8 + '×' + Math.round(l.h * l.hr.scale / 8) * 8 + ' (hires)';
-    text($('sub'), nth + (l ? size + ' · ' + l.steps + (l.steps === 1 ? ' step' : ' steps') + ' · CFG ' + l.cfg + ' · ' : '') + 'seed ' + r.seed);
-    showActions(r.url || r.src, r.name, r.url, true);
+    if (r.isVideo) {
+      showVideo(r.src, r.mime);
+      showActions(r.url || r.src, r.name, r.url, true, true);
+    } else {
+      showImage(r.src, 'generated image');
+      var l = st.last;
+      var nth = st.results.length > 1 ? 'image ' + (i + 1) + ' of ' + st.results.length + ' · ' : '';
+      var size = l ? l.w + '×' + l.h : '';
+      if (l && l.hr && l.hr.on) size += ' → ' + Math.round(l.w * l.hr.scale / 8) * 8 + '×' + Math.round(l.h * l.hr.scale / 8) * 8 + ' (hires)';
+      text($('sub'), nth + (l ? size + ' · ' + l.steps + (l.steps === 1 ? ' step' : ' steps') + ' · CFG ' + l.cfg + ' · ' : '') + 'seed ' + r.seed);
+      showActions(r.url || r.src, r.name, r.url, true, false);
+    }
   }
 
   // ---------- generation ----------
@@ -1580,6 +1859,46 @@
 
   // Asynchronous: the server queues a job; we poll it once a second.
   function startAsync(p) {
+    if (st.mode === 'video') {
+      var vbody = {
+        prompt: p.prompt,
+        negative_prompt: p.negative,
+        width: p.w,
+        height: p.h,
+        seed: p.seed,
+        video_frames: p.video_frames || 33,
+        fps: p.fps || 16,
+        strength: p.motion_strength !== undefined ? p.motion_strength : 0.75,
+        sample_params: {
+          sample_steps: p.steps,
+          guidance: { txt_cfg: p.cfg },
+          flow_shift: p.flow_shift || 5.0
+        },
+        preview: 'proj',
+        preview_interval: 1,
+        output_format: 'mp4'
+      };
+      if (p.init_image) vbody.init_image = p.init_image;
+      if (p.sampler !== 'default') vbody.sample_params.sample_method = p.sampler;
+      if (loraBody(p).length) vbody.lora = loraBody(p);
+      begin(null);
+      var vtoken = st.token;
+      req('POST', '/sdcpp/v1/vid_gen', vbody, function (code, data) {
+        if (vtoken !== st.token) return;
+        if (code === 202 && data && data.id) {
+          st.job = data.id;
+          save('job', data.id + ' ' + st.t0 + ' ' + st.seed);
+          status('Queued video…');
+          pollJob();
+        } else {
+          setOnline(code !== 0);
+          fail(code === 0 ? 'Cannot reach the server.' :
+            'The server refused the request' + (data && data.error ? ': ' + (data.message || data.error) : ' (' + code + ').'));
+        }
+      });
+      return;
+    }
+
     var body = {
       prompt: p.prompt,
       negative_prompt: p.negative,
@@ -1641,6 +1960,10 @@
       if (!data) { setTimeout(pollJob, 1000); return; }
 
       if (data.status === 'completed') {
+        if (data.result && (data.result.b64_json || data.kind === 'vid_gen')) {
+          succeedVideo(data.result, st.seed);
+          return;
+        }
         var images = data.result && data.result.images;
         var list = [];
         for (var i = 0; images && i < images.length; i++) if (images[i] && images[i].b64_json) list.push(images[i].b64_json);
@@ -1814,15 +2137,16 @@
   function buildPresets() {
     var box = $('presets');
     clear(box);
+    var base = st.mode === 'video' ? VIDEO_PRESETS : PRESETS;
     var mine = ownSizes();
-    st.sizes = PRESETS.concat(mine);
+    st.sizes = base.concat(mine);
     for (var i = 0; i < st.sizes.length; i++) {
       (function (w, h, own) {
         var b = document.createElement('button');
         b.type = 'button';
         b.id = 'p' + w + 'x' + h;
         text(b, w + '×' + h);
-        b.onclick = function () { $('w').value = w; $('h').value = h; markPreset(); persist(); };
+        b.onclick = function () { $('w').value = w; $('h').value = h; markPreset(); checkRamWarn(); persist(); };
         if (own) {
           b.className = 'mine';
           b.title = 'Your size';
@@ -1840,7 +2164,7 @@
           b.appendChild(x);
         }
         box.appendChild(b);
-      })(st.sizes[i][0], st.sizes[i][1], i >= PRESETS.length);
+      })(st.sizes[i][0], st.sizes[i][1], i >= base.length);
     }
     var add = document.createElement('button');
     add.type = 'button';
@@ -2140,10 +2464,35 @@
         var a = document.createElement('a');
         a.href = item.url;
         a.title = item.name;
-        var img = document.createElement('img');
-        img.src = item.url;
-        img.alt = item.name;
-        a.appendChild(img);
+        if (isVideoFile(item.name) && !/\.gif$/i.test(item.name)) {
+          var vid = document.createElement('video');
+          vid.src = item.url;
+          vid.muted = true;
+          vid.preload = 'metadata';
+          vid.style.position = 'absolute';
+          vid.style.left = '0';
+          vid.style.top = '0';
+          vid.style.width = '100%';
+          vid.style.height = '100%';
+          vid.style.objectFit = 'cover';
+          a.appendChild(vid);
+          var badge = document.createElement('span');
+          badge.style.position = 'absolute';
+          badge.style.right = '0.35rem';
+          badge.style.bottom = '0.35rem';
+          badge.style.background = 'rgba(0,0,0,0.75)';
+          badge.style.color = '#fff';
+          badge.style.fontSize = '0.7rem';
+          badge.style.padding = '0.1rem 0.35rem';
+          badge.style.borderRadius = '4px';
+          badge.textContent = '▶ VIDEO';
+          a.appendChild(badge);
+        } else {
+          var img = document.createElement('img');
+          img.src = item.url;
+          img.alt = item.name;
+          a.appendChild(img);
+        }
         a.onclick = function () { openLb(idx, a); return false; };
         cell.appendChild(a);
         box.appendChild(cell);
@@ -2165,8 +2514,26 @@
     if (i > n - 1) i = n - 1;
     st.lb = i;
     var it = galleryList[i];
-    $('lb-img').src = it.url;
-    $('lb-img').alt = it.name;
+    var isVid = isVideoFile(it.name);
+    var vid = $('lb-video');
+    var img = $('lb-img');
+    if (isVid && !/\.gif$/i.test(it.name)) {
+      show('lb-img', false);
+      if (vid) {
+        vid.src = it.url;
+        show('lb-video', true);
+      }
+      show('lb-animate', false);
+    } else {
+      if (vid) {
+        show('lb-video', false);
+        vid.removeAttribute('src');
+      }
+      img.src = it.url;
+      img.alt = it.name;
+      show('lb-img', true);
+      show('lb-animate', true);
+    }
     var dl = $('lb-dl');
     dl.href = it.url;
     dl.setAttribute('download', it.name);
@@ -2187,6 +2554,8 @@
     show('lb', false);
     st.lb = -1;
     $('lb-img').removeAttribute('src');
+    var vid = $('lb-video');
+    if (vid) vid.removeAttribute('src');
     if (lbFrom) { try { lbFrom.focus(); } catch (e) {} }
   }
 
@@ -3139,17 +3508,34 @@
       clear(box);
       catRows = {};
       if (!catList.length) box.appendChild(el('div', 'empty-note', 'The catalog is empty.'));
-      // featured entries first, as bigger cards
-      var feat = [], rest = [];
-      for (var i = 0; i < catList.length; i++) (catList[i].featured ? feat : rest).push(catList[i]);
-      if (feat.length) {
-        box.appendChild(el('div', 'lbl', 'Featured'));
+      // Split into Featured Image Models, Video Generation, and More models
+      var featImg = [], featVid = [], rest = [];
+      for (var i = 0; i < catList.length; i++) {
+        var e = catList[i];
+        if (e.id === 'wan2.2-ti2v-5b' || e.id === 'wan2.1-t2v-1.3b' || e.id === 'ltx-video-2b' || isVideoModel(e.id, e)) {
+          featVid.push(e);
+        } else if (e.featured) {
+          featImg.push(e);
+        } else {
+          rest.push(e);
+        }
+      }
+      if (featImg.length) {
+        box.appendChild(el('div', 'lbl', 'Featured Image Models'));
         var cards = el('div', 'featrow');
-        for (var f = 0; f < feat.length; f++) cards.appendChild(catRow(feat[f], true));
+        for (var f = 0; f < featImg.length; f++) cards.appendChild(catRow(featImg[f], true));
         box.appendChild(cards);
       }
-      if (feat.length && rest.length) box.appendChild(el('div', 'lbl', 'More models'));
-      for (var r = 0; r < rest.length; r++) box.appendChild(catRow(rest[r], false));
+      if (featVid.length) {
+        box.appendChild(el('div', 'lbl', 'Video Generation (T2V & I2V)'));
+        var vcards = el('div', 'featrow');
+        for (var v = 0; v < featVid.length; v++) vcards.appendChild(catRow(featVid[v], true));
+        box.appendChild(vcards);
+      }
+      if (rest.length) {
+        box.appendChild(el('div', 'lbl', 'More models'));
+        for (var r = 0; r < rest.length; r++) box.appendChild(catRow(rest[r], false));
+      }
     }
     updateCatalog();
   }
@@ -3610,7 +3996,7 @@
     for (var i = 0; i < fields.length; i++) {
       $(fields[i]).onchange = $(fields[i]).oninput = persist;
     }
-    $('w').onchange = $('h').onchange = $('w').oninput = $('h').oninput = function () { markPreset(); persist(); };
+    $('w').onchange = $('h').onchange = $('w').oninput = $('h').oninput = function () { markPreset(); checkRamWarn(); persist(); };
     $('steps-').onclick = function () { stepper('steps', -1, 1, 150, 0); };
     $('steps+').onclick = function () { stepper('steps', 1, 1, 150, 0); };
     $('cfg-').onclick = function () { stepper('cfg', -0.5, 0, 30, 1); };
@@ -3668,6 +4054,26 @@
     $('lb-del').onclick = askDeleteImage;
     $('lb-prev').onclick = function () { lbStep(-1); };
     $('lb-next').onclick = function () { lbStep(1); };
+    if ($('mode-img')) $('mode-img').onclick = function () { setVideoMode(false); };
+    if ($('mode-vid')) $('mode-vid').onclick = function () { setVideoMode(true); };
+    if ($('vf17')) $('vf17').onclick = function () { setVideoFrames(17); };
+    if ($('vf33')) $('vf33').onclick = function () { setVideoFrames(33); };
+    if ($('vf49')) $('vf49').onclick = function () { setVideoFrames(49); };
+    if ($('vf65')) $('vf65').onclick = function () { setVideoFrames(65); };
+    if ($('vid-frames')) $('vid-frames').onchange = $('vid-frames').oninput = function () { checkRamWarn(); persist(); };
+    if ($('vfps16')) $('vfps16').onclick = function () { setVideoFps(16); };
+    if ($('vfps24')) $('vfps24').onclick = function () { setVideoFps(24); };
+    if ($('vid-fps')) $('vid-fps').onchange = $('vid-fps').oninput = persist;
+    if ($('shift-')) $('shift-').onclick = function () { stepper('flowshift', -0.5, 1, 10, 1); };
+    if ($('shift+')) $('shift+').onclick = function () { stepper('flowshift', 0.5, 1, 10, 1); };
+    if ($('flowshift')) $('flowshift').onchange = $('flowshift').oninput = persist;
+    if ($('motion-')) $('motion-').onclick = function () { stepper('motion', -0.05, 0.05, 1.0, 2); };
+    if ($('motion+')) $('motion+').onclick = function () { stepper('motion', 0.05, 0.05, 1.0, 2); };
+    if ($('motion')) $('motion').onchange = $('motion').oninput = persist;
+    if ($('i2v-pick')) $('i2v-pick').onclick = function () { $('i2v-file').click(); };
+    if ($('i2v-file')) $('i2v-file').onchange = onInitImageFile;
+    if ($('i2v-clear')) $('i2v-clear').onclick = function () { setInitImage(null); };
+    if ($('lb-animate')) $('lb-animate').onclick = function () { var it = galleryList[st.lb]; if (it) { closeLb(); animateImage(it.url); } };
     document.onkeydown = onKey;
     markPreset();
     summary();
