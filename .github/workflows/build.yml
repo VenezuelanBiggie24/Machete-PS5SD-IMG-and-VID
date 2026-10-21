@@ -174,13 +174,16 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TAG="v$(sed -n 's/^#define PS5SD_VERSION "\(.*\)"$/\1/p' ps5/app/version.hpp)"
-          TITLE="Machete PS5SD: Image & Video Studio $TAG"
+          TITLE="Machete PS5SD ${TAG#v}"
           echo "Publishing release $TAG: $TITLE"
-          gh release view "$TAG" >/dev/null 2>&1 && \
-            gh release upload "$TAG" dist/PPSA99699.zip dist/PPSA99699.json --clobber || \
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" dist/PPSA99699.zip dist/PPSA99699.json --clobber
+            gh release edit "$TAG" --title "$TITLE" --notes-file .github/release-notes.md
+          else
             gh release create "$TAG" dist/PPSA99699.zip dist/PPSA99699.json \
               --title "$TITLE" \
-              --notes-file README.md
+              --notes-file .github/release-notes.md
+          fi
 
   # stable-diffusion.cpp on the host, CPU only: catches a patch that no longer applies or
   # a change that does not compile, in minutes and without the PS5 toolchain.
