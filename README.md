@@ -44,6 +44,8 @@ Building on the foundation created by Darkatek7 / Heel Tobias in [PS5SD](https:/
 ## New Features in v0.5.0
 
 - Full Text-to-Video (T2V) and Image-to-Video (I2V) generation pipelines in C/C++ with Web UI integration.
+- Full Image-to-Image and Inpainting mask editor (paint, erase, invert, brush sizing, and DualSense cursor support) with seamless edge blending.
+- Dedicated inpainting models added to the catalog: SDXL Inpainting 0.1 (Q8_0) and SD 1.5 Inpainting (Q8_0).
 - Built-in curated video model catalog with 1-click downloads for Wan 2.2, Wan 2.1, and LTX-Video.
 - Direct image animation button ("Animate this image") available in the gallery and lightbox views.
 - Strict $4k+1$ frame selection standard (17, 33, 49, and 65 frames) for temporal stability.
@@ -228,6 +230,8 @@ A partir del trabajo fundacional de Darkatek7 / Heel Tobias en [PS5SD](https://g
 ## Nuevas Características en v0.5.0
 
 - Pipeline completo de generación Text-to-Video (T2V) e Image-to-Video (I2V) en C/C++ integrado con la interfaz web.
+- Editor completo de Inpainting e Image-to-Image (pintar máscara, borrador, invertir tamaño de pincel y soporte para cursor de DualSense) con fusión suave de bordes.
+- Modelos especializados de inpainting añadidos al catálogo: SDXL Inpainting 0.1 (Q8_0) y SD 1.5 Inpainting (Q8_0).
 - Catálogo de modelos de video con descarga en 1-clic para Wan 2.2, Wan 2.1 y LTX-Video.
 - Botón de animación directa ("Animate this image") disponible en la galería y en la vista lightbox.
 - Selección estricta de fotogramas según la regla $4k+1$ (17, 33, 49 y 65 frames) para preservar la coherencia temporal.
