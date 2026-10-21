@@ -522,10 +522,10 @@ void Dashboard::draw_panel(DrawList & list, const Rect & r, float radius, Color 
     list.bordered_rect(r, radius, kClear, 1.5f, hui::gfx::mix(with_a(kInk, 0.09f), with_a(accent, 0.55f), lit));
 }
 
-void Dashboard::compose(hui::gfx::Renderer & renderer, const char * version) {
+void Dashboard::compose(hui::gfx::Renderer & renderer, const char * version, const char * build) {
     scene_.clear();
     if (loaded_) {
-        draw(scene_, version);
+        draw(scene_, version, build);
     }
     backdrop_.time = clock_;
     renderer.begin();
@@ -533,7 +533,7 @@ void Dashboard::compose(hui::gfx::Renderer & renderer, const char * version) {
     renderer.draw(scene_);
 }
 
-void Dashboard::draw(DrawList & list, const char * version) const {
+void Dashboard::draw(DrawList & list, const char * version, const char * build) const {
     // The parts arrive one after the other, each rising a little.
     int         index = 0;
     const auto  begin = [&] {
@@ -546,7 +546,7 @@ void Dashboard::draw(DrawList & list, const char * version) const {
         list.pop_opacity();
     };
     begin();
-    draw_header(list, version);
+    draw_header(list, version, build);
     end();
     begin();
     draw_server(list, kServer);
@@ -566,10 +566,16 @@ void Dashboard::draw(DrawList & list, const char * version) const {
     end();
 }
 
-void Dashboard::draw_header(DrawList & list, const char * version) const {
+void Dashboard::draw_header(DrawList & list, const char * version, const char * build) const {
     const float w = hui::ui::text(list, fonts_.display, "MACHETE PS5SD", 96, 112, 58, kInk);
-    char sub[180];
-    std::snprintf(sub, sizeof(sub), "v%s  %s  Image & Video  %s  stable-diffusion.cpp on GPU", version, kDot, kDot);
+    char sub[256];
+    if (build != nullptr && build[0] != '\0') {
+        std::snprintf(sub, sizeof(sub), "v%s (%s)  %s  Image & Video  %s  stable-diffusion.cpp on GPU",
+                      version, build, kDot, kDot);
+    } else {
+        std::snprintf(sub, sizeof(sub), "v%s  %s  Image & Video  %s  stable-diffusion.cpp on GPU",
+                      version, kDot, kDot);
+    }
     hui::ui::text(list, fonts_.regular, sub, 96 + w + 28, 112, 24, with_a(kInk, kMuted));
     hui::ui::Canvas c = canvas(list);
     state_chip_.draw(c);

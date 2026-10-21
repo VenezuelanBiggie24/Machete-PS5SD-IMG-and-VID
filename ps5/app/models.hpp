@@ -139,7 +139,8 @@ std::string options_json(const std::string & checkpoint);
 // does not set it.
 std::string checkpoint_from_options(const std::string & body);
 
-// GET /ps5sd/v1/app/info: {"name": "PS5SD", "version", "sd_cpp": {"version", "commit"}}.
+// GET /ps5sd/v1/app/info: {"name": "PS5SD", "version", "build", "sd_cpp": {"version", "commit"}}.
+std::string info_json(const std::string & version, const std::string & build, const std::string & sd_version, const std::string & sd_commit);
 std::string info_json(const std::string & version, const std::string & sd_version, const std::string & sd_commit);
 
 // The API key: 32 random bytes in lower-case base32 (a-z, 2-7), 52

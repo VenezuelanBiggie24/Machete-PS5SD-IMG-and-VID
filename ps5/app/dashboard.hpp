@@ -53,7 +53,7 @@ class Dashboard {
     void update(const AppStatus::Snapshot & s, float dt);
 
     // Queues the frame on the renderer: the backdrop, then the tiles.
-    void compose(hui::gfx::Renderer & renderer, const char * version);
+    void compose(hui::gfx::Renderer & renderer, const char * version, const char * build = nullptr);
 
     // Shows the log in place of the recent images, or back (for a button once
     // the main loop reads the controller).
@@ -89,8 +89,8 @@ class Dashboard {
     void sync_components(float dt);
 
     // Drawing, all const: the frame is a pure function of the state.
-    void draw(hui::gfx::DrawList & list, const char * version) const;
-    void draw_header(hui::gfx::DrawList & list, const char * version) const;
+    void draw(hui::gfx::DrawList & list, const char * version, const char * build = nullptr) const;
+    void draw_header(hui::gfx::DrawList & list, const char * version, const char * build = nullptr) const;
     void draw_server(hui::gfx::DrawList & list, const hui::gfx::Rect & r) const;
     void draw_activity(hui::gfx::DrawList & list, const hui::gfx::Rect & r) const;
     void draw_image(hui::gfx::DrawList & list, const hui::gfx::Rect & r) const;

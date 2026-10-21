@@ -4414,8 +4414,8 @@
   function loadVersion() {
     req('GET', APP + '/info', null, function (code, data) {
       if (code === 200 && data && data.version) {
-        text($('ver'), 'v' + data.version);
-        $('ver').title = 'stable-diffusion.cpp ' + ((data.sd_cpp && data.sd_cpp.commit) || '');
+        text($('ver'), 'v' + data.version + (data.build ? ' (' + data.build + ')' : ''));
+        $('ver').title = (data.build ? data.build + ' · ' : '') + 'stable-diffusion.cpp ' + ((data.sd_cpp && data.sd_cpp.commit) || '');
       }
     });
   }

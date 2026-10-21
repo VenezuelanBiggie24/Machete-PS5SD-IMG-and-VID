@@ -1100,7 +1100,7 @@ extern "C" int sd_app_request(const char * method, const char * path, const char
             status = ask_switch(id, out);
         }
     } else if (m == "GET" && p == "info") {
-        out    = info_json(PS5SD_VERSION, sd_version(), sd_commit());
+        out    = info_json(get_app_version(), get_app_build(), sd_version(), sd_commit());
         status = 200;
     } else if (m == "GET" && p == "compat/sd-models") {
         out    = sd_models_json(g_library);
@@ -1406,7 +1406,9 @@ int main(int, char **) {
     if (std::freopen(kLog, "a", stderr) != nullptr) {
         setvbuf(stderr, nullptr, _IONBF, 0);
     }
-    std::printf("ps5sd: version " PS5SD_VERSION ", stable-diffusion.cpp %s (%s)\n", sd_version(), sd_commit());
+    const std::string app_ver = get_app_version();
+    const std::string app_bld = get_app_build();
+    std::printf("ps5sd: version %s (%s), stable-diffusion.cpp %s (%s)\n", app_ver.c_str(), app_bld.c_str(), sd_version(), sd_commit());
     load_settings();
     load_api_key();
     // One device-local heap over the whole pool (RADV splits an APU's 2/3 to
@@ -1461,7 +1463,7 @@ int main(int, char **) {
         const auto now = std::chrono::steady_clock::now();
         view.update(g_status.snapshot(), std::chrono::duration<float>(now - last_frame).count());
         last_frame = now;
-        view.compose(renderer, PS5SD_VERSION);
+        view.compose(renderer, app_ver.c_str(), app_bld.c_str());
         display.present(renderer);
     };
     set_phase("Opening the GPU");
@@ -1470,7 +1472,7 @@ int main(int, char **) {
         display.swap();
     }
     sceSystemServiceHideSplashScreen();
-    notify("PS5SD: starting");
+    notify("Machete PS5SD: starting");
 #else
     std::printf("ps5sd: built without a display (PS5SD_NO_DISPLAY): status in this log, klog and notifications\n");
     // Nothing opens the video output in this build. PS5SD_VIDEOOUT=1 in
@@ -1481,7 +1483,7 @@ int main(int, char **) {
         std::printf("ps5sd: sceVideoOutOpen: %d (0x%08x)\n", handle, (unsigned) handle);
     }
     sceSystemServiceHideSplashScreen();
-    set_phase("Opening the GPU", "version " PS5SD_VERSION ", no display");
+    set_phase("Opening the GPU", ("version " + app_ver + ", no display").c_str());
 #endif
 
     // The server, or one image with PS5SD_ONESHOT=1 (env.txt). The worker is

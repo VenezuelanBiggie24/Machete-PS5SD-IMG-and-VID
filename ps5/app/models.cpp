@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "models.hpp"
+#include "version.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -659,12 +660,59 @@ std::string checkpoint_from_options(const std::string & body) {
     return {};
 }
 
-std::string info_json(const std::string & version, const std::string & sd_version, const std::string & sd_commit) {
-    const nlohmann::json out = { { "name", "PS5SD" },
-                                 { "version", version },
-                                 { "sd_cpp", { { "version", sd_version }, { "commit", sd_commit } } } };
+std::string info_json(const std::string & version, const std::string & build, const std::string & sd_version, const std::string & sd_commit) {
+    nlohmann::json out = { { "name", "Machete PS5SD" },
+                           { "version", version },
+                           { "sd_cpp", { { "version", sd_version }, { "commit", sd_commit } } } };
+    if (!build.empty()) {
+        out["build"] = build;
+    }
     return out.dump(-1, ' ', false, nlohmann::json::error_handler_t::replace);
 }
+
+std::string info_json(const std::string & version, const std::string & sd_version, const std::string & sd_commit) {
+    return info_json(version, "", sd_version, sd_commit);
+}
+
+}  // namespace ps5sd
+
+std::string get_app_version() {
+    static std::string cached_version;
+    if (!cached_version.empty()) {
+        return cached_version;
+    }
+
+    for (const char * path : { "/app0/sce_sys/param.json", "sce_sys/param.json", "ps5/app/sce_sys/param.json" }) {
+        std::ifstream f(path);
+        if (f) {
+            try {
+                auto j = nlohmann::json::parse(f, nullptr, false);
+                if (j.is_object() && j.contains("contentVersion") && j["contentVersion"].is_string()) {
+                    const std::string cv = j["contentVersion"].get<std::string>();
+                    int major = 0, minor = 0, patch = 0;
+                    if (std::sscanf(cv.c_str(), "%d.%d.%d", &major, &minor, &patch) == 3) {
+                        char buf[32];
+                        std::snprintf(buf, sizeof(buf), "%d.%d.%d", major > 0 ? major - 1 : 0, minor, patch);
+                        cached_version = buf;
+                        return cached_version;
+                    }
+                }
+            } catch (...) {}
+        }
+    }
+    cached_version = PS5SD_VERSION;
+    return cached_version;
+}
+
+std::string get_app_build() {
+#ifdef PS5SD_BUILD
+    return PS5SD_BUILD;
+#else
+    return "";
+#endif
+}
+
+namespace ps5sd {
 
 std::string api_key_from_bytes(const unsigned char * bytes, size_t n) {
     static const char kAlphabet[] = "abcdefghijklmnopqrstuvwxyz234567";

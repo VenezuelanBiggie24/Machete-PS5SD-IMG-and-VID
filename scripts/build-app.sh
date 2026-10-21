@@ -206,8 +206,9 @@ cmake --build "$out/sd" --target stable-diffusion sd-server-lib
 # ---- the app's own objects, and the title's start code from PS5_Vulkan ---------
 obj="$out/obj"
 mkdir -p "$obj" "$out/stubs"
+commit=$(git -C "$root" rev-parse --short HEAD 2>/dev/null || echo "release")
 app_cc() { "$app_src/ps5cc" -O2 "$@"; }
-cxx() { "$app_src/ps5cxx" -std=c++20 -O2 -ffunction-sections -fdata-sections "$@"; }
+cxx() { "$app_src/ps5cxx" -std=c++20 -O2 -ffunction-sections -fdata-sections -DPS5SD_BUILD="\"build $commit\"" "$@"; }
 eh=(-fexceptions -fcxx-exceptions -frtti)
 sdinc=(-I "$sd/include" -I "$ggml/include" -I "$sd/thirdparty")
 if [ "$display" = 1 ]; then
