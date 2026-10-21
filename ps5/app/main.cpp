@@ -68,6 +68,7 @@
 #include "download_core.hpp"
 #include "downloader.hpp"
 #include "https_client.hpp"
+#include "network.hpp"
 #include "upload.hpp"
 #include "models.hpp"
 #include "json.hpp"
@@ -750,6 +751,13 @@ void announce_when_listening() {
     }
     announced = generation;
     g_switching = false;
+    std::string ip = g_status.snapshot().address;
+    if (ip.empty()) {
+        ip = detect_console_ip();
+        if (!ip.empty()) {
+            g_status.set_address(ip);
+        }
+    }
     const std::string port = std::to_string(g_server_port.load());
     if (g_standby) {
         std::printf("ps5sd: listening on port %s, without a model\n", port.c_str());
@@ -1417,6 +1425,11 @@ int main(int, char **) {
         const ServerConfig config = read_server_config(kModel, kServerArgs, kPort);
         g_status.set_model(config.model);
         g_status.set_port(config.port);
+        const std::string ip = detect_console_ip();
+        if (!ip.empty()) {
+            g_status.set_address(ip);
+            std::printf("ps5sd: detected console address: %s\n", ip.c_str());
+        }
     }
     auto last_frame = std::chrono::steady_clock::now();
     const auto render = [&] {
@@ -1488,6 +1501,12 @@ int main(int, char **) {
             sceKernelUsleep(16 * 1000);  // no vsync to wait on
         }
         if (n % 60 == 0) {
+            if (g_status.snapshot().address.empty()) {
+                const std::string detected_ip = detect_console_ip();
+                if (!detected_ip.empty()) {
+                    g_status.set_address(detected_ip);
+                }
+            }
             announce_when_listening();
             switch_if_asked();
             quit_if_asked();
@@ -1498,6 +1517,12 @@ int main(int, char **) {
     // return from main or exit.
     for (;;) {
         sceKernelUsleep(500 * 1000);
+        if (g_status.snapshot().address.empty()) {
+            const std::string detected_ip = detect_console_ip();
+            if (!detected_ip.empty()) {
+                g_status.set_address(detected_ip);
+            }
+        }
         announce_when_listening();
         switch_if_asked();
         quit_if_asked();

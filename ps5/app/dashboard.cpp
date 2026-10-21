@@ -4,6 +4,7 @@
 #include "core/save_file.hpp"
 #include "gfx/renderer.hpp"
 #include "image_file.hpp"
+#include "qrcodegen.hpp"
 #include "ui/components/component.hpp"
 
 #include <GL/glcorearb.h>
@@ -589,15 +590,70 @@ void Dashboard::draw_server(DrawList & list, const Rect & r) const {
     x += hui::ui::text(list, fonts_.display, ":", x, r.y + 106, 58, with_a(kInk, 0.42f));
     hui::ui::text(list, fonts_.display, std::to_string(snap_.port), x, r.y + 106, 58, kCyan);
 
+    // QR code on the right side of the server panel for quick smartphone scanning
+    const float qr_box_max = 132.0f;
+    const float qr_reserved = qr_box_max + 24.0f;
+
+    if (!snap_.address.empty()) {
+        std::string url = "http://" + snap_.address + ":" + std::to_string(snap_.port);
+        if (!snap_.api_key.empty()) {
+            url += "#key=" + snap_.api_key;
+        }
+
+        try {
+            using namespace qrcodegen;
+            const QrCode qr = QrCode::encodeText(url.c_str(), QrCode::Ecc::MEDIUM);
+            const int mod_count = qr.getSize();
+            const int border = 2; // quiet zone in modules
+            const int total_cells = mod_count + border * 2;
+            const float cell_size = std::floor((qr_box_max - 8.0f) / static_cast<float>(total_cells));
+            const float actual_size = cell_size * static_cast<float>(total_cells) + 8.0f;
+            const float qbx = r.x + r.w - actual_size - 16.0f;
+            const float qby = r.y + (r.h - actual_size) * 0.5f;
+
+            // Clean white card background with cyan accent border
+            list.rounded_rect({ qbx, qby, actual_size, actual_size }, 10.0f, Color::rgb(0xffffff));
+            list.bordered_rect({ qbx, qby, actual_size, actual_size }, 10.0f, kClear, 1.5f, Color::rgb(0x4fe0ff, 0.4f));
+
+            const float start_x = qbx + 4.0f + static_cast<float>(border) * cell_size;
+            const float start_y = qby + 4.0f + static_cast<float>(border) * cell_size;
+            const Color dark_mod = Color::rgb(0x0a0f1d);
+
+            for (int y = 0; y < mod_count; ++y) {
+                int run_start = -1;
+                for (int x = 0; x < mod_count; ++x) {
+                    if (qr.getModule(x, y)) {
+                        if (run_start < 0) run_start = x;
+                    } else {
+                        if (run_start >= 0) {
+                            const float rx = start_x + static_cast<float>(run_start) * cell_size;
+                            const float ry = start_y + static_cast<float>(y) * cell_size;
+                            const float rw = static_cast<float>(x - run_start) * cell_size;
+                            list.rounded_rect({ rx, ry, rw, cell_size }, 0.5f, dark_mod);
+                            run_start = -1;
+                        }
+                    }
+                }
+                if (run_start >= 0) {
+                    const float rx = start_x + static_cast<float>(run_start) * cell_size;
+                    const float ry = start_y + static_cast<float>(y) * cell_size;
+                    const float rw = static_cast<float>(mod_count - run_start) * cell_size;
+                    list.rounded_rect({ rx, ry, rw, cell_size }, 0.5f, dark_mod);
+                }
+            }
+        } catch (...) {
+        }
+    }
+
     if (!snap_.api_key.empty()) {
         // The key the web UI and API clients need, in groups of four to read off.
         const float w = caps(list, "API key", r.x + kPad, r.y + 140, 15, with_a(kInk, 0.5f));
-        hui::ui::text(list, fonts_.mono, fonts_.mono.font->fit(snap_.api_key, 24, r.w - 2 * kPad - w - 18),
+        hui::ui::text(list, fonts_.mono, fonts_.mono.font->fit(snap_.api_key, 24, r.w - 2 * kPad - w - 18 - qr_reserved),
                       r.x + kPad + w + 18, r.y + 140, 24, kCyan);
         return;
     }
-    const std::string hint = "From a phone or a PC on your network. The web UI and the OpenAI and A1111 APIs share it.";
-    hui::ui::text(list, fonts_.regular, fonts_.regular.font->fit(hint, 22, r.w - 2 * kPad), r.x + kPad, r.y + 140, 22,
+    const std::string hint = "From a phone or a PC on your network. Scan the QR code or type the address.";
+    hui::ui::text(list, fonts_.regular, fonts_.regular.font->fit(hint, 22, r.w - 2 * kPad - qr_reserved), r.x + kPad, r.y + 140, 22,
                   with_a(kInk, kMuted));
 }
 

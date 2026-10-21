@@ -834,6 +834,26 @@
 
   // Before anything else: does the server want a key, and does this browser have it?
   function checkAuth(then) {
+    var h = (window.location.hash || '') + '&' + (window.location.search || '');
+    var m = h.match(/[#&?]key=([a-zA-Z0-9_\-]+)/);
+    if (m && m[1]) {
+      req('POST', '/ps5sd/v1/auth/login', { key: m[1] }, function (code) {
+        if (code === 200) {
+          try {
+            if (window.history && window.history.replaceState) {
+              window.history.replaceState(null, '', window.location.pathname);
+            }
+          } catch (e) {}
+          then();
+          return;
+        }
+        req('GET', '/ps5sd/v1/auth', null, function (c, data) {
+          if (c === 200 && data && data.required && !data.authenticated) { showLogin(); return; }
+          then();
+        }, 8000);
+      }, 15000);
+      return;
+    }
     req('GET', '/ps5sd/v1/auth', null, function (code, data) {
       if (code === 200 && data && data.required && !data.authenticated) { showLogin(); return; }
       then();
