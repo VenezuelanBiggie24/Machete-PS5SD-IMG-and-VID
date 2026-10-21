@@ -567,9 +567,9 @@ void Dashboard::draw(DrawList & list, const char * version) const {
 }
 
 void Dashboard::draw_header(DrawList & list, const char * version) const {
-    const float w = hui::ui::text(list, fonts_.display, "PS5SD", 96, 112, 58, kInk);
-    char sub[160];
-    std::snprintf(sub, sizeof(sub), "v%s  %s  stable-diffusion.cpp on the console's GPU", version, kDot);
+    const float w = hui::ui::text(list, fonts_.display, "MACHETE PS5SD", 96, 112, 58, kInk);
+    char sub[180];
+    std::snprintf(sub, sizeof(sub), "v%s  %s  Image & Video  %s  stable-diffusion.cpp on GPU", version, kDot, kDot);
     hui::ui::text(list, fonts_.regular, sub, 96 + w + 28, 112, 24, with_a(kInk, kMuted));
     hui::ui::Canvas c = canvas(list);
     state_chip_.draw(c);
