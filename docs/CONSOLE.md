@@ -18,7 +18,7 @@ the figures come from `/data/PS5SD/app.log` and the kernel log (klogsrv), not fr
 
 - `scripts/ps5sd-app.sh deploy` uploads the title folder but does not register it. ShadowMountPlus has to
   rescan (`POST http://<console>:10101/api/v1/scan`, body `{"reset_attempts":true}`); after that
-  `/user/app/PPSA99576` and `/user/appmeta/PPSA99576` exist and the launch payload can start it.
+  `/user/app/PPSA99699` and `/user/appmeta/PPSA99699` exist and the launch payload can start it.
 - `launch.elf` started the title: `EXEC /app0/eboot.bin [user] ... category=native_game`, then the payload
   exited with 0. The eboot's container magic is `4F 15 3D 1D` (the PS4 one; `libc.prx` has the PS5 one,
   `54 14 F5 EE`), and the system loads it anyway.

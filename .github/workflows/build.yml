@@ -157,7 +157,7 @@ jobs:
       - name: Package title release
         if: steps.have.outputs.build == 'true'
         run: |
-          scripts/package-release.sh build/app-ps5/title/PPSA99576
+          scripts/package-release.sh build/app-ps5/title/PPSA99699
           ls -la dist/
 
       - name: Upload dist artifacts
@@ -177,8 +177,8 @@ jobs:
           TITLE="Machete PS5SD: Image & Video Studio $TAG"
           echo "Publishing release $TAG: $TITLE"
           gh release view "$TAG" >/dev/null 2>&1 && \
-            gh release upload "$TAG" dist/PPSA99576.zip dist/PPSA99576.json --clobber || \
-            gh release create "$TAG" dist/PPSA99576.zip dist/PPSA99576.json \
+            gh release upload "$TAG" dist/PPSA99699.zip dist/PPSA99699.json --clobber || \
+            gh release create "$TAG" dist/PPSA99699.zip dist/PPSA99699.json \
               --title "$TITLE" \
               --notes-file README.md
 

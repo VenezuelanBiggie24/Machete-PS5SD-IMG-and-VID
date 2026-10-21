@@ -1,20 +1,20 @@
 #!/bin/bash
 # Packs the built title for a release and the PS5 homebrew catalog:
 #
-#   dist/PPSA99576.zip    the title folder, PPSA99576/ at the top of the archive
-#   dist/PPSA99576.json   the catalog record (github.com/darkxex/ps5-homebrew-catalog,
-#                         apps/PPSA99576.json), with the zip's SHA-256
+#   dist/PPSA99699.zip    the title folder, PPSA99699/ at the top of the archive
+#   dist/PPSA99699.json   the catalog record (github.com/darkxex/ps5-homebrew-catalog,
+#                         apps/PPSA99699.json), with the zip's SHA-256
 #
-#   scripts/package-release.sh [title folder]   (default build/app-ps5/title/PPSA99576)
+#   scripts/package-release.sh [title folder]   (default build/app-ps5/title/PPSA99699)
 #
 # Nothing is uploaded. The release tag is v<version> from ps5/app/version.hpp
 # (v0.1.0); param.json's contentVersion (01.001.000) is what consoles compare,
 # and build-app.sh keeps the two in step. The icon URL is pinned to the tag.
 set -euo pipefail
 root=$(cd "$(dirname "$0")/.." && pwd)
-title=${1:-$root/build/app-ps5/title/PPSA99576}
-repo=${GITHUB_SERVER_URL:-https://github.com}/${GITHUB_REPOSITORY:-VenezuelanBiggie24/PS5SD-IMG-and-VID}
-id=PPSA99576
+title=${1:-$root/build/app-ps5/title/PPSA99699}
+repo=${GITHUB_SERVER_URL:-https://github.com}/${GITHUB_REPOSITORY:-VenezuelanBiggie24/Machete-PS5SD-IMG-and-VID}
+id=PPSA99699
 
 for f in eboot.bin sce_sys/param.json sce_sys/icon0.png sce_sys/icon0.dds sce_sys/pic0.dds sce_sys/pic1.dds sce_module/libc.prx \
     ftpsrv/ps5sd-ftpsrv.elf ftpsrv/LICENSE.txt ftpsrv/SOURCE.txt docs/MODELS.md docs/API.md; do
@@ -41,8 +41,7 @@ with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as z:
             full = os.path.join(base, name)
             z.write(full, os.path.join(tid, os.path.relpath(full, title)).replace(os.sep, "/"))
 sha = hashlib.sha256(open(path, "rb").read()).hexdigest()
-description = ("Machete PS5SD: Local Image and Video AI generation (Wan 2.2, LTX, SDXL, FLUX) "
-               "on PS5 GPU with Web UI & QR dashboard.")
+description = "Machete PS5SD: Local Image and Video AI generation (Wan 2.2, LTX, SDXL, FLUX) on PS5 GPU with Web UI and TV QR dashboard."
 assert len(description) <= 200, len(description)
 record = {
     "titleid": tid,

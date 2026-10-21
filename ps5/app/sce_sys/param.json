@@ -12,9 +12,9 @@
   "attribute": 0,
   "attribute2": 0,
   "attribute3": 0,
-  "conceptId": "99576",
+  "conceptId": "99699",
   "contentBadgeType": 1,
-  "contentId": "UP9000-PPSA99576_00-PS5SDVULKAN00001",
+  "contentId": "UP9000-PPSA99699_00-PS5SDVULKAN00001",
   "contentVersion": "01.005.000",
   "downloadDataSize": 256,
   "gameIntent": {
@@ -42,6 +42,6 @@
   },
   "requiredSystemSoftwareVersion": "0x0000000000000000",
   "sdkVersion": "0x0000000000000000",
-  "titleId": "PPSA99576",
+  "titleId": "PPSA99699",
   "versionFileUri": ""
 }

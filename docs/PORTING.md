@@ -17,7 +17,7 @@ compiles out; code that checks `__FreeBSD__` takes BSD paths that may not exist 
 which is what the patches below are about.
 
 The app is a **title**, not a payload: an fSELF `eboot.bin` on PS5_Vulkan's start code
-(`app_crt.cpp`) and clean-room `libc.prx`, registered through ShadowMountPlus as PPSA99576. A
+(`app_crt.cpp`) and clean-room `libc.prx`, registered through ShadowMountPlus as PPSA99699. A
 title gets the console's direct memory (12 GiB, PS5LM measured an 11.44 GiB unified device heap
 with `radv_enable_unified_heap_on_apu`) and the GPU; a payload gets neither. In exchange:
 
@@ -261,7 +261,7 @@ the same picture as a 512x512 BC7 texture with one mip and a DX10 header. That f
 after a new icon0.png, make it again on Windows with
 `texconv -f BC7_UNORM -m 1 -y -o ps5/app/sce_sys ps5/app/sce_sys/icon0.png`. build-app.sh stops if it is
 older than the PNG. Without it the tile showed no icon at all. The home screen reads both from
-`/user/appmeta/PPSA99576`, which `scripts/ps5sd-app.sh deploy` (or `appmeta`) keeps in step. The home screen background (`sce_sys/source/background.png`) is still a
+`/user/appmeta/PPSA99699`, which `scripts/ps5sd-app.sh deploy` (or `appmeta`) keeps in step. The home screen background (`sce_sys/source/background.png`) is still a
 generated placeholder.
 
 ## The model downloader (`downloader.cpp`, `https_client.cpp`, `download_core.cpp`, `catalog.hpp`)
