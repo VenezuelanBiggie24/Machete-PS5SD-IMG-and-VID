@@ -13,7 +13,7 @@
 set -euo pipefail
 root=$(cd "$(dirname "$0")/.." && pwd)
 title=${1:-$root/build/app-ps5/title/PPSA99576}
-repo=https://github.com/Darkatek7/PS5SD
+repo=${GITHUB_SERVER_URL:-https://github.com}/${GITHUB_REPOSITORY:-VenezuelanBiggie24/PS5SD-IMG-and-VID}
 id=PPSA99576
 
 for f in eboot.bin sce_sys/param.json sce_sys/icon0.png sce_sys/icon0.dds sce_sys/pic0.dds sce_sys/pic1.dds sce_module/libc.prx \
@@ -41,17 +41,17 @@ with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as z:
             full = os.path.join(base, name)
             z.write(full, os.path.join(tid, os.path.relpath(full, title)).replace(os.sep, "/"))
 sha = hashlib.sha256(open(path, "rb").read()).hexdigest()
-description = ("Stable Diffusion, SDXL and FLUX image generation on the PS5 GPU, with a web UI, "
-               "A1111 and OpenAI compatible APIs and a built-in model downloader.")
+description = ("Machete PS5SD: Local Image and Video AI generation (Wan 2.2, LTX, SDXL, FLUX) "
+               "on PS5 GPU with Web UI & QR dashboard.")
 assert len(description) <= 200, len(description)
 record = {
     "titleid": tid,
-    "name": "PS5SD",
+    "name": "Machete PS5SD",
     "kind": "app",
     "category": "ai",
     "description": description,
     "license": "GPL-3.0",
-    "author": "Darkatek7",
+    "author": "VenezuelanBiggie24 & Darkatek7",
     "version": version,
     "source_repo": repo,
     "artifact_url": "%s/releases/download/%s/%s.zip" % (repo, tag, tid),
