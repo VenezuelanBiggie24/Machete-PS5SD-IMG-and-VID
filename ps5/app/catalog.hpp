@@ -249,7 +249,6 @@ inline std::vector<CatalogEntry> entries() {
             "",
         },
         {
-        {
             "sdxl-inpainting",
             "SDXL Inpainting 0.1 (Q8_0)",
             "For inpainting: blends a painted-over part into SDXL images better than a normal model. 5.2 GB.",
