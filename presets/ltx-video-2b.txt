@@ -8,3 +8,4 @@ text_encoders/t5-v1_1-xxl-encoder-Q4_K_M.gguf
 --vae-tile-size
 512
 --flash-attn
+on

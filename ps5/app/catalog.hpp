@@ -151,7 +151,7 @@ inline std::vector<CatalogEntry> entries() {
             "--vae-tiling\n"
             "--vae-tile-size\n"
             "512\n"
-            "--flash-attn\n",
+            "--flash-attn\non\n",
             true,
             "high quality T2V & I2V video",
         },
@@ -176,7 +176,7 @@ inline std::vector<CatalogEntry> entries() {
             "--vae-tiling\n"
             "--vae-tile-size\n"
             "512\n"
-            "--flash-attn\n",
+            "--flash-attn\non\n",
             true,
             "lightweight fast video",
         },
@@ -198,7 +198,7 @@ inline std::vector<CatalogEntry> entries() {
             "--vae-tiling\n"
             "--vae-tile-size\n"
             "512\n"
-            "--flash-attn\n",
+            "--flash-attn\non\n",
             true,
             "fast distilled 8-step video",
         },

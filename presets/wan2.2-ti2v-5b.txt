@@ -10,3 +10,4 @@ vae/Wan2.1_VAE.pth
 --vae-tile-size
 512
 --flash-attn
+on
