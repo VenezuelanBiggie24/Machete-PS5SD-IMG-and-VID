@@ -283,7 +283,7 @@ inline std::vector<CatalogEntry> entries() {
             "--vae-tiling\n"
             "--vae-tile-size\n"
             "640\n",
-            true,
+            false,
             "face identity preservation",
         },
         {

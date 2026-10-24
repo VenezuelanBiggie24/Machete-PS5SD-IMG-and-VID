@@ -1376,7 +1376,7 @@ void load_settings() {
     text << in.rdbuf();
     std::string error;
     if (!text.str().empty() && !apply_settings(text.str(), g_settings, error)) {
-        std::printf("ps5sd: %s: %s; using the defaults\n", kSettings, error.c_str());
+        std::printf("ps5sd: %s: %s; using the defaults\n", kSettings.c_str(), error.c_str());
     }
     g_status.set_tv_images(g_settings.tv_images);
 }
@@ -1451,6 +1451,69 @@ bool set_api_key(bool on, std::string & error) {
     std::lock_guard<std::mutex> lock(g_settings_mutex);
     show_api_key(key, g_settings);
     return true;
+}
+
+std::string get_companion_status_text() {
+    auto snap = g_status.snapshot();
+    std::ostringstream ss;
+    ss << "Machete PS5SD Status:\n"
+       << "Phase: " << snap.phase << (snap.detail.empty() ? "" : ": " + snap.detail) << "\n"
+       << "Model: " << (snap.model.empty() ? "(none / standby)" : snap.model) << "\n";
+    if (!std::isnan(snap.console.soc_c)) {
+        ss << "SoC Temp: " << static_cast<int>(std::round(snap.console.soc_c)) << " C\n";
+    }
+    if (!std::isnan(snap.console.watts)) {
+        ss << "Power: " << static_cast<int>(std::round(snap.console.watts)) << " W\n";
+    }
+    if (!std::isnan(snap.console.fan)) {
+        ss << "Fan: " << static_cast<int>(std::round(snap.console.fan * 100.0)) << " %\n";
+    }
+    if (snap.free_gib >= 0) {
+        char buf[64];
+        std::snprintf(buf, sizeof(buf), "Direct Memory: %.1f GiB free", snap.free_gib);
+        ss << buf << "\n";
+    }
+    return ss.str();
+}
+
+std::string get_companion_models_text() {
+    std::string active = loaded_id();
+    auto entries = g_library.entries();
+    std::ostringstream ss;
+    ss << "PS5 Models (" << entries.size() << " available):\n"
+       << "Active: " << (active.empty() ? "(standby / none)" : active) << "\n\n";
+    for (const auto & e : entries) {
+        bool is_video = e.id.find("wan") != std::string::npos || e.id.find("video") != std::string::npos || e.id.find("ltx") != std::string::npos;
+        ss << "- " << e.id << " [" << (is_video ? "VID" : "IMG") << "]"
+           << (e.id == active ? " (ACTIVE)" : "") << "\n";
+    }
+    ss << "\nTo switch, send:\n/model <id>\n(e.g. /model sdxl-base or /model wan21-t2v-1.3b)";
+    return ss.str();
+}
+
+bool switch_companion_model(const std::string & id, std::string & error) {
+    std::string out;
+    int status = ask_switch(id, out);
+    if (status == 200 || status == 202) {
+        return true;
+    }
+    error = out;
+    return false;
+}
+
+void start_companion_bot() {
+    if (g_settings.telegram_enabled && !g_settings.telegram_token.empty()) {
+        CompanionBot::instance().start(
+            g_settings.telegram_token,
+            g_settings.telegram_chat_id,
+            [](const std::string &, const CompanionParams &, std::string &) -> std::string {
+                return g_status.snapshot().result;
+            },
+            get_companion_status_text,
+            get_companion_models_text,
+            switch_companion_model
+        );
+    }
 }
 
 // The app's routes under /ps5sd/v1/app/ (patches/sdcpp/0054), on the
@@ -1699,25 +1762,7 @@ extern "C" int sd_app_request(const char * method, const char * path, const char
             show_api_key(g_api_key, next);
 
             if (next.telegram_enabled && !next.telegram_token.empty()) {
-                CompanionBot::instance().start(
-                    next.telegram_token,
-                    next.telegram_chat_id,
-                    [](const std::string &, std::string &) -> std::string {
-                        return "";
-                    },
-                    []() -> std::string {
-                        auto snap = g_status.snapshot();
-                        std::ostringstream ss;
-                        ss << "Machete PS5SD Status:\n"
-                           << "Phase: " << snap.phase << "\n"
-                           << "Model: " << snap.model << "\n"
-                           << "SoC Temp: " << static_cast<int>(g_console.temp()) << " C\n"
-                           << "Power: " << static_cast<int>(g_console.power()) << " W\n"
-                           << "Fan: " << static_cast<int>(g_console.fan()) << " %\n"
-                           << "VRAM Free: " << (snap.vram_free / (1024 * 1024)) << " MB";
-                        return ss.str();
-                    }
-                );
+                start_companion_bot();
             } else if (!next.telegram_enabled) {
                 CompanionBot::instance().stop();
             }
@@ -2107,27 +2152,7 @@ int main(int, char **) {
     std::printf("ps5sd: version " PS5SD_VERSION ", stable-diffusion.cpp %s (%s)\n", sd_version(), sd_commit());
     load_settings();
     load_api_key();
-    if (g_settings.telegram_enabled && !g_settings.telegram_token.empty()) {
-        CompanionBot::instance().start(
-            g_settings.telegram_token,
-            g_settings.telegram_chat_id,
-            [](const std::string &, std::string &) -> std::string {
-                return "";
-            },
-            []() -> std::string {
-                auto snap = g_status.snapshot();
-                std::ostringstream ss;
-                ss << "Machete PS5SD Status:\n"
-                   << "Phase: " << snap.phase << "\n"
-                   << "Model: " << snap.model << "\n"
-                   << "SoC Temp: " << static_cast<int>(g_console.temp()) << " C\n"
-                   << "Power: " << static_cast<int>(g_console.power()) << " W\n"
-                   << "Fan: " << static_cast<int>(g_console.fan()) << " %\n"
-                   << "VRAM Free: " << (snap.vram_free / (1024 * 1024)) << " MB";
-                return ss.str();
-            }
-        );
-    }
+    start_companion_bot();
     // The images made with "Don't keep on the console" last until the title starts again.
     if (const int dropped = drop_temporary(kOutputs); dropped > 0) {
         std::printf("ps5sd: deleted %d image(s) that were not to be kept\n", dropped);
