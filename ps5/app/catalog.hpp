@@ -261,6 +261,32 @@ inline std::vector<CatalogEntry> entries() {
             "",
         },
         {
+            "sdxl-photomaker",
+            "SDXL Base 1.0 + PhotoMaker Face Lock",
+            "SDXL with PhotoMaker: upload a portrait photo and generate new scenes preserving facial identity. 6.0 GB.",
+            {
+                { "https://huggingface.co/gpustack/stable-diffusion-xl-base-1.0-GGUF/resolve/main/"
+                  "stable-diffusion-xl-base-1.0-Q8_0.gguf",
+                  "stable-diffusion-xl-base-1.0-Q8_0.gguf", 5040957760ull, 0 },
+                PS5SD_SDXL_VAE,
+                { "https://huggingface.co/TencentARC/PhotoMaker/resolve/main/photomaker-v1.safetensors",
+                  "models/photomaker-v1.safetensors", 562477380ull, 0 },
+            },
+            "# name: SDXL Base 1.0 + PhotoMaker Face Lock\n"
+            "# defaults: steps=20 cfg=6 width=1024 height=1024 sampler=euler\n"
+            "-m\n"
+            "stable-diffusion-xl-base-1.0-Q8_0.gguf\n"
+            "--vae\n"
+            "vae/sdxl_vae_fp16_fix.safetensors\n"
+            "--photo-maker\n"
+            "models/photomaker-v1.safetensors\n"
+            "--vae-tiling\n"
+            "--vae-tile-size\n"
+            "640\n",
+            true,
+            "face identity preservation",
+        },
+        {
             "sdxl-canny",
             "SDXL Base 1.0 (Q8_0) + Canny ControlNet",
             "SDXL with a ControlNet: the edges of a guide image (Canny) set the layout of the new one. 7.9 GB.",

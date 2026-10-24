@@ -72,7 +72,7 @@ constexpr int kFtpsrvPort      = 2121;  // the user's ftpsrv
 constexpr int kOwnFtpsrvPort   = 2122;  // PS5SD's copy (patches/ftpsrv)
 constexpr int kElfLoaderPort   = 9021;
 constexpr const char * kOwnFtpsrvElf = "/app0/ftpsrv/ps5sd-ftpsrv.elf";
-constexpr const char * kFtpCheckFile = "/data/PS5SD/.ps5sd-ftp-check";
+constexpr const char * kFtpCheckFile = "/data/.ps5sd-ftp-check";
 
 // Connects ftp (not connected yet) to 2121, else 2122. The first time 2121
 // answers, one byte is written to kFtpCheckFile through it; when that fails

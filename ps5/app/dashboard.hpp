@@ -60,6 +60,10 @@ class Dashboard {
     void toggle_log() { log_open_ = !log_open_; }
     bool log_open() const { return log_open_; }
 
+    // Toggles ambient gallery screensaver mode on TV.
+    void toggle_screensaver() { screensaver_active_ = !screensaver_active_; if (!screensaver_active_) idle_time_ = 0.0f; }
+    bool screensaver_active() const { return screensaver_active_; }
+
     // Skips the entrance animation and the springs' travel (the PC preview
     // calls it before a picture; the console never does).
     void settle();
@@ -120,6 +124,8 @@ class Dashboard {
     float               clock_ = 0;  // seconds since the first frame
     float               age_   = 0;  // the same, for the entrance
     bool                log_open_ = false;
+    bool                screensaver_active_ = false;
+    float               idle_time_ = 0.0f;
     bool                loaded_   = false;
 
     // The state's colour, eased, so a change of state recolours the screen.

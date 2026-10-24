@@ -10,6 +10,10 @@ can rely on.
 
 ## Done
 
+- **0.9.7 (Machete Studio Suite)**: 1-click Face Studio (facial identity lock with PhotoMaker),
+  multi-storage engine supporting external USB drives (/mnt/usb0 .. /mnt/usb7) and safe fallback (/data/MacheteAI),
+  HTTP 206 Range download resumption for multi-gigabyte models, live Thermal Guardian with visual safety alerts (>=80 C),
+  TV ambient art screensaver, remote Telegram companion bot, and elimination of rigid hardcoded paths.
 - **0.9.6**: video from a picture with Wan 2.2 TI2V 5B, Flow shift on the Create tab, and CLIP skip for
   every model that reads the prompt with CLIP.
 - **0.9.5**: a zoom in the gallery viewer, copy buttons, names and tags for images, images that are not

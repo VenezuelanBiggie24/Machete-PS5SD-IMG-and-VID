@@ -31,6 +31,11 @@ class GalleryLabels {
   public:
     explicit GalleryLabels(std::string outputs_dir) : dir_(std::move(outputs_dir)) {}
 
+    void set_dir(std::string outputs_dir) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        dir_ = std::move(outputs_dir);
+    }
+
     // {"labels": {"<file>": {"title", "tags"}}}: every file that has a name or tags.
     std::string all_json() const;
 

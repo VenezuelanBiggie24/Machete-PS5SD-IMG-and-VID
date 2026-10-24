@@ -19,7 +19,12 @@
 ## Table of Contents
 
 - [Overview](#overview)
+- [New Features in v0.9.7 (Machete Studio Suite)](#new-features-in-v097-machete-studio-suite)
 - [New Features in v0.9.6](#new-features-in-v096)
+- [Face Studio Identity Lock](#face-studio-identity-lock)
+- [Multi-Storage Engine and USB Drives](#multi-storage-engine-and-usb-drives)
+- [Remote Telegram Companion Bot](#remote-telegram-companion-bot)
+- [Thermal Guardian and Fan Safety](#thermal-guardian-and-fan-safety)
 - [Video Generation Models](#video-generation-models)
 - [Live Console Telemetry](#live-console-telemetry)
 - [TV Dashboard and Instant QR Connection](#tv-dashboard-and-instant-qr-connection)
@@ -42,6 +47,18 @@ Building on the foundation created by Darkatek7 / Heel Tobias in [PS5SD](https:/
 
 ---
 
+## New Features in v0.9.7 (Machete Studio Suite)
+
+- **Face Studio (1-Click Identity Lock)**: Upload a portrait once and generate images while preserving facial identity and likeness automatically using native PhotoMaker integration or image guidance.
+- **External USB Storage and Dynamic Path Engine**: Store models and outputs on external USB drives (/mnt/usb0 through /mnt/usb7) or console storage (/data/MacheteAI). Auto-scans and reuses existing models in /data/PS5SD/models without data duplication or deletion during clean app reinstalls.
+- **HTTP Range Download Resumption**: Large multi-gigabyte model downloads now support HTTP 206 Range headers. Interrupted downloads resume from their last downloaded byte without restarting from scratch.
+- **Thermal Guardian Safety Alerts**: Real-time configurable temperature alerts (default 80 C) pulse red on both TV and Web when the SoC approaches high heat thresholds.
+- **TV Ambient Art Screensaver**: Automatically showcases generated artworks in full screen after 60 seconds of inactivity on the console TV.
+- **Remote Telegram Companion Bot**: Generate images and inspect console telemetry remotely from your smartphone via Telegram while your console runs in the background.
+- **Zero-Hardcoded Environment Independence**: Elimination of rigid hardcoded paths across the entire engine, enabling coexistence alongside upstream PS5SD (PPSA99576) and Machete (PPSA99699).
+
+---
+
 ## New Features in v0.9.6
 
 - **Video Generation (Wan 2.2, Wan 2.1, LTX-Video)**: Generate video sequences up to 81 frames with Wan 2.2 TI2V 5B, Wan 2.1 T2V 1.3B, and LTX-Video 2B.
@@ -51,6 +68,51 @@ Building on the foundation created by Darkatek7 / Heel Tobias in [PS5SD](https:/
 - **ControlNet SDXL**: Guide image layout with Canny edge detection directly on the console.
 - **Modernized Web UI**: Modular interface featuring desktop sidebar tabs, mobile bottom navigation bar, pinch/drag zoom in gallery, search tags (#tag), Danbooru tag completions, and background queue processing.
 - **Diagnostic Logging and Crash Recovery**: Automatic dual-location logs (/data/homebrew/PPSA99699/app.log) and atomic crash reports (/data/homebrew/PPSA99699/crash.log) with POSIX signal handlers (SIGSEGV, SIGBUS, SIGABRT, SIGFPE, SIGILL).
+
+---
+
+## Face Studio Identity Lock
+
+Face Studio brings 1-click portrait face preservation to the PS5 GPU:
+1. Navigate to the **Create** tab in the web interface.
+2. Under the prompt section, toggle **Face Studio (Identity Lock)** on.
+3. Click **Upload Face Photo** (or drag and drop a clear headshot photo into the avatar area).
+4. Enter any prompt describing a scene or outfit (for example: *a brave cybernetic knight standing in neon rain*).
+5. When `photomaker-v1.safetensors` is downloaded, Machete automatically activates PhotoMaker identity embedding. If running a standard model, Machete automatically applies facial reference guidance.
+
+---
+
+## Multi-Storage Engine and USB Drives
+
+Machete PS5SD eliminates rigid filesystem dependencies and protects your downloaded models from accidental deletion:
+- **Clean Reinstall Safety**: Models are saved to `/data/MacheteAI/models` (or `/data/PS5SD/models` if already existing). If you delete or cleanly reinstall the homebrew title (`/data/homebrew/PPSA99699`), all downloaded models and outputs remain completely safe.
+- **USB Drive Storage**: Connect any FAT32 or exFAT USB drive to the PS5.
+  1. Open the **Settings** tab in the web UI.
+  2. Under **Storage & USB Devices**, check **Enable External USB Drives**.
+  3. Click **Scan** to detect connected drives (`/mnt/usb0` through `/mnt/usb7`).
+  4. Ensure your USB drive contains the directory structure `MacheteAI/models/` or `models/`.
+  5. Click **Use this storage** on your preferred USB mount. Machete will immediately switch active paths without restarting the console.
+
+---
+
+## Remote Telegram Companion Bot
+
+Run your PS5 as an autonomous personal generative AI server accessible from your phone:
+1. Message `@BotFather` on Telegram to create a bot and get an API Token.
+2. In the Machete Web UI, navigate to the **Settings** tab.
+3. Scroll to **Remote Companion (Telegram)** and check **Enable Telegram Companion Bot**.
+4. Paste your Bot Token and optional Chat ID (to restrict access exclusively to yourself).
+5. Click **Save Companion Settings**.
+6. From your phone on Telegram, send `/status` to check temperatures and load, or send `/gen a beautiful cosmic nebula in 4k` to generate images on your console GPU from anywhere.
+
+---
+
+## Thermal Guardian and Fan Safety
+
+Sony factory firmware fan curves target ~91 C APU temperatures and keep fan speeds low. To ensure your console APU is safeguarded during heavy compute loads:
+- **Thermal Warning Alerts**: Set your warning threshold in the **Settings** tab (default: 80 C).
+- When the SoC exceeds the threshold, the header chip on the Web UI turns bright red with a pulsating beacon, and the TV dashboard displays a high-visibility warning `ALERT: SoC >= 80C`.
+- **TV Ambient Art Screensaver**: If the console sits idle for 60 seconds, the TV screen dims status text and smoothly transitions into a full-screen ambient art gallery showcasing your generated images.
 
 ---
 
@@ -162,7 +224,12 @@ This project is licensed under the GNU General Public License v3.0 (GPL-3.0). Se
 ## Tabla de Contenidos
 
 - [Resumen](#resumen)
+- [Nuevas Caracteristicas en v0.9.7 (Machete Studio Suite)](#nuevas-caracteristicas-en-v097-machete-studio-suite)
 - [Nuevas Caracteristicas en v0.9.6](#nuevas-caracteristicas-en-v096)
+- [Face Studio: Bloqueo de Identidad y Retrato](#face-studio-bloqueo-de-identidad-y-retrato)
+- [Motor Multi-Almacenamiento y Unidades USB](#motor-multi-almacenamiento-y-unidades-usb)
+- [Bot Acompanante Remoto de Telegram](#bot-acompanante-remoto-de-telegram)
+- [Guardian Termico y Seguridad de Ventilador](#guardian-termico-y-seguridad-de-ventilador)
 - [Modelos de Generacion de Video](#modelos-de-generacion-de-video)
 - [Telemetria de Consola en Vivo](#telemetria-de-consola-en-vivo)
 - [Dashboard de TV y Conexion Instantanea QR](#dashboard-de-tv-y-conexion-instantanea-qr)
@@ -184,6 +251,18 @@ Construido sobre las bases creadas por Darkatek7 / Heel Tobias en [PS5SD](https:
 
 ---
 
+## Nuevas Caracteristicas en v0.9.7 (Machete Studio Suite)
+
+- **Face Studio (Bloqueo de Identidad en 1 Clic)**: Sube una foto de tu rostro y genera imagenes conservando tu identidad facial de manera automatica mediante integracion nativa con PhotoMaker o guia facial.
+- **Almacenamiento USB Externo y Rutas Dinamicas**: Guarda modelos y resultados en memorias USB externas (/mnt/usb0 a /mnt/usb7) o en el almacenamiento interno (/data/MacheteAI). Escanea y reutiliza modelos existentes en /data/PS5SD/models sin duplicar datos ni perderlos al reinstalar la aplicacion.
+- **Reanudacion de Descargas por Rango HTTP**: Las descargas pesadas de varios gigabytes admiten ahora cabeceras HTTP Range 206. Si la conexion se interrumpe, la descarga continua exactamente donde se quedo.
+- **Guardian Termico con Alertas en Vivo**: Alertas visuales configurables (80 C por defecto) que parpadean en rojo en la TV y la web cuando el SoC alcanza limites elevados de temperatura.
+- **Salvapantallas Ambiental para TV**: Muestra automaticamente una galeria de arte a pantalla completa con las creaciones generadas tras 60 segundos de inactividad en la consola.
+- **Bot Acompanante Remoto en Telegram**: Genera imagenes y consulta telemetria y temperaturas directamente desde tu celular en Telegram mientras la consola esta encendida.
+- **Independencia Total de Entorno y Rutas**: Eliminacion de rutas fijas ("hardcoded"), garantizando la coexistencia pacifica entre la app original (PPSA99576) y Machete (PPSA99699).
+
+---
+
 ## Nuevas Caracteristicas en v0.9.6
 
 - **Generacion de Video (Wan 2.2, Wan 2.1, LTX-Video)**: Secuencias de video de hasta 81 fotogramas con Wan 2.2 TI2V 5B, Wan 2.1 T2V 1.3B y LTX-Video 2B.
@@ -193,6 +272,51 @@ Construido sobre las bases creadas por Darkatek7 / Heel Tobias en [PS5SD](https:
 - **ControlNet SDXL**: Guiado visual de composicion mediante deteccion de bordes Canny directamente en la consola.
 - **Interfaz Web Renovada**: Diseno modular con pestanas laterales en PC, navegacion inferior en moviles, zoom en galeria, etiquetas (#tag), autocompletado Danbooru y cola de tareas en segundo plano.
 - **Registro de Fallos y Diagnostico**: Registro continuo en /data/homebrew/PPSA99699/app.log y generacion atomica de crash.log ante excepciones o senales POSIX (SIGSEGV, SIGBUS, SIGABRT, SIGFPE, SIGILL).
+
+---
+
+## Face Studio: Bloqueo de Identidad y Retrato
+
+Face Studio permite preservar el rostro en tus generaciones con un solo clic:
+1. Ve a la pestana **Create** en la interfaz web.
+2. Debajo del campo de prompt, activa la casilla **Face Studio (Identity Lock)**.
+3. Pulsa **Upload Face Photo** (o arrastra una foto clara de tu cara al area del avatar).
+4. Escribe cualquier prompt describiendo la escena (por ejemplo: *un astronauta valiente flotando en el espacio profundo*).
+5. Si tienes descargado `photomaker-v1.safetensors`, Machete activara automaticamente PhotoMaker para maxima fidelidad. Con modelos estandar, aplicara guiado de preservacion facial.
+
+---
+
+## Motor Multi-Almacenamiento y Unidades USB
+
+Machete PS5SD elimina la dependencia rigida del sistema de archivos y protege tus modelos de borrados accidentales:
+- **Seguridad ante Reinstalaciones Limpias**: Los modelos se descargan en `/data/MacheteAI/models` (o en `/data/PS5SD/models` si ya existia). Si borras la app para actualizar en limpio (`/data/homebrew/PPSA99699`), tus modelos descargados permaneceran intactos.
+- **Almacenamiento en USB Externo**: Conecta un pendrive o disco USB (FAT32 o exFAT) a la PS5.
+  1. Abre la pestana **Settings** en la web.
+  2. En **Storage & USB Devices**, marca **Enable External USB Drives**.
+  3. Pulsa **Scan** para detectar las unidades conectadas (`/mnt/usb0` a `/mnt/usb7`).
+  4. Tu memoria USB debe contener la carpeta `MacheteAI/models/` o `models/` con los modelos dentro.
+  5. Pulsa **Use this storage** en la unidad deseada para cambiar el almacenamiento activo inmediatamente sin reiniciar la consola.
+
+---
+
+## Bot Acompanante Remoto de Telegram
+
+Convierte tu PS5 en un servidor personal de inteligencia artificial accesible desde cualquier lugar:
+1. Escribe a `@BotFather` en Telegram para crear un bot y obtener un Token de API.
+2. En la web de Machete, entra en la pestana **Settings**.
+3. Baja hasta **Remote Companion (Telegram)** y marca **Enable Telegram Companion Bot**.
+4. Pega tu Bot Token y opcionalmente tu Chat ID para restringir el uso solo a ti.
+5. Pulsa **Save Companion Settings**.
+6. Desde Telegram en tu celular, envia `/status` para ver temperaturas y estado, o envia `/gen un hermoso atardecer en las montanas` para generar en la GPU de tu consola desde cualquier lugar.
+
+---
+
+## Guardian Termico y Seguridad de Ventilador
+
+Las curvas de ventilador de fabrica de Sony buscan mantener el APU en torno a ~91 C y mantienen revoluciones bajas. Para garantizar que tu consola no sufra sobrecalentamiento en sesiones pesadas de renderizado:
+- **Alerta Termica Configurable**: Establece el limite de advertencia en **Settings** (por defecto: 80 C).
+- Si el SoC alcanza o supera dicho limite, el indicador superior en la web se tornara rojo con pulsos de advertencia y el dashboard de TV mostrara `ALERT: SoC >= 80C`.
+- **Salvapantallas Ambiental en TV**: Si dejas la aplicacion inactiva durante 60 segundos, la TV atenuara el texto de estado y activara una presentacion visual a pantalla completa con las imagenes que has creado.
 
 ---
 

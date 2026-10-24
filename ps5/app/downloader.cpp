@@ -232,15 +232,18 @@ bool ftp_disk_full(const std::string & error) {
            error.find("No space") != std::string::npos;
 }
 
-// The file in one stream from its start, for a server without ranges. With
+// The file in one stream from its start (or resuming from disk if supported). With
 // ftp, through one long transfer to part; otherwise pwrite to fd.
 void fetch_whole(Item & item, const Probe & p, int fd, FtpWriter * ftp, const std::string & part) {
     HttpClient   client;
     HttpResponse r;
     std::string  error, final_url;
-    std::atomic<uint64_t> got{ 0 };
+    const uint64_t existing_bytes = file_size_of(part);
+    const bool can_resume = (existing_bytes > 0 && p.total > 0 && existing_bytes < p.total);
+    const uint64_t resume_offset = can_resume ? existing_bytes : 0;
+    std::atomic<uint64_t> got{ resume_offset };
     bool         disk_full = false;
-    if (ftp != nullptr && !ftp->begin(part, 0, error)) {
+    if (ftp != nullptr && !ftp->begin(part, resume_offset, error)) {
         set_failed(item, error);
         return;
     }
@@ -253,12 +256,18 @@ void fetch_whole(Item & item, const Probe & p, int fd, FtpWriter * ftp, const st
             const double s = std::chrono::duration<double>(clock_type::now() - t0).count();
             std::lock_guard<std::mutex> lock(g_mutex);
             item.rec.bytes            = got;
-            item.rec.bytes_per_second = s > 0 ? got / s : 0;
+            item.rec.bytes_per_second = s > 0 && got >= resume_offset ? (got - resume_offset) / s : 0;
         }
     });
     const bool ok = http_get_following(
-        client, p.final_url, [](const Url & u) { return headers_for(u); },
-        [](const HttpResponse & res) { return res.status == 200; },
+        client, p.final_url,
+        [resume_offset](const Url & u) {
+            return resume_offset > 0 ? headers_for(u, "bytes=" + std::to_string(resume_offset) + "-")
+                                     : headers_for(u);
+        },
+        [resume_offset](const HttpResponse & res) {
+            return (resume_offset > 0 && res.status == 206) || res.status == 200;
+        },
         [&](const char * data, size_t n) {
             if (ftp != nullptr) {
                 if (!ftp->send(data, n, error)) {
@@ -286,7 +295,8 @@ void fetch_whole(Item & item, const Probe & p, int fd, FtpWriter * ftp, const st
     if (stopping(item)) {
         return;
     }
-    if (!ok || r.status != 200 || (p.total > 0 && got != p.total)) {
+    const bool expected_status = (resume_offset > 0 && r.status == 206) || r.status == 200;
+    if (!ok || !expected_status || (p.total > 0 && got != p.total)) {
         set_failed(item, disk_full ? "the console's storage is full"
                          : !ok     ? error
                                    : "the transfer ended early (" + std::to_string(got.load()) + " bytes)");

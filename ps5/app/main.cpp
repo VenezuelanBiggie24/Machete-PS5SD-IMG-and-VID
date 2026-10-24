@@ -82,6 +82,9 @@
 #include "server_hooks.h"
 #include "stable-diffusion.h"
 #include "version.hpp"
+#include "storage_manager.hpp"
+#include "face_studio.hpp"
+#include "companion_bot.hpp"
 
 // patches/sdcpp/0065 (server_activity.h): the WARN and ERROR lines sd.cpp logged
 // since begin(), read back as a reason; here for a model that does not load.
@@ -153,28 +156,11 @@ namespace {
 
 using namespace ps5sd;
 
-constexpr const char * kDir             = "/data/PS5SD";
-constexpr const char * kLog             = "/data/PS5SD/app.log";
-constexpr const char * kCrashLog        = "/data/PS5SD/crash.log";
 constexpr const char * kHomebrewBaseDir = "/data/homebrew";
 constexpr const char * kHomebrewDir     = "/data/homebrew/PPSA99699";
 constexpr const char * kHomebrewLog     = "/data/homebrew/PPSA99699/app.log";
 constexpr const char * kHomebrewCrashLog= "/data/homebrew/PPSA99699/crash.log";
-constexpr const char * kArgs    = "/data/PS5SD/app-args.txt";
-constexpr const char * kServerArgs = "/data/PS5SD/server-args.txt";
-constexpr const char * kModel   = "/data/PS5SD/model.txt";
-constexpr const char * kEnv     = "/data/PS5SD/env.txt";  // driver and ggml switches, for measuring
-constexpr const char * kQuit    = "/data/PS5SD/quit";
-constexpr const char * kSettings = "/data/PS5SD/settings.json";  // GET/POST settings (AppSettings)
-constexpr const char * kApiKey  = "/data/PS5SD/api-key.txt";  // the API key, one line; no file: no key
-constexpr const char * kDocs    = "/app0/docs";  // the Help tab's docs (scripts/build-app.sh)
-constexpr const char * kOutputs = "/data/PS5SD/outputs";
-constexpr const char * kLoras   = "/data/PS5SD/loras";
-constexpr const char * kEmbeddings = "/data/PS5SD/embeddings";
-constexpr const char * kUpscalers = "/data/PS5SD/upscalers";  // ESRGAN models: hires fix and the Upscale button
-constexpr const char * kModels  = "/data/PS5SD/models";
-constexpr const char * kPresets = "/data/PS5SD/presets";
-constexpr const char * kTags    = "/data/PS5SD/tags";  // tag files for the prompt's completion
+constexpr const char * kDocs            = "/app0/docs";  // the Help tab's docs (scripts/build-app.sh)
 #ifndef PS5SD_NO_DISPLAY
 constexpr const char * kFont    = "/app0/assets/fonts/dejavu-sans-mono.huifont";
 #endif
@@ -182,14 +168,58 @@ constexpr double       kGiB     = 1073741824.0;
 constexpr int          kPort    = 7860;  // sd-server's listen port unless server-args.txt names one
 constexpr int          kStopWaitSeconds = 120;  // how long a quit waits for the server to stop
 
+// Storage paths dynamically managed by StorageManager
+std::string kDir;
+std::string kLog;
+std::string kCrashLog;
+std::string kArgs;
+std::string kServerArgs;
+std::string kModel;
+std::string kEnv;
+std::string kQuit;
+std::string kSettings;
+std::string kApiKey;
+std::string kOutputs;
+std::string kLoras;
+std::string kEmbeddings;
+std::string kUpscalers;
+std::string kModels;
+std::string kPresets;
+std::string kTags;
+
 AppStatus g_status;
 ConsoleStats g_console;  // the temperature, power, fan and load (console_stats.hpp)
 
-const ModelLibrary g_library{ kModels, kPresets };
-// The names and tags of the gallery's files (gallery_labels.hpp).
-GalleryLabels g_labels{ kOutputs };
-// The tags the prompt fields suggest, from the files in kTags (prompt_tags.hpp).
-TagIndex g_tags{ kTags };
+ModelLibrary g_library{ "", "" };
+GalleryLabels g_labels{ "" };
+TagIndex g_tags{ "" };
+
+void update_storage_paths() {
+    auto & sm   = StorageManager::instance();
+    kDir        = sm.base_dir();
+    kLog        = sm.log_file();
+    kCrashLog   = sm.crash_log_file();
+    kArgs       = sm.app_args_file();
+    kServerArgs = sm.server_args_file();
+    kModel      = sm.model_file();
+    kEnv        = sm.env_file();
+    kQuit       = sm.quit_file();
+    kSettings   = sm.settings_file();
+    kApiKey     = sm.api_key_file();
+    kOutputs    = sm.outputs_dir();
+    kLoras      = sm.loras_dir();
+    kEmbeddings = sm.embeddings_dir();
+    kUpscalers  = sm.upscalers_dir();
+    kModels     = sm.models_dir();
+    kPresets    = sm.presets_dir();
+    kTags       = sm.tags_dir();
+
+    g_library.models_dir = kModels;
+    g_library.presets_dir = kPresets;
+    g_library.extra_models_dirs = sm.search_model_dirs();
+    g_labels.set_dir(kOutputs);
+    g_tags.set_dir(kTags);
+}
 std::mutex         g_settings_mutex;  // the HTTP threads read and change g_settings
 AppSettings        g_settings;
 std::mutex         g_key_mutex;  // the HTTP threads read and change g_api_key
@@ -233,7 +263,7 @@ std::string loaded_id() {
     return g_loaded_id;
 }
 
-std::vector<std::string> read_lines(const char * path) {
+std::vector<std::string> read_lines(const std::string & path) {
     std::vector<std::string> out;
     std::ifstream in(path);
     for (std::string line; std::getline(in, line);) {
@@ -245,6 +275,10 @@ std::vector<std::string> read_lines(const char * path) {
         }
     }
     return out;
+}
+
+std::vector<std::string> read_lines(const char * path) {
+    return path ? read_lines(std::string(path)) : std::vector<std::string>{};
 }
 
 // A system notification on the TV.
@@ -268,12 +302,15 @@ std::string g_current_phase = "Initializing";
 std::string g_current_phase_detail;
 
 // Flushes userspace stdio buffers and keeps /data/homebrew/PPSA99699/app.log
-// synchronized with /data/PS5SD/app.log if they are not already linked to the same inode.
+// synchronized with the active app.log if they are not already linked to the same inode.
 void sync_app_logs() {
     std::fflush(stdout);
     std::fflush(stderr);
+    if (kLog.empty()) {
+        return;
+    }
     struct stat st1 = {}, st2 = {};
-    if (stat(kLog, &st1) == 0) {
+    if (stat(kLog.c_str(), &st1) == 0) {
         if (stat(kHomebrewLog, &st2) != 0 || st1.st_ino != st2.st_ino || st1.st_dev != st2.st_dev) {
             std::ifstream src(kLog, std::ios::binary);
             if (src) {
@@ -430,14 +467,17 @@ std::string build_crash_report(const std::string & reason_text) {
 void write_crash_report(const std::string & reason_text) {
     mkdir(kHomebrewBaseDir, 0777);
     mkdir(kHomebrewDir, 0777);
-    mkdir(kDir, 0777);
+    if (!kDir.empty()) {
+        mkdir(kDir.c_str(), 0777);
+    }
 
     sync_app_logs();
 
     const std::string report = build_crash_report(reason_text);
 
-    for (const char * path : { kHomebrewCrashLog, kCrashLog }) {
-        FILE * f = std::fopen(path, "a");
+    for (const std::string & path : { std::string(kHomebrewCrashLog), kCrashLog }) {
+        if (path.empty()) continue;
+        FILE * f = std::fopen(path.c_str(), "a");
         if (f != nullptr) {
             std::fwrite(report.data(), 1, report.size(), f);
             std::fflush(f);
@@ -540,7 +580,7 @@ void notify_outcome(const char * text) {
 void watch_quit_file() {
     std::thread([] {
         while (!g_quit_file) {
-            if (access(kQuit, F_OK) == 0) {
+            if (!kQuit.empty() && access(kQuit.c_str(), F_OK) == 0) {
                 g_quit_file = true;
             }
             sceKernelUsleep(1000 * 1000);
@@ -572,7 +612,9 @@ void quit_if_asked() {
         }
         std::printf("ps5sd: the server did not stop in %d s; ending anyway\n", kStopWaitSeconds);
     }
-    unlink(kQuit);
+    if (!kQuit.empty()) {
+        unlink(kQuit.c_str());
+    }
     std::fflush(nullptr);
     sync_app_logs();
     sceSystemServiceLoadExec("exit", nullptr);
@@ -683,8 +725,8 @@ std::string output_path() {
     const std::time_t t = std::time(nullptr);
     std::tm tm = {};
     localtime_r(&t, &tm);
-    char name[64];
-    std::snprintf(name, sizeof(name), "%s/%04d%02d%02d-%02d%02d%02d.png", kOutputs, tm.tm_year + 1900, tm.tm_mon + 1,
+    char name[128];
+    std::snprintf(name, sizeof(name), "%s/%04d%02d%02d-%02d%02d%02d.png", kOutputs.c_str(), tm.tm_year + 1900, tm.tm_mon + 1,
                   tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
     return name;
 }
@@ -741,8 +783,8 @@ void generate_once() {
     const auto t1 = std::chrono::steady_clock::now();
     if (ctx == nullptr) {
         std::printf("ps5sd: the model did not load\n");
-        set_phase("The model did not load", "See /data/PS5SD/app.log");
-        notify_outcome("PS5SD: the model did not load, see /data/PS5SD/app.log");
+        set_phase("The model did not load", "See " + kLog);
+        notify_outcome(("PS5SD: the model did not load, see " + kLog).c_str());
         log_memory("after a failed load");
         return;
     }
@@ -763,7 +805,7 @@ void generate_once() {
     log_memory("after generating");
 
     if (ok && count > 0 && images[0].data != nullptr) {
-        mkdir(kOutputs, 0777);
+        mkdir(kOutputs.c_str(), 0777);
         const std::string path = output_path();
         char parameters[1024];
         std::snprintf(parameters, sizeof(parameters),
@@ -779,10 +821,10 @@ void generate_once() {
             g_status.set_result(path);
         }
         set_phase(saved ? "Done" : "The image could not be saved", path);
-        notify_outcome(saved ? "PS5SD: image saved to /data/PS5SD/outputs" : "PS5SD: the image could not be saved");
+        notify_outcome(saved ? ("PS5SD: image saved to " + kOutputs).c_str() : "PS5SD: the image could not be saved");
     } else {
-        set_phase("Generation failed", "See /data/PS5SD/app.log");
-        notify_outcome("PS5SD: generation failed, see /data/PS5SD/app.log");
+        set_phase("Generation failed", "See " + kLog);
+        notify_outcome(("PS5SD: generation failed, see " + kLog).c_str());
     }
     free_sd_images(images, count);
     free_sd_ctx(ctx);
@@ -826,6 +868,10 @@ bool server_plan(ServerPlan & plan, std::string & error) {
         }
         extra      = kept;
         model_args = entry.args;
+        if (g_settings.face_studio_enabled && FaceStudio::instance().has_reference_face()) {
+            std::string dummy_prompt;
+            FaceStudio::instance().inject_face_parameters(model_args, dummy_prompt);
+        }
         plan.id    = entry.id;
         plan.name  = entry.name;
     }
@@ -842,11 +888,11 @@ bool server_plan(ServerPlan & plan, std::string & error) {
         return false;
     };
     if (!names({ "-m", "--model", "--diffusion-model" })) {
-        error = "no model: put a model's id or path in /data/PS5SD/model.txt";
+        error = "no model: put a model's id or path in model.txt";
         return false;
     }
     if (plan.name.empty()) {
-        plan.name = read_server_config(kModel, kServerArgs, kPort).model;
+        plan.name = read_server_config(kModel.c_str(), kServerArgs.c_str(), kPort).model;
     }
     std::vector<std::string> & args = plan.args;
     args = { "sd-server" };
@@ -926,7 +972,7 @@ bool write_active_model(const std::string & id) {
             return false;
         }
     }
-    return std::rename(tmp.c_str(), kModel) == 0;
+    return std::rename(tmp.c_str(), kModel.c_str()) == 0;
 }
 
 // The entry's settings ("# defaults:") as the server's request defaults, set
@@ -1030,7 +1076,7 @@ void run_server() {
                 why = part_reason(entry);
             }
             if (why.empty()) {
-                why = "sd.cpp stopped while loading it and did not say why; /data/PS5SD/app.log has its last lines. "
+                why = "sd.cpp stopped while loading it and did not say why; " + kLog + " has its last lines. "
                       "A damaged or incomplete file, or a model PS5SD's stable-diffusion.cpp does not know, ends so.";
             }
             std::printf("ps5sd: %s did not load: %s\n", plan.id.c_str(), why.c_str());
@@ -1060,7 +1106,7 @@ void run_server() {
         if (rc != 0 && !standby) {
             // Nothing that worked to go back to: the web UI stays up anyway.
             std::printf("ps5sd: %s did not load\n", plan.id.c_str());
-            notify_outcome(("PS5SD: " + plan.name + " did not load, see /data/PS5SD/app.log").c_str());
+            notify_outcome(("PS5SD: " + plan.name + " did not load, see " + kLog).c_str());
             force_standby = true;
             continue;
         }
@@ -1068,11 +1114,11 @@ void run_server() {
         if (rc != 0) {
             // The model did not load, the port could not be bound, or an
             // argument was wrong (the usage is in the log).
-            set_phase("The server did not start", "See /data/PS5SD/app.log");
-            notify_outcome("PS5SD: the server did not start, see /data/PS5SD/app.log");
+            set_phase("The server did not start", "See " + kLog);
+            notify_outcome(("PS5SD: the server did not start, see " + kLog).c_str());
         } else {
-            set_phase("The server stopped", "See /data/PS5SD/app.log");
-            notify_outcome("PS5SD: the server stopped, see /data/PS5SD/app.log");
+            set_phase("The server stopped", "See " + kLog);
+            notify_outcome(("PS5SD: the server stopped, see " + kLog).c_str());
         }
         return;
     }
@@ -1250,7 +1296,7 @@ int ask_switch(const std::string & id, std::string & out) {
         const std::string current = loaded_id();
         if (!current.empty() && !g_standby && g_library.find(current, loaded, ignored) && loaded.args == entry.args) {
             if (!write_active_model(entry.id)) {
-                out = error_json("could not write /data/PS5SD/model.txt");
+                out = error_json("could not write " + kModel);
                 return 500;
             }
             apply_preset_settings(&entry);
@@ -1266,7 +1312,7 @@ int ask_switch(const std::string & id, std::string & out) {
         }
     }
     if (!write_active_model(entry.id)) {
-        out = error_json("could not write /data/PS5SD/model.txt");
+        out = error_json("could not write " + kModel);
         return 500;
     }
     std::printf("ps5sd: switch to %s asked for\n", entry.id.c_str());
@@ -1345,7 +1391,7 @@ bool save_settings(const AppSettings & settings) {
             return false;
         }
     }
-    return std::rename(tmp.c_str(), kSettings) == 0;
+    return std::rename(tmp.c_str(), kSettings.c_str()) == 0;
 }
 
 // The API key the TV shows: the key, unless there is none or the setting
@@ -1388,11 +1434,11 @@ bool set_api_key(bool on, std::string & error) {
                 return false;
             }
         }
-        if (std::rename(tmp.c_str(), kApiKey) != 0) {
+        if (std::rename(tmp.c_str(), kApiKey.c_str()) != 0) {
             error = std::string("could not write ") + kApiKey + ": " + std::strerror(errno);
             return false;
         }
-    } else if (::unlink(kApiKey) != 0 && errno != ENOENT) {
+    } else if (::unlink(kApiKey.c_str()) != 0 && errno != ENOENT) {
         error = std::string("could not delete ") + kApiKey + ": " + std::strerror(errno);
         return false;
     }
@@ -1539,6 +1585,70 @@ extern "C" int sd_app_request(const char * method, const char * path, const char
     } else if (m == "GET" && p == "info") {
         out    = info_json(get_app_version(), sd_version(), sd_commit(), get_app_build());
         status = 200;
+    } else if (m == "GET" && p == "storage/devices") {
+        auto devs = StorageManager::instance().list_devices();
+        nlohmann::json arr = nlohmann::json::array();
+        for (const auto & d : devs) {
+            arr.push_back({
+                { "mount", d.mount_path },
+                { "label", d.label },
+                { "total_bytes", d.total_bytes },
+                { "free_bytes", d.free_bytes },
+                { "is_active", d.is_active },
+                { "is_usb", d.is_usb },
+                { "has_models", d.has_models }
+            });
+        }
+        out    = arr.dump();
+        status = 200;
+    } else if (m == "POST" && p == "storage/select") {
+        const nlohmann::json j = nlohmann::json::parse(body != nullptr ? std::string(body, body_len) : std::string(), nullptr, false);
+        std::string mount = j.is_object() && j.contains("mount") && j["mount"].is_string() ? j["mount"].get<std::string>() : "";
+        std::string err;
+        if (StorageManager::instance().set_active_storage(mount, err)) {
+            update_storage_paths();
+            out    = nlohmann::json{ { "ok", true }, { "base_dir", StorageManager::instance().base_dir() } }.dump();
+            status = 200;
+        } else {
+            out    = error_json(err);
+            status = 400;
+        }
+    } else if (m == "GET" && p == "face/status") {
+        out    = FaceStudio::instance().status_json();
+        status = 200;
+    } else if (m == "POST" && p == "face/upload") {
+        std::string err;
+        if (FaceStudio::instance().set_reference_face(std::string(body, body_len), err)) {
+            out    = nlohmann::json{ { "ok", true }, { "has_face", true } }.dump();
+            status = 200;
+        } else {
+            out    = error_json(err);
+            status = 400;
+        }
+    } else if (m == "DELETE" && p == "face") {
+        std::string err;
+        FaceStudio::instance().clear_reference_face(err);
+        out    = nlohmann::json{ { "ok", true }, { "has_face", false } }.dump();
+        status = 200;
+    } else if (m == "GET" && p == "face/image") {
+        std::ifstream in(FaceStudio::instance().face_path(), std::ios::binary);
+        if (in) {
+            std::ostringstream ss;
+            ss << in.rdbuf();
+            out           = ss.str();
+            *content_type = "image/png";
+            status        = 200;
+        } else {
+            out    = error_json("no face reference uploaded");
+            status = 404;
+        }
+    } else if (m == "GET" && p == "companion/status") {
+        out    = nlohmann::json{
+            { "enabled", g_settings.telegram_enabled },
+            { "has_token", !g_settings.telegram_token.empty() },
+            { "running", CompanionBot::instance().is_running() }
+        }.dump();
+        status = 200;
     } else if (m == "GET" && p == "compat/sd-models") {
         out    = sd_models_json(g_library);
         status = 200;
@@ -1587,6 +1697,31 @@ extern "C" int sd_app_request(const char * method, const char * path, const char
             g_status.set_tv_images(next.tv_images);
             std::lock_guard<std::mutex> key_lock(g_key_mutex);
             show_api_key(g_api_key, next);
+
+            if (next.telegram_enabled && !next.telegram_token.empty()) {
+                CompanionBot::instance().start(
+                    next.telegram_token,
+                    next.telegram_chat_id,
+                    [](const std::string &, std::string &) -> std::string {
+                        return "";
+                    },
+                    []() -> std::string {
+                        auto snap = g_status.snapshot();
+                        std::ostringstream ss;
+                        ss << "Machete PS5SD Status:\n"
+                           << "Phase: " << snap.phase << "\n"
+                           << "Model: " << snap.model << "\n"
+                           << "SoC Temp: " << static_cast<int>(g_console.temp()) << " C\n"
+                           << "Power: " << static_cast<int>(g_console.power()) << " W\n"
+                           << "Fan: " << static_cast<int>(g_console.fan()) << " %\n"
+                           << "VRAM Free: " << (snap.vram_free / (1024 * 1024)) << " MB";
+                        return ss.str();
+                    }
+                );
+            } else if (!next.telegram_enabled) {
+                CompanionBot::instance().stop();
+            }
+
             out    = settings_json(next);
             status = 200;
         }
@@ -1940,34 +2075,59 @@ extern "C" void sd_activity_job_end(int ok, const char * output_path) {
 }
 
 int main(int, char **) {
+    StorageManager::instance().init();
+    update_storage_paths();
+    FaceStudio::instance().init(StorageManager::instance().faces_dir(), StorageManager::instance().models_dir());
+
     mkdir(kHomebrewBaseDir, 0777);
     mkdir(kHomebrewDir, 0777);
-    mkdir(kDir, 0777);
-    for (const char * dir : { kModels, kLoras, kEmbeddings, kPresets, kUpscalers, kTags }) {
-        mkdir(dir, 0777);  // uploads, downloads and sd-server's lists expect them
+    mkdir(kDir.c_str(), 0777);
+    for (const std::string & dir : { kModels, kLoras, kEmbeddings, kPresets, kUpscalers, kTags, StorageManager::instance().faces_dir() }) {
+        mkdir(dir.c_str(), 0777);  // uploads, downloads and sd-server's lists expect them
     }
     // stdout and stderr to a file the PC can fetch over FTP. Both append: with
     // "w", stdout kept its own offset and wrote over what stderr had appended
     // (the start of every error line). The file is emptied first instead.
-    // Dual-location logging: ensure both /data/PS5SD/app.log and
+    // Dual-location logging: ensure both active app.log and
     // /data/homebrew/PPSA99699/app.log capture identical application logs.
-    if (std::FILE * log = std::fopen(kLog, "w")) {
+    if (std::FILE * log = std::fopen(kLog.c_str(), "w")) {
         std::fclose(log);
     }
     unlink(kHomebrewLog);
-    if (link(kLog, kHomebrewLog) != 0) {
-        symlink(kLog, kHomebrewLog);
+    if (link(kLog.c_str(), kHomebrewLog) != 0) {
+        symlink(kLog.c_str(), kHomebrewLog);
     }
-    if (std::freopen(kLog, "a", stdout) != nullptr) {
+    if (std::freopen(kLog.c_str(), "a", stdout) != nullptr) {
         setvbuf(stdout, nullptr, _IOLBF, 0);
     }
-    if (std::freopen(kLog, "a", stderr) != nullptr) {
+    if (std::freopen(kLog.c_str(), "a", stderr) != nullptr) {
         setvbuf(stderr, nullptr, _IONBF, 0);
     }
     install_crash_handlers();
     std::printf("ps5sd: version " PS5SD_VERSION ", stable-diffusion.cpp %s (%s)\n", sd_version(), sd_commit());
     load_settings();
     load_api_key();
+    if (g_settings.telegram_enabled && !g_settings.telegram_token.empty()) {
+        CompanionBot::instance().start(
+            g_settings.telegram_token,
+            g_settings.telegram_chat_id,
+            [](const std::string &, std::string &) -> std::string {
+                return "";
+            },
+            []() -> std::string {
+                auto snap = g_status.snapshot();
+                std::ostringstream ss;
+                ss << "Machete PS5SD Status:\n"
+                   << "Phase: " << snap.phase << "\n"
+                   << "Model: " << snap.model << "\n"
+                   << "SoC Temp: " << static_cast<int>(g_console.temp()) << " C\n"
+                   << "Power: " << static_cast<int>(g_console.power()) << " W\n"
+                   << "Fan: " << static_cast<int>(g_console.fan()) << " %\n"
+                   << "VRAM Free: " << (snap.vram_free / (1024 * 1024)) << " MB";
+                return ss.str();
+            }
+        );
+    }
     // The images made with "Don't keep on the console" last until the title starts again.
     if (const int dropped = drop_temporary(kOutputs); dropped > 0) {
         std::printf("ps5sd: deleted %d image(s) that were not to be kept\n", dropped);
@@ -1979,7 +2139,7 @@ int main(int, char **) {
     // One device-local heap over the whole pool (RADV splits an APU's 2/3 to
     // 1/3), and a HOME, which a title lacks and libraries look up.
     setenv("radv_enable_unified_heap_on_apu", "true", 1);
-    setenv("HOME", kDir, 0);
+    setenv("HOME", kDir.c_str(), 0);
     // Driver and backend switches to measure with, one NAME=value a line in
     // env.txt, set before the GPU opens; only the driver's, ggml's, sd's and
     // the app's own (PS5SD_VIDEOOUT).
@@ -2013,7 +2173,7 @@ int main(int, char **) {
     // server has started (the same files server_args() reads), and the
     // console's address (watch_address() keeps it current).
     {
-        const ServerConfig config = read_server_config(kModel, kServerArgs, kPort);
+        const ServerConfig config = read_server_config(kModel.c_str(), kServerArgs.c_str(), kPort);
         g_status.set_model(config.model);
         g_status.set_port(config.port);
     }

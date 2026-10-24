@@ -33,6 +33,13 @@ class TagIndex {
   public:
     explicit TagIndex(std::string dir) : dir_(std::move(dir)) {}
 
+    void set_dir(std::string dir) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        dir_ = std::move(dir);
+        checked_ = -1000;
+        stamp_.clear();
+    }
+
     // At most limit tags for what was typed (at least 2 characters). Reads the
     // files the first time, and again when they changed (looked at no more
     // often than every few seconds).

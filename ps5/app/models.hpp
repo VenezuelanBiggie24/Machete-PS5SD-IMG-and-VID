@@ -69,8 +69,9 @@ struct ModelEntry {
 };
 
 struct ModelLibrary {
-    std::string models_dir;   // /data/PS5SD/models
-    std::string presets_dir;  // /data/PS5SD/presets
+    std::string              models_dir;          // primary models directory
+    std::string              presets_dir;         // primary presets directory
+    std::vector<std::string> extra_models_dirs;   // additional search directories (e.g. USB or fallback /data/PS5SD)
 
     // Every entry, presets first, each group sorted by id.
     std::vector<ModelEntry> list() const;
@@ -237,10 +238,19 @@ std::string error_json(const std::string & message);
 std::string id_from_json(const std::string & body);
 
 // The app's own settings: GET and POST /ps5sd/v1/app/settings, kept in
-// /data/PS5SD/settings.json.
+// <data_dir>/settings.json.
 struct AppSettings {
-    bool tv_images  = true;  // the TV shows the images and the prompts
-    bool tv_api_key = true;  // the TV shows the API key (when there is one)
+    bool        tv_images             = true;   // the TV shows the images and the prompts
+    bool        tv_api_key            = true;   // the TV shows the API key (when there is one)
+    bool        usb_storage_enabled   = false;  // external USB storage enabled
+    std::string usb_mount             = "";     // active USB mount (e.g. /mnt/usb0)
+    bool        screensaver_mode      = true;   // ambient gallery screensaver when idle
+    int         screensaver_timeout_s = 60;     // idle seconds before screensaver
+    bool        telegram_enabled      = false;  // remote Telegram companion bot
+    std::string telegram_token        = "";     // Telegram Bot token
+    std::string telegram_chat_id      = "";     // Telegram Chat ID restriction
+    int         thermal_warn_temp     = 80;     // APU temperature threshold for thermal warning
+    bool        face_studio_enabled   = false;  // PhotoMaker / Face identity preservation
 };
 
 // {"tv_images": true, "tv_api_key": true}.

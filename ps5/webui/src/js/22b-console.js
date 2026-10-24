@@ -44,6 +44,16 @@
     var w = now && now.watts !== null ? Math.round(now.watts) + ' W' : '';
     text($('cchip-t'), t);
     text($('cchip-w'), t && w ? ' · ' + w : w);
+    var chip = $('cchip');
+    if (chip) {
+      if (now && now.soc_c !== null && now.soc_c >= 80) {
+        chip.classList.add('thermal-warn');
+        chip.title = 'ALERT: SoC Temperature is ' + Math.round(now.soc_c) + '°C (Safety threshold reached)';
+      } else {
+        chip.classList.remove('thermal-warn');
+        chip.title = 'The console: temperature and power (Settings)';
+      }
+    }
     show('cchip', !!(t || w), 'flex');
   }
 

@@ -115,6 +115,33 @@
       </div>
     </div>
 
+    <div class="facestudio-box" id="facestudio-box">
+      <div class="face-header">
+        <label class="opt face-toggle-label">
+          <input type="checkbox" id="facestudio-enable">
+          <span class="face-title">Face Studio (Identity Lock)</span>
+        </label>
+        <span class="face-badge" id="facestudio-badge">Standby</span>
+      </div>
+      <div class="face-content" id="facestudio-content" style="display:none">
+        <div class="face-preview-row">
+          <div class="face-avatar" id="face-avatar">
+            <img id="face-img" alt="Reference Face" style="display:none">
+            <span class="face-placeholder" id="face-placeholder">No Face</span>
+          </div>
+          <div class="face-controls">
+            <p class="hint">Upload a portrait to preserve your facial features in generated images.</p>
+            <div class="btnrow">
+              <button type="button" id="face-upload-btn">Upload Face Photo</button>
+              <button type="button" id="face-clear-btn" class="danger" style="display:none">Remove Face</button>
+            </div>
+            <input type="file" id="face-file-input" accept="image/*" style="display:none">
+            <div class="hint face-method-hint" id="face-method-hint"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="modes" id="modes" role="group" aria-label="Where the image comes from">
       <button type="button" id="mode-image" class="on" aria-pressed="true">Image</button>
       <button type="button" id="mode-edit" aria-pressed="false">Edit</button>
@@ -446,12 +473,44 @@
       <div class="ph"><h2>PS5 screen</h2></div>
       <label class="opt"><input type="checkbox" id="opt-tv"> Show images and prompts on the TV</label>
     </section>
+    <section class="panel" id="pnl-storage">
+      <div class="ph"><h2>Storage & USB Devices</h2><button type="button" class="info" id="storage-refresh-btn" title="Scan Storage">Scan</button></div>
+      <div class="hint" id="storage-active-desc">Active Storage: Internal (/data)</div>
+      <div id="storage-devices-list" class="storage-list"></div>
+      <label class="opt" style="margin-top:0.8rem"><input type="checkbox" id="opt-usb-enable"> Enable External USB Drives</label>
+      <div class="hint">When enabled, Machete searches models and outputs across all connected USB drives (/mnt/usb0 .. /mnt/usb7).</div>
+    </section>
     <section class="panel" id="opt-up-box" style="display:none">
       <div class="ph"><h2>Upscale button</h2><button type="button" class="info" data-help="help-upscale-button" aria-label="More about the Upscale button">&#9432;</button></div>
       <select id="opt-up" aria-label="Upscaler of the Upscale button"></select>
     </section>
   </div>
   <div class="mcol">
+    <section class="panel" id="pnl-thermal">
+      <div class="ph"><h2>Thermal Guardian & Screensaver</h2></div>
+      <label class="opt"><input type="checkbox" id="opt-screensaver"> Ambient Art Screensaver on TV (after 60s idle)</label>
+      <div class="row" style="margin-top:0.5rem">
+        <div>
+          <div class="lbl">Thermal Warning Threshold (°C)</div>
+          <div class="step"><button type="button" id="th-thresh-">&minus;</button><input id="opt-th-thresh" type="number" min="70" max="95" step="1" value="80" aria-label="Thermal Threshold"><button type="button" id="th-thresh+">+</button></div>
+        </div>
+      </div>
+      <p class="hint">Visual alerts pulse red on TV and Web when SoC temperature exceeds this safety limit.</p>
+    </section>
+    <section class="panel" id="pnl-companion">
+      <div class="ph"><h2>Remote Companion (Telegram)</h2><span class="badge" id="bot-badge">Off</span></div>
+      <label class="opt"><input type="checkbox" id="opt-tg-enable"> Enable Telegram Companion Bot</label>
+      <div id="tg-config-box" style="display:none;margin-top:0.8rem">
+        <label for="opt-tg-token">Bot Token (from @BotFather)</label>
+        <input type="text" id="opt-tg-token" placeholder="123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ" autocomplete="off">
+        <label for="opt-tg-chat" style="margin-top:0.5rem">Authorized Chat ID (optional lock)</label>
+        <input type="text" id="opt-tg-chat" placeholder="Your Telegram user or chat ID" autocomplete="off">
+        <div class="btnrow" style="margin-top:0.8rem">
+          <button type="button" id="tg-save-btn">Save Companion Settings</button>
+        </div>
+        <p class="hint">Allows generating images and monitoring console temperatures directly from Telegram on your phone while the PS5 is in standby or running.</p>
+      </div>
+    </section>
     <section class="panel" id="opt-auth-box" style="display:none">
       <div class="ph"><h2>API key</h2></div>
       <p class="hint" id="auth-state" style="margin-top:0"></p>
@@ -681,7 +740,9 @@
 @@include js/17-catalog.js
 @@include js/18-hugging-face-search.js
 @@include js/19-image-to-image-and-inpainting.js
+@@include js/19b-face-studio.js
 @@include js/20-upscalers.js
+@@include js/20b-storage-and-companion.js
 @@include js/21-video-models.js
 @@include js/21b-video-start.js
 @@include js/22-server-info.js

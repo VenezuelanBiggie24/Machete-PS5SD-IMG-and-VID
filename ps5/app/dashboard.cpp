@@ -381,9 +381,21 @@ void Dashboard::update(const AppStatus::Snapshot & s, float dt) {
         // either, and what was shown is let go.
         snap_.preview.reset();
         snap_.recent.clear();
+        screensaver_active_ = false;
+        idle_time_ = 0.0f;
     }
     clock_ += dt;
     age_ += dt;
+
+    if (s.state == State::generating) {
+        idle_time_ = 0.0f;
+        screensaver_active_ = false;
+    } else if (s.tv_images && !pictures_.empty()) {
+        idle_time_ += dt;
+        if (idle_time_ >= 60.0f) {
+            screensaver_active_ = true;
+        }
+    }
 
     accent_.target(state_color(s.state));
     accent_.update(dt, 6.0f);
@@ -546,6 +558,21 @@ void Dashboard::compose(hui::gfx::Renderer & renderer, const char * version, con
 }
 
 void Dashboard::draw(DrawList & list, const char * version, const char * build) const {
+    if (screensaver_active_ && !pictures_.empty() && pictures_[0].large.id != 0) {
+        const Texture & t = pictures_[0].large;
+        const Rect full{ 0, 0, 1920, 1080 };
+        list.image(t.id, contain(full, t.width, t.height), hui::gfx::kFullUv, Color{ 1, 1, 1, 1 }, 0);
+
+        const Rect caption{ 120, 930, 1680, 96 };
+        list.rounded_rect(caption, 24, Color::rgb(0x0e1424, 0.88f));
+        list.bordered_rect(caption, 24, kClear, 1.5f, with_a(kAmber, 0.5f));
+        caps(list, "MACHETE AMBIENT GALLERY", caption.x + 32, caption.y + 36, 15, kAmber);
+        const std::string pr = pictures_[0].prompt.empty() ? "Machete Studio Creation" : pictures_[0].prompt;
+        hui::ui::text(list, fonts_.regular, fonts_.regular.font->fit(pr, 20, 1200), caption.x + 32, caption.y + 68, 20, with_a(kInk, 0.9f));
+        draw_qr(list, caption.x + caption.w - 16, caption.cy());
+        return;
+    }
+
     // The parts arrive one after the other, each rising a little.
     int         index = 0;
     const auto  begin = [&] {
@@ -907,6 +934,9 @@ void Dashboard::draw_memory(DrawList & list, const Rect & r) const {
     const AppStatus::Snapshot & s = snap_;
     draw_panel(list, r, 24, kRose, 0.0f);
     caps(list, "Memory", r.x + 24, r.y + 36, 17, kRose);
+    if (!std::isnan(s.console.soc_c) && s.console.soc_c >= 80.0) {
+        caps(list, "ALERT: SoC >= 80C", r.x + 130, r.y + 36, 15, kRose);
+    }
     char text[64];
     if (s.free_gib >= 0 && s.pool_gib > 0) {
         std::snprintf(text, sizeof(text), "%.1f of %.1f GiB free", s.free_gib, s.pool_gib);

@@ -246,6 +246,9 @@ cxx -std=c++17 "${eh[@]}" -I "$sd/thirdparty" -c "$app_src/downloader.cpp" -o "$
 cxx -std=c++17 "${eh[@]}" -I "$mbedtls/include" -I "$out" -c "$app_src/https_client.cpp" -o "$obj/https_client.o"
 cxx -std=c++17 "${eh[@]}" -c "$app_src/ftp_writer.cpp" -o "$obj/ftp_writer.o"
 cxx -std=c++17 "${eh[@]}" -I "$sd/thirdparty" -c "$app_src/upload.cpp" -o "$obj/upload.o"
+cxx -std=c++17 "${eh[@]}" -I "$sd/thirdparty" -c "$app_src/storage_manager.cpp" -o "$obj/storage_manager.o"
+cxx -std=c++17 "${eh[@]}" -I "$sd/thirdparty" -c "$app_src/face_studio.cpp" -o "$obj/face_studio.o"
+cxx -std=c++17 "${eh[@]}" -I "$sd/thirdparty" -I "$mbedtls/include" -I "$out" -c "$app_src/companion_bot.cpp" -o "$obj/companion_bot.o"
 if [ "$display" = 1 ]; then
     for src in display dashboard qrcodegen; do
         cxx "${eh[@]}" "${kitinc[@]}" -I "$app_src" -c "$app_src/$src.cpp" -o "$obj/$src.o"
@@ -262,7 +265,8 @@ rm -f "$obj/libps5app_compat.a"
 cxx -fno-exceptions -fno-rtti -c "$vk/tooling/native/app_crt.cpp" -o "$obj/app_crt.o"
 cxx -fexceptions -fcxx-exceptions -c "$app_src/cpp_runtime.cpp" -o "$obj/app_cpp_runtime.o"
 app_objects=("$obj/app_crt.o" "$obj/app_cpp_runtime.o" "$obj/main.o" "$obj/gen_args.o" "$obj/app_status.o" "$obj/console_stats.o"
-    "$obj/models.o" "$obj/net_family.o" "$obj/mem_fit.o" "$obj/gallery_labels.o" "$obj/prompt_tags.o" "$obj/download_core.o" "$obj/downloader.o" "$obj/https_client.o" "$obj/ftp_writer.o" "$obj/upload.o")
+    "$obj/models.o" "$obj/net_family.o" "$obj/mem_fit.o" "$obj/gallery_labels.o" "$obj/prompt_tags.o" "$obj/download_core.o" "$obj/downloader.o" "$obj/https_client.o" "$obj/ftp_writer.o" "$obj/upload.o"
+    "$obj/storage_manager.o" "$obj/face_studio.o" "$obj/companion_bot.o")
 [ "$display" = 1 ] && app_objects+=("$obj/display.o" "$obj/dashboard.o" "$obj/qrcodegen.o" "$obj/image_file.o")
 
 # ---- the screen (display builds only) --------------------------------------------

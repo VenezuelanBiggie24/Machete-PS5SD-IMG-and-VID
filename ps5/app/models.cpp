@@ -284,11 +284,26 @@ std::vector<ModelEntry> ModelLibrary::list() const {
         presets.push_back(parse_preset(p.stem().u8string(), text.str()));
     }
     ec.clear();
-    for (fs::directory_iterator it(fs::u8path(models_dir), ec), end; !ec && it != end; it.increment(ec)) {
-        const fs::path    p    = it->path();
-        const std::string name = p.filename().u8string();
-        if (is_checkpoint_name(name) && is_file(p)) {
-            files.push_back(file_entry(name, p.u8string()));
+    std::vector<std::string> all_model_dirs;
+    if (!models_dir.empty()) {
+        all_model_dirs.push_back(models_dir);
+    }
+    for (const auto & d : extra_models_dirs) {
+        if (!d.empty() && std::find(all_model_dirs.begin(), all_model_dirs.end(), d) == all_model_dirs.end()) {
+            all_model_dirs.push_back(d);
+        }
+    }
+    for (const auto & mdir : all_model_dirs) {
+        ec.clear();
+        for (fs::directory_iterator it(fs::u8path(mdir), ec), end; !ec && it != end; it.increment(ec)) {
+            const fs::path    p    = it->path();
+            const std::string name = p.filename().u8string();
+            if (is_checkpoint_name(name) && is_file(p)) {
+                // Avoid duplicate filenames across directories
+                if (std::none_of(files.begin(), files.end(), [&](const ModelEntry & me) { return me.id == name; })) {
+                    files.push_back(file_entry(name, p.u8string()));
+                }
+            }
         }
     }
     const auto by_id = [](const ModelEntry & a, const ModelEntry & b) { return a.id < b.id; };
@@ -334,6 +349,13 @@ bool ModelLibrary::find(const std::string & id_in, ModelEntry & out, std::string
     if (is_checkpoint_name(id) && is_file(file)) {
         out = file_entry(id, file.u8string());
         return true;
+    }
+    for (const auto & mdir : extra_models_dirs) {
+        const fs::path alt_file = fs::u8path(mdir) / fs::u8path(id);
+        if (is_checkpoint_name(id) && is_file(alt_file)) {
+            out = file_entry(id, alt_file.u8string());
+            return true;
+        }
     }
     error = "no model " + id + " in " + models_dir + " or " + presets_dir;
     return false;
@@ -1093,7 +1115,19 @@ std::string id_from_json(const std::string & body) {
 }
 
 std::string settings_json(const AppSettings & settings) {
-    return nlohmann::json{ { "tv_images", settings.tv_images }, { "tv_api_key", settings.tv_api_key } }.dump();
+    return nlohmann::json{
+        { "tv_images", settings.tv_images },
+        { "tv_api_key", settings.tv_api_key },
+        { "usb_storage_enabled", settings.usb_storage_enabled },
+        { "usb_mount", settings.usb_mount },
+        { "screensaver_mode", settings.screensaver_mode },
+        { "screensaver_timeout_s", settings.screensaver_timeout_s },
+        { "telegram_enabled", settings.telegram_enabled },
+        { "telegram_token", settings.telegram_token },
+        { "telegram_chat_id", settings.telegram_chat_id },
+        { "thermal_warn_temp", settings.thermal_warn_temp },
+        { "face_studio_enabled", settings.face_studio_enabled }
+    }.dump();
 }
 
 bool apply_settings(const std::string & body, AppSettings & settings, std::string & error) {
@@ -1116,6 +1150,33 @@ bool apply_settings(const std::string & body, AppSettings & settings, std::strin
             return false;
         }
         next.tv_api_key = j["tv_api_key"].get<bool>();
+    }
+    if (j.contains("usb_storage_enabled") && j["usb_storage_enabled"].is_boolean()) {
+        next.usb_storage_enabled = j["usb_storage_enabled"].get<bool>();
+    }
+    if (j.contains("usb_mount") && j["usb_mount"].is_string()) {
+        next.usb_mount = j["usb_mount"].get<std::string>();
+    }
+    if (j.contains("screensaver_mode") && j["screensaver_mode"].is_boolean()) {
+        next.screensaver_mode = j["screensaver_mode"].get<bool>();
+    }
+    if (j.contains("screensaver_timeout_s") && j["screensaver_timeout_s"].is_number_integer()) {
+        next.screensaver_timeout_s = j["screensaver_timeout_s"].get<int>();
+    }
+    if (j.contains("telegram_enabled") && j["telegram_enabled"].is_boolean()) {
+        next.telegram_enabled = j["telegram_enabled"].get<bool>();
+    }
+    if (j.contains("telegram_token") && j["telegram_token"].is_string()) {
+        next.telegram_token = j["telegram_token"].get<std::string>();
+    }
+    if (j.contains("telegram_chat_id") && j["telegram_chat_id"].is_string()) {
+        next.telegram_chat_id = j["telegram_chat_id"].get<std::string>();
+    }
+    if (j.contains("thermal_warn_temp") && j["thermal_warn_temp"].is_number_integer()) {
+        next.thermal_warn_temp = j["thermal_warn_temp"].get<int>();
+    }
+    if (j.contains("face_studio_enabled") && j["face_studio_enabled"].is_boolean()) {
+        next.face_studio_enabled = j["face_studio_enabled"].get<bool>();
     }
     settings = next;
     return true;

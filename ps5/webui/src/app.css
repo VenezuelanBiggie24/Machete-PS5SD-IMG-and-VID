@@ -568,3 +568,40 @@
     .count input { width: 2.4rem; margin: 0 0.15rem; }
     .dice { width: 3rem; margin-left: 0.3rem; }
   }
+
+  /* Thermal Guardian Warning */
+  .cchip.thermal-warn { background: rgba(255, 75, 75, 0.22); border-color: var(--bad); color: var(--bad); animation: pulse-warn 1.5s infinite; }
+  @keyframes pulse-warn {
+    0% { box-shadow: 0 0 0 0 rgba(255, 75, 75, 0.4); }
+    70% { box-shadow: 0 0 0 8px rgba(255, 75, 75, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(255, 75, 75, 0); }
+  }
+
+  /* Face Studio Box */
+  .facestudio-box { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 0.8rem 1rem; margin: 0.8rem 0; }
+  .face-header { display: flex; align-items: center; justify-content: space-between; }
+  .face-title { font-weight: 600; color: var(--text); margin-left: 0.4rem; }
+  .face-badge { font-size: 0.75rem; padding: 0.15rem 0.6rem; border-radius: 1rem; background: var(--field); border: 1px solid var(--border); color: var(--muted); }
+  .face-badge.active { background: rgba(45, 143, 240, 0.2); border-color: var(--accent-hi); color: var(--accent-hi); }
+  .face-content { margin-top: 0.8rem; padding-top: 0.8rem; border-top: 1px solid var(--border); }
+  .face-preview-row { display: flex; gap: 1rem; align-items: center; }
+  .face-avatar { width: 4.8rem; height: 4.8rem; border-radius: 10px; background: var(--field); border: 1px dashed var(--border);
+    display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0; position: relative; }
+  .face-avatar img { width: 100%; height: 100%; object-fit: cover; }
+  .face-placeholder { font-size: 0.65rem; color: var(--faint); text-align: center; padding: 0.2rem; }
+  .face-controls { flex: 1; min-width: 0; }
+  .face-controls .hint { margin: 0 0 0.5rem; }
+  .face-method-hint { font-size: 0.75rem; color: var(--accent-hi); margin-top: 0.4rem; }
+
+  /* Storage & USB Manager */
+  .storage-list { display: flex; flex-direction: column; gap: 0.6rem; margin-top: 0.6rem; }
+  .storage-item { background: var(--field); border: 1px solid var(--border); border-radius: 8px; padding: 0.7rem 0.9rem; }
+  .storage-item.active { border-color: var(--accent); background: rgba(0, 112, 209, 0.08); }
+  .storage-head { display: flex; justify-content: space-between; align-items: baseline; }
+  .storage-name { font-weight: 600; color: var(--text); font-size: 0.9rem; }
+  .storage-badge { font-size: 0.75rem; padding: 0.1rem 0.5rem; border-radius: 1rem; background: var(--raised); color: var(--muted); }
+  .storage-badge.cur { background: var(--accent); color: #fff; }
+  .storage-bar-box { background: var(--raised); border-radius: 4px; height: 6px; margin: 0.5rem 0 0.3rem; overflow: hidden; }
+  .storage-bar-fill { background: var(--accent-hi); height: 100%; }
+  .storage-info { display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--muted); }
+  .storage-btn-row { margin-top: 0.5rem; display: flex; gap: 0.5rem; }

@@ -612,6 +612,43 @@
     .count input { width: 2.4rem; margin: 0 0.15rem; }
     .dice { width: 3rem; margin-left: 0.3rem; }
   }
+
+  /* Thermal Guardian Warning */
+  .cchip.thermal-warn { background: rgba(255, 75, 75, 0.22); border-color: var(--bad); color: var(--bad); animation: pulse-warn 1.5s infinite; }
+  @keyframes pulse-warn {
+    0% { box-shadow: 0 0 0 0 rgba(255, 75, 75, 0.4); }
+    70% { box-shadow: 0 0 0 8px rgba(255, 75, 75, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(255, 75, 75, 0); }
+  }
+
+  /* Face Studio Box */
+  .facestudio-box { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 0.8rem 1rem; margin: 0.8rem 0; }
+  .face-header { display: flex; align-items: center; justify-content: space-between; }
+  .face-title { font-weight: 600; color: var(--text); margin-left: 0.4rem; }
+  .face-badge { font-size: 0.75rem; padding: 0.15rem 0.6rem; border-radius: 1rem; background: var(--field); border: 1px solid var(--border); color: var(--muted); }
+  .face-badge.active { background: rgba(45, 143, 240, 0.2); border-color: var(--accent-hi); color: var(--accent-hi); }
+  .face-content { margin-top: 0.8rem; padding-top: 0.8rem; border-top: 1px solid var(--border); }
+  .face-preview-row { display: flex; gap: 1rem; align-items: center; }
+  .face-avatar { width: 4.8rem; height: 4.8rem; border-radius: 10px; background: var(--field); border: 1px dashed var(--border);
+    display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0; position: relative; }
+  .face-avatar img { width: 100%; height: 100%; object-fit: cover; }
+  .face-placeholder { font-size: 0.65rem; color: var(--faint); text-align: center; padding: 0.2rem; }
+  .face-controls { flex: 1; min-width: 0; }
+  .face-controls .hint { margin: 0 0 0.5rem; }
+  .face-method-hint { font-size: 0.75rem; color: var(--accent-hi); margin-top: 0.4rem; }
+
+  /* Storage & USB Manager */
+  .storage-list { display: flex; flex-direction: column; gap: 0.6rem; margin-top: 0.6rem; }
+  .storage-item { background: var(--field); border: 1px solid var(--border); border-radius: 8px; padding: 0.7rem 0.9rem; }
+  .storage-item.active { border-color: var(--accent); background: rgba(0, 112, 209, 0.08); }
+  .storage-head { display: flex; justify-content: space-between; align-items: baseline; }
+  .storage-name { font-weight: 600; color: var(--text); font-size: 0.9rem; }
+  .storage-badge { font-size: 0.75rem; padding: 0.1rem 0.5rem; border-radius: 1rem; background: var(--raised); color: var(--muted); }
+  .storage-badge.cur { background: var(--accent); color: #fff; }
+  .storage-bar-box { background: var(--raised); border-radius: 4px; height: 6px; margin: 0.5rem 0 0.3rem; overflow: hidden; }
+  .storage-bar-fill { background: var(--accent-hi); height: 100%; }
+  .storage-info { display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--muted); }
+  .storage-btn-row { margin-top: 0.5rem; display: flex; gap: 0.5rem; }
 </style>
 </head>
 <body>
@@ -681,6 +718,33 @@
         <span class="fill"></span>
         <button type="button" class="linkbtn" id="neg-copy">Copy</button>
         <button type="button" class="linkbtn" id="neg-paste" style="display:none">Paste</button>
+      </div>
+    </div>
+
+    <div class="facestudio-box" id="facestudio-box">
+      <div class="face-header">
+        <label class="opt face-toggle-label">
+          <input type="checkbox" id="facestudio-enable">
+          <span class="face-title">Face Studio (Identity Lock)</span>
+        </label>
+        <span class="face-badge" id="facestudio-badge">Standby</span>
+      </div>
+      <div class="face-content" id="facestudio-content" style="display:none">
+        <div class="face-preview-row">
+          <div class="face-avatar" id="face-avatar">
+            <img id="face-img" alt="Reference Face" style="display:none">
+            <span class="face-placeholder" id="face-placeholder">No Face</span>
+          </div>
+          <div class="face-controls">
+            <p class="hint">Upload a portrait to preserve your facial features in generated images.</p>
+            <div class="btnrow">
+              <button type="button" id="face-upload-btn">Upload Face Photo</button>
+              <button type="button" id="face-clear-btn" class="danger" style="display:none">Remove Face</button>
+            </div>
+            <input type="file" id="face-file-input" accept="image/*" style="display:none">
+            <div class="hint face-method-hint" id="face-method-hint"></div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -1015,12 +1079,44 @@
       <div class="ph"><h2>PS5 screen</h2></div>
       <label class="opt"><input type="checkbox" id="opt-tv"> Show images and prompts on the TV</label>
     </section>
+    <section class="panel" id="pnl-storage">
+      <div class="ph"><h2>Storage & USB Devices</h2><button type="button" class="info" id="storage-refresh-btn" title="Scan Storage">Scan</button></div>
+      <div class="hint" id="storage-active-desc">Active Storage: Internal (/data)</div>
+      <div id="storage-devices-list" class="storage-list"></div>
+      <label class="opt" style="margin-top:0.8rem"><input type="checkbox" id="opt-usb-enable"> Enable External USB Drives</label>
+      <div class="hint">When enabled, Machete searches models and outputs across all connected USB drives (/mnt/usb0 .. /mnt/usb7).</div>
+    </section>
     <section class="panel" id="opt-up-box" style="display:none">
       <div class="ph"><h2>Upscale button</h2><button type="button" class="info" data-help="help-upscale-button" aria-label="More about the Upscale button">&#9432;</button></div>
       <select id="opt-up" aria-label="Upscaler of the Upscale button"></select>
     </section>
   </div>
   <div class="mcol">
+    <section class="panel" id="pnl-thermal">
+      <div class="ph"><h2>Thermal Guardian & Screensaver</h2></div>
+      <label class="opt"><input type="checkbox" id="opt-screensaver"> Ambient Art Screensaver on TV (after 60s idle)</label>
+      <div class="row" style="margin-top:0.5rem">
+        <div>
+          <div class="lbl">Thermal Warning Threshold (°C)</div>
+          <div class="step"><button type="button" id="th-thresh-">&minus;</button><input id="opt-th-thresh" type="number" min="70" max="95" step="1" value="80" aria-label="Thermal Threshold"><button type="button" id="th-thresh+">+</button></div>
+        </div>
+      </div>
+      <p class="hint">Visual alerts pulse red on TV and Web when SoC temperature exceeds this safety limit.</p>
+    </section>
+    <section class="panel" id="pnl-companion">
+      <div class="ph"><h2>Remote Companion (Telegram)</h2><span class="badge" id="bot-badge">Off</span></div>
+      <label class="opt"><input type="checkbox" id="opt-tg-enable"> Enable Telegram Companion Bot</label>
+      <div id="tg-config-box" style="display:none;margin-top:0.8rem">
+        <label for="opt-tg-token">Bot Token (from @BotFather)</label>
+        <input type="text" id="opt-tg-token" placeholder="123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ" autocomplete="off">
+        <label for="opt-tg-chat" style="margin-top:0.5rem">Authorized Chat ID (optional lock)</label>
+        <input type="text" id="opt-tg-chat" placeholder="Your Telegram user or chat ID" autocomplete="off">
+        <div class="btnrow" style="margin-top:0.8rem">
+          <button type="button" id="tg-save-btn">Save Companion Settings</button>
+        </div>
+        <p class="hint">Allows generating images and monitoring console temperatures directly from Telegram on your phone while the PS5 is in standby or running.</p>
+      </div>
+    </section>
     <section class="panel" id="opt-auth-box" style="display:none">
       <div class="ph"><h2>API key</h2></div>
       <p class="hint" id="auth-state" style="margin-top:0"></p>
@@ -6591,6 +6687,162 @@
     })();
   }
 
+  // ---------- Face Studio (Identity Lock) ----------
+  var faceState = {
+    enabled: false,
+    hasFace: false,
+    photoMakerAvailable: false
+  };
+
+  function updateFaceUi() {
+    var enBox = $('facestudio-enable');
+    if (enBox) enBox.checked = faceState.enabled;
+    show('facestudio-content', faceState.enabled);
+
+    var badge = $('facestudio-badge');
+    if (badge) {
+      if (faceState.enabled && faceState.hasFace) {
+        badge.className = 'face-badge active';
+        text(badge, 'Locked');
+      } else if (faceState.enabled) {
+        badge.className = 'face-badge';
+        text(badge, 'No Face');
+      } else {
+        badge.className = 'face-badge';
+        text(badge, 'Standby');
+      }
+    }
+
+    var img = $('face-img');
+    var placeholder = $('face-placeholder');
+    var clearBtn = $('face-clear-btn');
+    if (faceState.hasFace) {
+      if (img) {
+        img.src = APP + '/face/image?t=' + Date.now();
+        img.style.display = 'block';
+      }
+      if (placeholder) placeholder.style.display = 'none';
+      if (clearBtn) clearBtn.style.display = 'inline-block';
+    } else {
+      if (img) img.style.display = 'none';
+      if (placeholder) placeholder.style.display = 'block';
+      if (clearBtn) clearBtn.style.display = 'none';
+    }
+
+    var hint = $('face-method-hint');
+    if (hint) {
+      if (faceState.photoMakerAvailable) {
+        text(hint, 'PhotoMaker adapter detected: Native identity transfer active.');
+      } else {
+        text(hint, 'Facial guidance active: Auto-injects identity reference.');
+      }
+    }
+  }
+
+  function loadFaceStudio() {
+    req('GET', APP + '/face/status', null, function (code, data) {
+      if (code === 200 && data) {
+        faceState.hasFace = !!data.has_face;
+        faceState.photoMakerAvailable = !!data.photomaker_available;
+      }
+      req('GET', APP + '/settings', null, function (sCode, sData) {
+        if (sCode === 200 && sData) {
+          faceState.enabled = !!sData.face_studio_enabled;
+        }
+        updateFaceUi();
+      });
+    });
+  }
+
+  function toggleFaceStudio() {
+    var want = $('facestudio-enable').checked;
+    req('POST', APP + '/settings', { face_studio_enabled: want }, function (code, data) {
+      if (code === 200 && data) {
+        faceState.enabled = !!data.face_studio_enabled;
+        toast(faceState.enabled ? 'Face Studio enabled.' : 'Face Studio disabled.');
+      } else {
+        $('facestudio-enable').checked = !want;
+        toast('Could not change Face Studio setting.');
+      }
+      updateFaceUi();
+    });
+  }
+
+  function uploadFaceBuffer(buf) {
+    var x = new XMLHttpRequest();
+    x.open('POST', APP + '/face/upload', true);
+    x.setRequestHeader('X-PS5SD-Request', '1');
+    x.setRequestHeader('Content-Type', 'image/png');
+    x.onreadystatechange = function () {
+      if (x.readyState !== 4) return;
+      var res = null;
+      try { res = JSON.parse(x.responseText); } catch (e) {}
+      if (x.status === 200 && res && res.ok) {
+        toast('Reference face updated.');
+        loadFaceStudio();
+      } else {
+        toast('Failed to upload face reference: ' + (res && res.error ? res.error : 'error ' + x.status));
+      }
+    };
+    x.send(buf);
+  }
+
+  function handleFaceFile(file) {
+    if (!file || !file.type.match(/^image\//)) {
+      toast('Please choose a valid image file (PNG/JPEG).');
+      return;
+    }
+    var reader = new FileReader();
+    reader.onload = function (e) {
+      uploadFaceBuffer(e.target.result);
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  function clearFaceReference() {
+    req('DELETE', APP + '/face', null, function (code, data) {
+      if (code === 200 && data && data.ok) {
+        toast('Reference face cleared.');
+        loadFaceStudio();
+      } else {
+        toast('Could not clear face reference.');
+      }
+    });
+  }
+
+  function initFaceStudio() {
+    var en = $('facestudio-enable');
+    if (en) en.onchange = toggleFaceStudio;
+
+    var upBtn = $('face-upload-btn');
+    var fileInput = $('face-file-input');
+    if (upBtn && fileInput) {
+      upBtn.onclick = function () { fileInput.click(); };
+      fileInput.onchange = function () {
+        if (fileInput.files && fileInput.files[0]) {
+          handleFaceFile(fileInput.files[0]);
+          fileInput.value = '';
+        }
+      };
+    }
+
+    var clrBtn = $('face-clear-btn');
+    if (clrBtn) clrBtn.onclick = clearFaceReference;
+
+    var avatar = $('face-avatar');
+    if (avatar) {
+      avatar.ondragover = function (e) { e.preventDefault(); return false; };
+      avatar.ondrop = function (e) {
+        e.preventDefault();
+        if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) {
+          handleFaceFile(e.dataTransfer.files[0]);
+        }
+        return false;
+      };
+    }
+
+    loadFaceStudio();
+  }
   // ---------- upscalers ----------
   // The ESRGAN models in /data/PS5SD/upscalers: for the hires fix and the Upscale button. Two
   // well-known ones can be fetched with one click (the Hugging Face copies are byte for byte
@@ -6767,6 +7019,210 @@
     });
   }
 
+  // ---------- Storage Manager & Telegram Companion ----------
+  var storageDevices = [];
+
+  function formatBytes(bytes) {
+    if (!bytes || bytes <= 0) return '0 GB';
+    var gib = bytes / (1024 * 1024 * 1024);
+    if (gib >= 1000) {
+      return (gib / 1024).toFixed(2) + ' TB';
+    }
+    return gib.toFixed(1) + ' GB';
+  }
+
+  function renderStorageDevices() {
+    var list = $('storage-devices-list');
+    if (!list) return;
+    clear(list);
+
+    if (!storageDevices || storageDevices.length === 0) {
+      list.appendChild(el('div', 'hint', 'No storage devices found.'));
+      return;
+    }
+
+    for (var i = 0; i < storageDevices.length; i++) {
+      (function (dev) {
+        var card = el('div', 'storage-item' + (dev.is_active ? ' active' : ''));
+        var head = el('div', 'storage-head');
+        var nameSpan = el('span', 'storage-name', dev.label || dev.mount);
+        head.appendChild(nameSpan);
+
+        var badge = el('span', 'storage-badge' + (dev.is_active ? ' cur' : ''), dev.is_active ? 'Active' : (dev.is_usb ? 'USB' : 'Internal'));
+        head.appendChild(badge);
+        card.appendChild(head);
+
+        var usedBytes = Math.max(0, dev.total_bytes - dev.free_bytes);
+        var pct = dev.total_bytes > 0 ? Math.min(100, Math.round((usedBytes / dev.total_bytes) * 100)) : 0;
+
+        var barBox = el('div', 'storage-bar-box');
+        var barFill = el('div', 'storage-bar-fill');
+        barFill.style.width = pct + '%';
+        barBox.appendChild(barFill);
+        card.appendChild(barBox);
+
+        var info = el('div', 'storage-info');
+        info.appendChild(el('span', '', formatBytes(dev.free_bytes) + ' free of ' + formatBytes(dev.total_bytes)));
+        info.appendChild(el('span', '', pct + '% used'));
+        card.appendChild(info);
+
+        if (!dev.is_active) {
+          var btnRow = el('div', 'storage-btn-row');
+          var selBtn = el('button', '', 'Use this storage');
+          selBtn.onclick = function () {
+            selectStorageMount(dev.mount);
+          };
+          btnRow.appendChild(selBtn);
+          card.appendChild(btnRow);
+        }
+
+        list.appendChild(card);
+      })(storageDevices[i]);
+    }
+  }
+
+  function loadStorageDevices() {
+    req('GET', APP + '/storage/devices', null, function (code, data) {
+      if (code === 200 && Array.isArray(data)) {
+        storageDevices = data;
+        renderStorageDevices();
+        for (var i = 0; i < data.length; i++) {
+          if (data[i].is_active) {
+            var desc = $('storage-active-desc');
+            if (desc) text(desc, 'Active Storage: ' + data[i].label + ' (' + data[i].mount + ')');
+            break;
+          }
+        }
+      }
+    });
+  }
+
+  function selectStorageMount(mount) {
+    req('POST', APP + '/storage/select', { mount: mount }, function (code, data) {
+      if (code === 200 && data && data.ok) {
+        toast('Storage switched to ' + mount + '.');
+        loadStorageDevices();
+        loadModels();
+      } else {
+        toast('Could not switch storage: ' + (data && data.error ? data.error : 'error ' + code));
+      }
+    });
+  }
+
+  // ---------- Telegram Companion Settings ----------
+  function loadCompanionSettings() {
+    req('GET', APP + '/settings', null, function (code, data) {
+      if (code !== 200 || !data) return;
+      var tgEn = $('opt-tg-enable');
+      if (tgEn) {
+        tgEn.checked = !!data.telegram_enabled;
+        show('tg-config-box', !!data.telegram_enabled);
+      }
+      var tgToken = $('opt-tg-token');
+      if (tgToken && data.telegram_token) tgToken.value = data.telegram_token;
+      var tgChat = $('opt-tg-chat');
+      if (tgChat && data.telegram_chat_id) tgChat.value = data.telegram_chat_id;
+
+      var usbEn = $('opt-usb-enable');
+      if (usbEn) usbEn.checked = !!data.usb_storage_enabled;
+
+      var ssEn = $('opt-screensaver');
+      if (ssEn) ssEn.checked = !!data.screensaver_ambient;
+
+      var thInput = $('opt-th-thresh');
+      if (thInput && data.thermal_warning_threshold) thInput.value = data.thermal_warning_threshold;
+
+      updateCompanionBadge();
+    });
+  }
+
+  function updateCompanionBadge() {
+    req('GET', APP + '/companion/status', null, function (code, data) {
+      var badge = $('bot-badge');
+      if (!badge) return;
+      if (code === 200 && data && data.running) {
+        badge.className = 'badge on';
+        text(badge, 'Running');
+      } else if (code === 200 && data && data.enabled) {
+        badge.className = 'badge warn';
+        text(badge, 'Standby');
+      } else {
+        badge.className = 'badge off';
+        text(badge, 'Off');
+      }
+    });
+  }
+
+  function saveCompanionSettings() {
+    var en = $('opt-tg-enable').checked;
+    var token = ($('opt-tg-token').value || '').trim();
+    var chat = ($('opt-tg-chat').value || '').trim();
+
+    req('POST', APP + '/settings', {
+      telegram_enabled: en,
+      telegram_token: token,
+      telegram_chat_id: chat
+    }, function (code, data) {
+      if (code === 200 && data) {
+        toast('Telegram companion settings saved.');
+        updateCompanionBadge();
+      } else {
+        toast('Could not save companion settings.');
+      }
+    });
+  }
+
+  function initStorageAndCompanion() {
+    var refBtn = $('storage-refresh-btn');
+    if (refBtn) refBtn.onclick = loadStorageDevices;
+
+    var usbBox = $('opt-usb-enable');
+    if (usbBox) {
+      usbBox.onchange = function () {
+        req('POST', APP + '/settings', { usb_storage_enabled: usbBox.checked }, function (code) {
+          if (code === 200) {
+            toast(usbBox.checked ? 'External USB scanning enabled.' : 'External USB scanning disabled.');
+            loadStorageDevices();
+          }
+        });
+      };
+    }
+
+    var ssBox = $('opt-screensaver');
+    if (ssBox) {
+      ssBox.onchange = function () {
+        req('POST', APP + '/settings', { screensaver_ambient: ssBox.checked }, function (code) {
+          if (code === 200) toast(ssBox.checked ? 'TV screensaver enabled.' : 'TV screensaver disabled.');
+        });
+      };
+    }
+
+    var thIn = $('opt-th-thresh');
+    var thMinus = $('th-thresh-');
+    var thPlus = $('th-thresh+');
+    function saveThresh(val) {
+      var n = Math.max(70, Math.min(95, parseInt(val, 10) || 80));
+      if (thIn) thIn.value = n;
+      req('POST', APP + '/settings', { thermal_warning_threshold: n }, function () {});
+    }
+    if (thMinus) thMinus.onclick = function () { saveThresh(parseInt(thIn.value, 10) - 1); };
+    if (thPlus) thPlus.onclick = function () { saveThresh(parseInt(thIn.value, 10) + 1); };
+    if (thIn) thIn.onchange = function () { saveThresh(thIn.value); };
+
+    var tgEn = $('opt-tg-enable');
+    if (tgEn) {
+      tgEn.onchange = function () {
+        show('tg-config-box', tgEn.checked);
+        saveCompanionSettings();
+      };
+    }
+
+    var tgSave = $('tg-save-btn');
+    if (tgSave) tgSave.onclick = saveCompanionSettings;
+
+    loadStorageDevices();
+    loadCompanionSettings();
+  }
   // ---------- video models (Wan: capabilities vid_gen) ----------
   // Frames are 4n+1, 5..81 (81 is the most measured on the console, 5 s at 16 per second).
   function frames4k1(n) {
@@ -7008,6 +7464,16 @@
     var w = now && now.watts !== null ? Math.round(now.watts) + ' W' : '';
     text($('cchip-t'), t);
     text($('cchip-w'), t && w ? ' · ' + w : w);
+    var chip = $('cchip');
+    if (chip) {
+      if (now && now.soc_c !== null && now.soc_c >= 80) {
+        chip.classList.add('thermal-warn');
+        chip.title = 'ALERT: SoC Temperature is ' + Math.round(now.soc_c) + '°C (Safety threshold reached)';
+      } else {
+        chip.classList.remove('thermal-warn');
+        chip.title = 'The console: temperature and power (Settings)';
+      }
+    }
     show('cchip', !!(t || w), 'flex');
   }
 
@@ -7360,6 +7826,8 @@
     loadGallery(null);
     drawModels();
     dlPoll();
+    initFaceStudio();
+    initStorageAndCompanion();
     // The tab open last time comes back; an address with #models, #help or #settings wins over it.
     var last = load('tab');
     if (last === 'gallery' || last === 'models' || last === 'settings' || last === 'help') setView(last);

@@ -223,6 +223,8 @@
     loadGallery(null);
     drawModels();
     dlPoll();
+    initFaceStudio();
+    initStorageAndCompanion();
     // The tab open last time comes back; an address with #models, #help or #settings wins over it.
     var last = load('tab');
     if (last === 'gallery' || last === 'models' || last === 'settings' || last === 'help') setView(last);
