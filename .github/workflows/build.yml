@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: build-${{ github.ref }}
@@ -153,6 +153,35 @@ jobs:
           name: ui-preview
           path: build/app-preview/*.png
           if-no-files-found: warn
+
+      - name: Package title release
+        if: steps.have.outputs.build == 'true'
+        run: |
+          scripts/package-release.sh build/app-ps5/title/PPSA99699
+          ls -la dist/
+
+      - name: Upload dist artifacts
+        if: steps.have.outputs.build == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: mps5sd-release-dist
+          path: dist/
+          if-no-files-found: error
+
+      - name: Publish GitHub Release
+        if: steps.have.outputs.build == 'true' && (github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/'))
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="v$(sed -n 's/^#define PS5SD_VERSION "\(.*\)"$/\1/p' ps5/app/version.hpp)"
+          TITLE="Machete PS5SD ${TAG#v}"
+          echo "Publishing release $TAG: $TITLE"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" dist/PPSA99699.zip dist/PPSA99699.json --clobber
+            gh release edit "$TAG" --title "$TITLE" --notes-file .github/release-notes.md
+          else
+            gh release create "$TAG" dist/PPSA99699.zip dist/PPSA99699.json               --title "$TITLE"               --notes-file .github/release-notes.md
+          fi
 
   # stable-diffusion.cpp on the host, CPU only: catches a patch that no longer applies or
   # a change that does not compile, in minutes and without the PS5 toolchain.

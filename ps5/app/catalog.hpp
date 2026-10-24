@@ -55,6 +55,10 @@ namespace catalog_data {
       "Qwen3-4B-Instruct-2507-Q4_K_M.gguf",                                                               \
       "text_encoders/Qwen3-4B-Instruct-2507-Q4_K_M.gguf", 2497281120ull, 0 }
 
+#define PS5SD_LTX_T5                                                                                      \
+    { "https://huggingface.co/city96/t5-v1_1-xxl-encoder-gguf/resolve/main/t5-v1_1-xxl-encoder-Q4_K_M.gguf", \
+      "text_encoders/t5-v1_1-xxl-encoder-Q4_K_M.gguf", 2896123072ull, 0 }
+
 // Presets that an older PS5SD wrote for a catalog entry, byte for byte as it wrote them.
 // update_catalog_presets gives such a preset the entry's current text; one that someone changed
 // stays as it is.
@@ -467,12 +471,40 @@ inline std::vector<CatalogEntry> entries() {
             true,
             "video from a picture",
         },
+        {
+            "ltx-video-2b",
+            "LTX-Video 2B (Q8_0)",
+            "Fast distilled video model (8-12 steps). Supports camera controls. 5.0 GB.",
+            {
+                { "https://huggingface.co/city96/LTX-Video-0.9.6-distilled-gguf/resolve/main/ltxv-2b-0.9.6-distilled-04-25-Q8_0.gguf",
+                  "diffusion_models/ltxv-2b-distilled-Q8_0.gguf", 2087907840ull, 0 },
+                PS5SD_LTX_T5,
+            },
+            "# name: LTX-Video 2B (Q8_0)\n"
+            "# defaults: steps=10 cfg=3 width=768 height=512 sampler=euler\n"
+            "--diffusion-model\n"
+            "diffusion_models/ltxv-2b-distilled-Q8_0.gguf\n"
+            "--llm\n"
+            "text_encoders/t5-v1_1-xxl-encoder-Q4_K_M.gguf\n"
+            "--vae-tiling\n"
+            "--vae-tile-size\n"
+            "512\n"
+            "--flash-attn\n"
+            "on\n"
+            "--video-frames\n"
+            "33\n"
+            "--fps\n"
+            "24\n",
+            false,
+            "fast distilled video",
+        },
     };
 }
 
 #undef PS5SD_SDXL_VAE
 #undef PS5SD_KLEIN_LLM
 #undef PS5SD_KLEIN_VAE
+#undef PS5SD_LTX_T5
 
 }  // namespace catalog_data
 }  // namespace ps5sd

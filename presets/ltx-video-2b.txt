@@ -1,0 +1,11 @@
+# name: LTX-Video 2B (Q8_0)
+# defaults: steps=10 cfg=3 width=768 height=512 sampler=euler video_frames=33 fps=24
+--diffusion-model
+diffusion_models/ltxv-2b-distilled-Q8_0.gguf
+--llm
+text_encoders/t5-v1_1-xxl-encoder-Q4_K_M.gguf
+--vae-tiling
+--vae-tile-size
+512
+--flash-attn
+on

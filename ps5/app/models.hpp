@@ -196,8 +196,14 @@ std::string options_json(const std::string & checkpoint);
 // does not set it.
 std::string checkpoint_from_options(const std::string & body);
 
-// GET /ps5sd/v1/app/info: {"name": "PS5SD", "version", "sd_cpp": {"version", "commit"}}.
-std::string info_json(const std::string & version, const std::string & sd_version, const std::string & sd_commit);
+// GET /ps5sd/v1/app/info: {"name": "Machete PS5SD", "version", "build", "sd_cpp": {"version", "commit"}}.
+std::string info_json(const std::string & version, const std::string & sd_version, const std::string & sd_commit, const std::string & build = "");
+
+// Returns the active version string, resolving dynamically from param.json if available.
+std::string get_app_version();
+
+// Returns the build identifier string.
+std::string get_app_build();
 
 // The API key: 32 random bytes in lower-case base32 (a-z, 2-7), 52
 // characters. A person reads it off the TV in groups of four

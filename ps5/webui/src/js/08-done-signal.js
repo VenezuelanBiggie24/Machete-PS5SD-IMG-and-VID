@@ -38,7 +38,7 @@
       } catch (e) {}
     }
     if (document.hidden) {
-      document.title = (ok ? '✓ ' : '✗ ') + st.title;
+      document.title = (ok ? '[OK] ' : '[FAIL] ') + st.title;
       if (load('notify') === '1' && canNotify() && Notification.permission === 'granted') {
         try { new Notification('PS5SD', { body: message, tag: 'ps5sd' }); } catch (e) {}
       }

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Builds the launch payload of ps5-homebrew-dev-protocol for this title with the payload
 # SDK in .deps (run in the Linux container, after scripts/setup-deps.sh), so the PC that
-# deploys never needs the SDK. The payload starts PPSA99576 for the foreground user when
+# deploys never needs the SDK. The payload starts PPSA99699 for the foreground user when
 # elfldr runs it; the title id is compiled in. It is the same payload PS5LM's
 # scripts/ps5lm-app.sh builds, with the protocol's own scripts/send-controller.sh
 # (PS5_CONTROLLER_COMPILE_ONLY=1), which compiles controllers/launch.c with
@@ -14,7 +14,7 @@ root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 # shellcheck source=env.sh
 . "$root/scripts/env.sh"
 
-title=${PS5SD_TITLE_ID:-PPSA99576}
+title=${PS5SD_TITLE_ID:-PPSA99699}
 protocol=${PS5_PROTOCOL:-$root/.deps/src/ps5-homebrew-dev-protocol}
 sdk=${PS5_PAYLOAD_SDK:-$root/.deps/ps5-payload-sdk}
 out="$root/build/tools"

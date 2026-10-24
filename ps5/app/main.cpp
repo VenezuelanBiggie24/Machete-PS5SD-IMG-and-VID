@@ -53,6 +53,8 @@
 #include <ctime>
 #include <exception>
 #include <cerrno>
+#include <csignal>
+#include <signal.h>
 #include <fstream>
 #include <functional>
 #include <initializer_list>
@@ -151,8 +153,13 @@ namespace {
 
 using namespace ps5sd;
 
-constexpr const char * kDir     = "/data/PS5SD";
-constexpr const char * kLog     = "/data/PS5SD/app.log";
+constexpr const char * kDir             = "/data/PS5SD";
+constexpr const char * kLog             = "/data/PS5SD/app.log";
+constexpr const char * kCrashLog        = "/data/PS5SD/crash.log";
+constexpr const char * kHomebrewBaseDir = "/data/homebrew";
+constexpr const char * kHomebrewDir     = "/data/homebrew/PPSA99699";
+constexpr const char * kHomebrewLog     = "/data/homebrew/PPSA99699/app.log";
+constexpr const char * kHomebrewCrashLog= "/data/homebrew/PPSA99699/crash.log";
 constexpr const char * kArgs    = "/data/PS5SD/app-args.txt";
 constexpr const char * kServerArgs = "/data/PS5SD/server-args.txt";
 constexpr const char * kModel   = "/data/PS5SD/model.txt";
@@ -256,9 +263,38 @@ void klog(const std::string & line) {
     sceKernelDebugOutText(0, (line + "\n").c_str());
 }
 
+std::mutex  g_phase_mutex;
+std::string g_current_phase = "Initializing";
+std::string g_current_phase_detail;
+
+// Flushes userspace stdio buffers and keeps /data/homebrew/PPSA99699/app.log
+// synchronized with /data/PS5SD/app.log if they are not already linked to the same inode.
+void sync_app_logs() {
+    std::fflush(stdout);
+    std::fflush(stderr);
+    struct stat st1 = {}, st2 = {};
+    if (stat(kLog, &st1) == 0) {
+        if (stat(kHomebrewLog, &st2) != 0 || st1.st_ino != st2.st_ino || st1.st_dev != st2.st_dev) {
+            std::ifstream src(kLog, std::ios::binary);
+            if (src) {
+                std::ofstream dst(kHomebrewLog, std::ios::binary | std::ios::trunc);
+                if (dst) {
+                    dst << src.rdbuf();
+                    dst.flush();
+                }
+            }
+        }
+    }
+}
+
 // What the app is doing: on the screen, the log and the kernel log, and
 // without a screen (PS5SD_NO_DISPLAY) in a notification too.
 void set_phase(const std::string & phase, const std::string & detail = {}) {
+    {
+        std::lock_guard<std::mutex> lock(g_phase_mutex);
+        g_current_phase = phase;
+        g_current_phase_detail = detail;
+    }
     g_status.set_phase(phase, detail);
     const std::string line = "PS5SD: " + phase + (detail.empty() ? "" : ": " + detail);
     std::printf("ps5sd: status: %s\n", line.c_str());
@@ -266,6 +302,218 @@ void set_phase(const std::string & phase, const std::string & detail = {}) {
 #ifdef PS5SD_NO_DISPLAY
     notify(line.c_str());
 #endif
+    sync_app_logs();
+}
+
+const char * sig_name(int sig) {
+    switch (sig) {
+        case SIGSEGV: return "SIGSEGV (Segmentation Fault - invalid memory access)";
+        case SIGBUS:  return "SIGBUS (Bus Error - unaligned or non-existent physical memory)";
+        case SIGABRT: return "SIGABRT (Abort - abort() called or assertion failure)";
+        case SIGFPE:  return "SIGFPE (Floating Point Exception - division by zero or overflow)";
+        case SIGILL:  return "SIGILL (Illegal Instruction - invalid CPU instruction)";
+        default:      return "Unknown Signal";
+    }
+}
+
+std::string get_current_timestamp() {
+    std::time_t now = std::time(nullptr);
+    struct tm tm_buf = {};
+    char buf[64] = {};
+    if (gmtime_r(&now, &tm_buf)) {
+        std::strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S UTC", &tm_buf);
+    } else {
+        std::snprintf(buf, sizeof(buf), "Unknown (%ld)", static_cast<long>(now));
+    }
+    return std::string(buf);
+}
+
+std::string get_current_phase_string() {
+    std::lock_guard<std::mutex> lock(g_phase_mutex);
+    if (g_current_phase.empty()) {
+        return "Unknown";
+    }
+    return g_current_phase + (g_current_phase_detail.empty() ? "" : ": " + g_current_phase_detail);
+}
+
+std::string get_active_model_string() {
+    std::string model = loaded_id();
+    if (!model.empty()) {
+        return model;
+    }
+    try {
+        model = g_status.snapshot().model;
+        if (!model.empty()) {
+            return model;
+        }
+    } catch (...) {}
+    const auto lines = read_lines(kModel);
+    if (!lines.empty() && !lines[0].empty()) {
+        return lines[0] + " (loading / unconfirmed)";
+    }
+    return "(none / standby)";
+}
+
+std::string get_system_diagnostic_info() {
+    std::ostringstream ss;
+    try {
+        const char * sys_info = sd_get_system_info();
+        ss << "  stable-diffusion.cpp: " << (sys_info ? sys_info : "N/A") << "\n";
+    } catch (...) {
+        ss << "  stable-diffusion.cpp: unavailable\n";
+    }
+
+    try {
+        int64_t at = 0;
+        size_t free_pool = 0;
+        const int64_t total_pool = sceKernelGetDirectMemorySize();
+        sceKernelAvailableDirectMemorySize(0, total_pool, 2 * 1024 * 1024, &at, &free_pool);
+        struct ps5_heap_stats heap = {};
+        ps5_heap_stats(&heap);
+
+        char mem_buf[256];
+        std::snprintf(mem_buf, sizeof(mem_buf),
+                      "  Direct Memory Pool: %.2f GiB free of %.2f GiB\n"
+                      "  CPU Heap: %.2f GiB mapped (peak %.2f GiB)\n",
+                      free_pool / kGiB, total_pool / kGiB,
+                      heap.mapped_bytes / kGiB, heap.peak_bytes / kGiB);
+        ss << mem_buf;
+
+        for (size_t i = 0; i < ggml_backend_dev_count(); i++) {
+            size_t dev_free = 0, dev_total = 0;
+            ggml_backend_dev_memory(ggml_backend_dev_get(i), &dev_free, &dev_total);
+            std::snprintf(mem_buf, sizeof(mem_buf),
+                          "  Vulkan Device [%zu] (%s): %.2f GiB free of %.2f GiB\n",
+                          i, ggml_backend_dev_name(ggml_backend_dev_get(i)),
+                          dev_free / kGiB, dev_total / kGiB);
+            ss << mem_buf;
+        }
+    } catch (...) {
+        ss << "  Memory snapshot: could not read\n";
+    }
+    return ss.str();
+}
+
+std::string build_crash_report(const std::string & reason_text) {
+    std::string app_ver = PS5SD_VERSION;
+    std::string app_bld = PS5SD_BUILD;
+    try {
+        app_ver = get_app_version();
+        app_bld = get_app_build();
+    } catch (...) {}
+
+    std::ostringstream ss;
+    ss << "========================================\n"
+       << "MACHETE PS5SD CRASH & DIAGNOSTIC REPORT\n"
+       << "========================================\n"
+       << "Timestamp: " << get_current_timestamp() << "\n"
+       << "Version: " << app_ver << " (" << app_bld << ")\n"
+       << "Signal / Reason: " << reason_text << "\n"
+       << "Phase: " << get_current_phase_string() << "\n"
+       << "Active Model: " << get_active_model_string() << "\n"
+       << "System Info:\n" << get_system_diagnostic_info()
+       << "Troubleshooting guidance for users / developers:\n"
+       << "  1. If crash occurred during model load (SIGSEGV/SIGBUS/out of memory):\n"
+       << "     - Verify checkpoint/diffusion model file integrity in /data/PS5SD/models/.\n"
+       << "     - Large models (SDXL, Flux.1) require 4-bit or 8-bit quantization (Q4_0, Q8_0)\n"
+       << "       to fit within the PS5 direct memory pool (12 GiB).\n"
+       << "  2. If crash occurred during generation (sampling / vae / upscale):\n"
+       << "     - Reduce output resolution (e.g. 512x512) or denoiser steps.\n"
+       << "     - Lower batch count or avoid excessive LoRA combinations.\n"
+       << "  3. Inspect preceding runtime logs in /data/homebrew/PPSA99699/app.log or\n"
+       << "     /data/PS5SD/app.log for preceding execution trace.\n"
+       << "  4. Review environment settings in /data/PS5SD/env.txt.\n"
+       << "========================================\n\n";
+    return ss.str();
+}
+
+void write_crash_report(const std::string & reason_text) {
+    mkdir(kHomebrewBaseDir, 0777);
+    mkdir(kHomebrewDir, 0777);
+    mkdir(kDir, 0777);
+
+    sync_app_logs();
+
+    const std::string report = build_crash_report(reason_text);
+
+    for (const char * path : { kHomebrewCrashLog, kCrashLog }) {
+        FILE * f = std::fopen(path, "a");
+        if (f != nullptr) {
+            std::fwrite(report.data(), 1, report.size(), f);
+            std::fflush(f);
+            int fd = fileno(f);
+            if (fd >= 0) {
+                fsync(fd);
+            }
+            std::fclose(f);
+        }
+    }
+
+    std::fprintf(stderr, "%s", report.c_str());
+    std::fflush(stderr);
+
+    notify("Machete PS5SD crashed! See crash.log in PPSA99699");
+    klog(std::string("ps5sd: CRASH: ") + reason_text);
+}
+
+static std::atomic<bool> g_handling_crash{false};
+
+static void crash_signal_handler(int sig, siginfo_t * info, void *) {
+    if (g_handling_crash.exchange(true)) {
+        signal(sig, SIG_DFL);
+        raise(sig);
+        return;
+    }
+
+    char detail[256];
+    if (info && (sig == SIGSEGV || sig == SIGBUS || sig == SIGILL || sig == SIGFPE)) {
+        std::snprintf(detail, sizeof(detail), "%s (signal %d) at fault address %p",
+                      sig_name(sig), sig, info->si_addr);
+    } else {
+        std::snprintf(detail, sizeof(detail), "%s (signal %d)", sig_name(sig), sig);
+    }
+
+    write_crash_report(detail);
+
+    signal(sig, SIG_DFL);
+    raise(sig);
+}
+
+static void crash_terminate_handler() {
+    if (g_handling_crash.exchange(true)) {
+        std::abort();
+        return;
+    }
+
+    std::string reason = "Uncaught C++ exception";
+    try {
+        auto ep = std::current_exception();
+        if (ep) {
+            std::rethrow_exception(ep);
+        }
+    } catch (const std::exception & e) {
+        reason = std::string("Uncaught std::exception: ") + e.what();
+    } catch (...) {
+        reason = "Uncaught unknown exception (type not derived from std::exception)";
+    }
+
+    write_crash_report(reason);
+
+    std::abort();
+}
+
+static void install_crash_handlers() {
+    struct sigaction sa;
+    std::memset(&sa, 0, sizeof(sa));
+    sa.sa_sigaction = crash_signal_handler;
+    sa.sa_flags = SA_SIGINFO | SA_RESETHAND;
+    sigemptyset(&sa.sa_mask);
+
+    for (int sig : { SIGSEGV, SIGBUS, SIGABRT, SIGFPE, SIGILL }) {
+        sigaction(sig, &sa, nullptr);
+    }
+
+    std::set_terminate(crash_terminate_handler);
 }
 
 // A notification for an outcome the screen also shows; the no-display build
@@ -326,6 +574,7 @@ void quit_if_asked() {
     }
     unlink(kQuit);
     std::fflush(nullptr);
+    sync_app_logs();
     sceSystemServiceLoadExec("exit", nullptr);
 }
 
@@ -1288,7 +1537,7 @@ extern "C" int sd_app_request(const char * method, const char * path, const char
         out    = g_console.json();
         status = 200;
     } else if (m == "GET" && p == "info") {
-        out    = info_json(PS5SD_VERSION, sd_version(), sd_commit());
+        out    = info_json(get_app_version(), sd_version(), sd_commit(), get_app_build());
         status = 200;
     } else if (m == "GET" && p == "compat/sd-models") {
         out    = sd_models_json(g_library);
@@ -1691,6 +1940,8 @@ extern "C" void sd_activity_job_end(int ok, const char * output_path) {
 }
 
 int main(int, char **) {
+    mkdir(kHomebrewBaseDir, 0777);
+    mkdir(kHomebrewDir, 0777);
     mkdir(kDir, 0777);
     for (const char * dir : { kModels, kLoras, kEmbeddings, kPresets, kUpscalers, kTags }) {
         mkdir(dir, 0777);  // uploads, downloads and sd-server's lists expect them
@@ -1698,8 +1949,14 @@ int main(int, char **) {
     // stdout and stderr to a file the PC can fetch over FTP. Both append: with
     // "w", stdout kept its own offset and wrote over what stderr had appended
     // (the start of every error line). The file is emptied first instead.
+    // Dual-location logging: ensure both /data/PS5SD/app.log and
+    // /data/homebrew/PPSA99699/app.log capture identical application logs.
     if (std::FILE * log = std::fopen(kLog, "w")) {
         std::fclose(log);
+    }
+    unlink(kHomebrewLog);
+    if (link(kLog, kHomebrewLog) != 0) {
+        symlink(kLog, kHomebrewLog);
     }
     if (std::freopen(kLog, "a", stdout) != nullptr) {
         setvbuf(stdout, nullptr, _IOLBF, 0);
@@ -1707,6 +1964,7 @@ int main(int, char **) {
     if (std::freopen(kLog, "a", stderr) != nullptr) {
         setvbuf(stderr, nullptr, _IONBF, 0);
     }
+    install_crash_handlers();
     std::printf("ps5sd: version " PS5SD_VERSION ", stable-diffusion.cpp %s (%s)\n", sd_version(), sd_commit());
     load_settings();
     load_api_key();
@@ -1765,7 +2023,7 @@ int main(int, char **) {
         const auto now = std::chrono::steady_clock::now();
         view.update(g_status.snapshot(), std::chrono::duration<float>(now - last_frame).count());
         last_frame = now;
-        view.compose(renderer, PS5SD_VERSION);
+        view.compose(renderer, get_app_version().c_str(), get_app_build().c_str());
         display.present(renderer);
     };
     set_phase("Opening the GPU");
@@ -1834,6 +2092,7 @@ int main(int, char **) {
             announce_when_listening();
             switch_if_asked();
             quit_if_asked();
+            sync_app_logs();
         }
     }
 #else
@@ -1845,6 +2104,7 @@ int main(int, char **) {
         announce_when_listening();
         switch_if_asked();
         quit_if_asked();
+        sync_app_logs();
     }
 #endif
 }

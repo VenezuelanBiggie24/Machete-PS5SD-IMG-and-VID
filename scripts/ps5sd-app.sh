@@ -3,10 +3,10 @@
 # nc, and nothing else). Needs ftpsrv (2121), elfldr (9021) and klogsrv (3232) on the console.
 #
 #   scripts/fetch-artifact.sh                  get CI's title folder and launch payload first
-#   scripts/ps5sd-app.sh status                ports, /data/homebrew/PPSA99576, /data/PS5SD
-#   scripts/ps5sd-app.sh deploy [--force]      upload build/app-ps5/title/PPSA99576 (changed files only)
+#   scripts/ps5sd-app.sh status                ports, /data/homebrew/PPSA99699, /data/PS5SD
+#   scripts/ps5sd-app.sh deploy [--force]      upload build/app-ps5/title/PPSA99699 (changed files only)
 #   scripts/ps5sd-app.sh appmeta [--force]     only the home screen's copy of the icon and backgrounds
-#                                              (/user/appmeta/PPSA99576; deploy does this too)
+#                                              (/user/appmeta/PPSA99699; deploy does this too)
 #   scripts/ps5sd-app.sh launch                start the title (build/tools/launch.elf to elfldr)
 #   scripts/ps5sd-app.sh close                 ask the app to end itself (/data/PS5SD/quit), wait
 #   scripts/ps5sd-app.sh cycle                 close, deploy, launch
@@ -32,7 +32,7 @@ host=$PS5_HOST
 elf_port=${PS5_PORT:-9021}
 ftp_port=${PS5_FTP_PORT:-2121}
 klog_port=${PS5_KLOG_PORT:-3232}
-title=${PS5SD_TITLE_ID:-PPSA99576}
+title=${PS5SD_TITLE_ID:-PPSA99699}
 data=${PS5SD_DATA:-/data/PS5SD}
 ftp="ftp://$host:$ftp_port"
 app="$root/build/app-ps5/title/$title"
