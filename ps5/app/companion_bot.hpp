@@ -6,6 +6,7 @@
 #include <memory>
 #include <string>
 #include <thread>
+#include <vector>
 
 namespace ps5sd {
 
@@ -15,6 +16,17 @@ struct CompanionParams {
     int   width  = 512;
     int   height = 512;
     int   frames = 33;
+};
+
+enum class BotState {
+    IDLE,
+    AWAITING_PROMPT_IMG,
+    AWAITING_PROMPT_VID,
+    AWAITING_STEPS,
+    AWAITING_CFG,
+    AWAITING_SIZE,
+    AWAITING_FRAMES,
+    AWAITING_MODEL
 };
 
 class CompanionBot {
@@ -41,8 +53,9 @@ private:
     ~CompanionBot() { stop(); }
 
     void poll_loop();
-    bool send_message(const std::string & chat_id, const std::string & text);
+    bool send_message(const std::string & chat_id, const std::string & text, bool with_menu = true);
     bool send_photo(const std::string & chat_id, const std::string & photo_path, const std::string & caption);
+    std::string build_menu_markup() const;
 
     std::string token_;
     std::string allowed_chat_id_;
@@ -52,6 +65,8 @@ private:
     SwitchCallback   switch_fn_;
 
     CompanionParams params_;
+    BotState        state_{ BotState::IDLE };
+    std::vector<std::string> known_model_ids_;
 
     std::atomic<bool> running_{ false };
     std::thread       worker_;

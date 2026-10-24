@@ -55,8 +55,15 @@ class HttpClient {
     // it (the connection is then dropped). False with error on a network or
     // TLS failure, or a response that cannot be parsed; out has what came.
     bool request(const std::string & method, const Url & url, const HttpHeaders & headers,
+                 const std::string & req_body,
                  const std::function<bool(const HttpResponse &)> & on_response,
                  const std::function<bool(const char *, size_t)> & on_body, HttpResponse & out, std::string & error);
+
+    bool request(const std::string & method, const Url & url, const HttpHeaders & headers,
+                 const std::function<bool(const HttpResponse &)> & on_response,
+                 const std::function<bool(const char *, size_t)> & on_body, HttpResponse & out, std::string & error) {
+        return request(method, url, headers, "", on_response, on_body, out, error);
+    }
 
     // Drops the connection.
     void close();
@@ -83,5 +90,9 @@ bool http_get_following(HttpClient & client, const std::string & url,
 bool http_get_text(HttpClient & client, const std::string & url,
                    const std::function<HttpHeaders(const Url &)> & headers_for, size_t limit, std::string & body,
                    int & status, std::string & error);
+
+// Sends an HTTP POST with a payload (e.g. JSON or multipart data).
+bool http_post_bytes(HttpClient & client, const std::string & url_str, const std::string & content_type,
+                     const std::string & body, std::string & response_text, int & status, std::string & error);
 
 }  // namespace ps5sd

@@ -398,6 +398,7 @@ void HttpClient::close() {
 }
 
 bool HttpClient::request(const std::string & method, const Url & url, const HttpHeaders & headers,
+                         const std::string & req_body,
                          const std::function<bool(const HttpResponse &)> & on_response,
                          const std::function<bool(const char *, size_t)> & on_body, HttpResponse & out,
                          std::string & error) {
@@ -419,7 +420,13 @@ bool HttpClient::request(const std::string & method, const Url & url, const Http
     if (!has_agent) {
         req += "User-Agent: PS5SD\r\n";
     }
+    if (!req_body.empty() || method == "POST") {
+        req += "Content-Length: " + std::to_string(req_body.size()) + "\r\n";
+    }
     req += "Accept: */*\r\nConnection: keep-alive\r\n\r\n";
+    if (!req_body.empty()) {
+        req += req_body;
+    }
 
     // A kept connection may have been closed by the server meanwhile: one
     // more try on a new connection when nothing came back on it.
@@ -692,6 +699,34 @@ bool http_get_text(HttpClient & client, const std::string & url,
         return false;
     }
     return ok;
+}
+
+bool http_post_bytes(HttpClient & client, const std::string & url_str, const std::string & content_type,
+                     const std::string & body, std::string & response_text, int & status, std::string & error) {
+    Url url;
+    if (!parse_url(url_str, url)) {
+        error = "bad url: " + url_str;
+        return false;
+    }
+    HttpHeaders headers;
+    if (!content_type.empty()) {
+        headers.emplace_back("Content-Type", content_type);
+    }
+    HttpResponse res;
+    response_text.clear();
+    const auto on_body = [&](const char * bytes, size_t n) {
+        if (response_text.size() + n > (10u << 20)) {
+            return false;
+        }
+        response_text.append(bytes, n);
+        return true;
+    };
+    if (!client.request("POST", url, headers, body, [](const HttpResponse &) { return true; }, on_body, res, error)) {
+        status = res.status;
+        return false;
+    }
+    status = res.status;
+    return status == 200;
 }
 
 }  // namespace ps5sd

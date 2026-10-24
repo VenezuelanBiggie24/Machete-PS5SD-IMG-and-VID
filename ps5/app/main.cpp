@@ -1477,29 +1477,256 @@ std::string get_companion_status_text() {
     return ss.str();
 }
 
+static std::mutex  g_companion_output_mutex;
+static std::string g_companion_output_path;
+
+static void set_companion_output(const std::string & path) {
+    std::lock_guard<std::mutex> lock(g_companion_output_mutex);
+    g_companion_output_path = path;
+}
+
+static std::string get_companion_output() {
+    std::lock_guard<std::mutex> lock(g_companion_output_mutex);
+    return g_companion_output_path;
+}
+
 std::string get_companion_models_text() {
     std::string active = loaded_id();
     auto entries = g_library.list();
     std::ostringstream ss;
     ss << "PS5 Models (" << entries.size() << " available):\n"
        << "Active: " << (active.empty() ? "(standby / none)" : active) << "\n\n";
+    int idx = 1;
     for (const auto & e : entries) {
         bool is_video = e.id.find("wan") != std::string::npos || e.id.find("video") != std::string::npos || e.id.find("ltx") != std::string::npos;
-        ss << "- " << e.id << " [" << (is_video ? "VID" : "IMG") << "]"
+        ss << idx++ << ". " << e.id << " [" << (is_video ? "VID" : "IMG") << "]"
            << (e.id == active ? " (ACTIVE)" : "") << "\n";
     }
-    ss << "\nTo switch, send:\n/model <id>\n(e.g. /model sdxl-base or /model wan21-t2v-1.3b)";
+    ss << "\nTo switch, reply with the model number (e.g. 1) or /model <id>";
     return ss.str();
 }
 
-bool switch_companion_model(const std::string & id, std::string & error) {
+bool switch_companion_model(const std::string & input_id, std::string & error) {
+    auto entries = g_library.list();
+    std::string target_id = input_id;
+
+    // Check if input is a 1-based index (e.g. "1", "2")
+    char * end = nullptr;
+    long num = std::strtol(input_id.c_str(), &end, 10);
+    if (end != input_id.c_str() && *end == '\0' && num >= 1 && num <= static_cast<long>(entries.size())) {
+        target_id = entries[static_cast<size_t>(num - 1)].id;
+    } else {
+        // Case-insensitive lookup and substring matching
+        std::string lower_in = input_id;
+        std::transform(lower_in.begin(), lower_in.end(), lower_in.begin(), [](unsigned char c) {
+            return static_cast<char>(std::tolower(c));
+        });
+        bool matched = false;
+        // First try exact case-insensitive match
+        for (const auto & e : entries) {
+            std::string lower_e = e.id;
+            std::transform(lower_e.begin(), lower_e.end(), lower_e.begin(), [](unsigned char c) {
+                return static_cast<char>(std::tolower(c));
+            });
+            if (lower_e == lower_in) {
+                target_id = e.id;
+                matched = true;
+                break;
+            }
+        }
+        // If not matched, try substring match
+        if (!matched) {
+            for (const auto & e : entries) {
+                std::string lower_e = e.id;
+                std::transform(lower_e.begin(), lower_e.end(), lower_e.begin(), [](unsigned char c) {
+                    return static_cast<char>(std::tolower(c));
+                });
+                if (lower_e.find(lower_in) != std::string::npos) {
+                    target_id = e.id;
+                    matched = true;
+                    break;
+                }
+            }
+        }
+    }
+
     std::string out;
-    int status = ask_switch(id, out);
+    int status = ask_switch(target_id, out);
     if (status == 200 || status == 202) {
+        error = target_id;
         return true;
     }
-    error = out;
+    error = out.empty() ? ("Switch failed (" + std::to_string(status) + ")") : out;
     return false;
+}
+
+std::string companion_generate(const std::string & prompt, const CompanionParams & params, std::string & error) {
+    std::string active = loaded_id();
+    if (active.empty()) {
+        error = "No model is loaded on the PS5. Please select a model with /models first.";
+        return "";
+    }
+
+    int port = g_server_port.load();
+    if (port <= 0) {
+        port = g_status.snapshot().port;
+    }
+    if (port <= 0) {
+        port = 7860;
+    }
+
+    std::string lower_active = active;
+    std::transform(lower_active.begin(), lower_active.end(), lower_active.begin(), [](unsigned char c) {
+        return static_cast<char>(std::tolower(c));
+    });
+
+    bool is_video = (lower_active.find("wan") != std::string::npos ||
+                     lower_active.find("video") != std::string::npos ||
+                     lower_active.find("ltx") != std::string::npos);
+
+    std::string api_key;
+    {
+        std::lock_guard<std::mutex> lock(g_key_mutex);
+        api_key = g_api_key;
+    }
+
+    set_companion_output("");
+
+    if (is_video) {
+        nlohmann::json body;
+        body["prompt"]          = prompt;
+        body["negative_prompt"] = "";
+        body["width"]           = params.width;
+        body["height"]          = params.height;
+        body["seed"]            = -1;
+        body["video_frames"]    = params.frames;
+        body["fps"]             = 16;
+        body["sample_params"]["sample_steps"] = params.steps;
+        body["sample_params"]["guidance"]["txt_cfg"] = params.cfg;
+        body["preview"]         = "proj";
+        body["output_format"]   = "webm";
+
+        HttpClient client;
+        client.set_timeout(30);
+
+        Url url;
+        if (!parse_url("http://127.0.0.1:" + std::to_string(port) + "/sdcpp/v1/vid_gen", url)) {
+            error = "Internal URL error";
+            return "";
+        }
+
+        HttpHeaders headers;
+        headers.emplace_back("Content-Type", "application/json");
+        if (!api_key.empty()) {
+            headers.emplace_back("Authorization", "Bearer " + api_key);
+        }
+
+        HttpResponse res;
+        std::string resp_body, req_err;
+        const auto on_body = [&](const char * b, size_t n) {
+            resp_body.append(b, n);
+            return true;
+        };
+
+        if (!client.request("POST", url, headers, body.dump(), [](const HttpResponse &) { return true; }, on_body, res, req_err) ||
+            res.status != 202) {
+            error = "Video request failed (" + std::to_string(res.status) + "): " + (req_err.empty() ? resp_body : req_err);
+            return "";
+        }
+
+        auto j = nlohmann::json::parse(resp_body, nullptr, false);
+        if (!j.is_object() || !j.contains("id")) {
+            error = "Invalid video job response: " + resp_body;
+            return "";
+        }
+        std::string job_id = j["id"].get<std::string>();
+
+        Url poll_url;
+        parse_url("http://127.0.0.1:" + std::to_string(port) + "/sdcpp/v1/jobs/" + job_id, poll_url);
+
+        for (int i = 0; i < 300; ++i) {
+            std::this_thread::sleep_for(std::chrono::seconds(2));
+            std::string poll_resp;
+            HttpResponse poll_res;
+            const auto on_poll_body = [&](const char * b, size_t n) {
+                poll_resp.append(b, n);
+                return true;
+            };
+
+            if (client.request("GET", poll_url, headers, "", [](const HttpResponse &) { return true; }, on_poll_body, poll_res, req_err) &&
+                poll_res.status == 200) {
+                auto pj = nlohmann::json::parse(poll_resp, nullptr, false);
+                if (pj.is_object() && pj.contains("status")) {
+                    std::string st = pj["status"].get<std::string>();
+                    if (st == "completed") {
+                        std::string out = get_companion_output();
+                        if (out.empty()) {
+                            out = g_status.snapshot().result;
+                        }
+                        if (out.empty()) {
+                            error = "Video generation completed but output file not found.";
+                            return "";
+                        }
+                        return out;
+                    } else if (st == "failed" || st == "cancelled") {
+                        error = "Video generation " + st + ": " + pj.value("error", "unknown error");
+                        return "";
+                    }
+                }
+            }
+        }
+        error = "Video generation timed out after 10 minutes.";
+        return "";
+    } else {
+        nlohmann::json body;
+        body["prompt"]          = prompt;
+        body["negative_prompt"] = "";
+        body["width"]           = params.width;
+        body["height"]          = params.height;
+        body["steps"]           = params.steps;
+        body["cfg_scale"]       = params.cfg;
+        body["seed"]            = -1;
+
+        HttpClient client;
+        client.set_timeout(360);
+
+        Url url;
+        if (!parse_url("http://127.0.0.1:" + std::to_string(port) + "/sdapi/v1/txt2img", url)) {
+            error = "Internal URL error";
+            return "";
+        }
+
+        HttpHeaders headers;
+        headers.emplace_back("Content-Type", "application/json");
+        if (!api_key.empty()) {
+            headers.emplace_back("Authorization", "Bearer " + api_key);
+        }
+
+        HttpResponse res;
+        std::string resp_body, req_err;
+        const auto on_body = [&](const char * b, size_t n) {
+            if (resp_body.size() + n <= (10u << 20)) {
+                resp_body.append(b, n);
+            }
+            return true;
+        };
+
+        if (!client.request("POST", url, headers, body.dump(), [](const HttpResponse &) { return true; }, on_body, res, req_err) ||
+            res.status != 200) {
+            error = "Generation failed (" + std::to_string(res.status) + "): " + (req_err.empty() ? resp_body : req_err);
+            return "";
+        }
+
+        std::string out = get_companion_output();
+        if (out.empty()) {
+            out = g_status.snapshot().result;
+        }
+        if (out.empty()) {
+            error = "Generation completed but output image path was not captured.";
+            return "";
+        }
+        return out;
+    }
 }
 
 void start_companion_bot() {
@@ -1507,9 +1734,7 @@ void start_companion_bot() {
         CompanionBot::instance().start(
             g_settings.telegram_token,
             g_settings.telegram_chat_id,
-            [](const std::string &, const CompanionParams &, std::string &) -> std::string {
-                return g_status.snapshot().result;
-            },
+            companion_generate,
             get_companion_status_text,
             get_companion_models_text,
             switch_companion_model
@@ -2102,7 +2327,7 @@ extern "C" void sd_activity_job_end(int ok, const char * output_path) {
     }
     // One path a line: every image of a batch, in order (patches/sdcpp/0059).
     std::string        first;
-    std::istringstream paths(output_path);
+    std::istringstream paths(output_path != nullptr ? output_path : "");
     for (std::string path; std::getline(paths, path);) {
         if (!path.empty()) {
             if (is_png_path(path)) {
@@ -2112,6 +2337,9 @@ extern "C" void sd_activity_job_end(int ok, const char * output_path) {
                 first = path;
             }
         }
+    }
+    if (ok && !first.empty()) {
+        set_companion_output(first);
     }
     // A stop asked for during the job goes on once it ends; not ready then.
     if (g_quit_requested || g_restart) {
