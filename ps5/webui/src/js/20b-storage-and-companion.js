@@ -106,10 +106,13 @@
       if (usbEn) usbEn.checked = !!data.usb_storage_enabled;
 
       var ssEn = $('opt-screensaver');
-      if (ssEn) ssEn.checked = !!data.screensaver_ambient;
+      if (ssEn) ssEn.checked = !!(data.screensaver_ambient !== undefined ? data.screensaver_ambient : data.screensaver_mode);
 
       var thInput = $('opt-th-thresh');
-      if (thInput && data.thermal_warning_threshold) thInput.value = data.thermal_warning_threshold;
+      if (thInput) {
+        var tVal = data.thermal_warning_threshold || data.thermal_warn_temp;
+        if (tVal) thInput.value = tVal;
+      }
 
       updateCompanionBadge();
     });
@@ -170,7 +173,7 @@
     var ssBox = $('opt-screensaver');
     if (ssBox) {
       ssBox.onchange = function () {
-        req('POST', APP + '/settings', { screensaver_ambient: ssBox.checked }, function (code) {
+        req('POST', APP + '/settings', { screensaver_ambient: ssBox.checked, screensaver_mode: ssBox.checked }, function (code) {
           if (code === 200) toast(ssBox.checked ? 'TV screensaver enabled.' : 'TV screensaver disabled.');
         });
       };
@@ -182,7 +185,7 @@
     function saveThresh(val) {
       var n = Math.max(70, Math.min(95, parseInt(val, 10) || 80));
       if (thIn) thIn.value = n;
-      req('POST', APP + '/settings', { thermal_warning_threshold: n }, function () {});
+      req('POST', APP + '/settings', { thermal_warning_threshold: n, thermal_warn_temp: n }, function () {});
     }
     if (thMinus) thMinus.onclick = function () { saveThresh(parseInt(thIn.value, 10) - 1); };
     if (thPlus) thPlus.onclick = function () { saveThresh(parseInt(thIn.value, 10) + 1); };

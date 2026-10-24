@@ -54,7 +54,7 @@
     req('GET', APP + '/face/status', null, function (code, data) {
       if (code === 200 && data) {
         faceState.hasFace = !!data.has_face;
-        faceState.photoMakerAvailable = !!data.photomaker_available;
+        faceState.photoMakerAvailable = !!(data.photomaker_ready || data.photomaker_available);
       }
       req('GET', APP + '/settings', null, function (sCode, sData) {
         if (sCode === 200 && sData) {

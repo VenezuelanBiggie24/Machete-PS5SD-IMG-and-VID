@@ -219,6 +219,7 @@ void update_storage_paths() {
     g_library.extra_models_dirs = sm.search_model_dirs();
     g_labels.set_dir(kOutputs);
     g_tags.set_dir(kTags);
+    FaceStudio::instance().init(sm.faces_dir(), sm.models_dir());
 }
 std::mutex         g_settings_mutex;  // the HTTP threads read and change g_settings
 AppSettings        g_settings;
@@ -2096,7 +2097,7 @@ extern "C" void sd_activity_job_end(int ok, const char * output_path) {
         if (reason.compare(0, prefix.size(), prefix) == 0) {
             reason.erase(0, prefix.size());
         }
-        set_phase("Generation failed", reason.empty() ? "See /data/PS5SD/app.log" : reason);
+        set_phase("Generation failed", reason.empty() ? ("See " + kLog) : reason);
         return;
     }
     // One path a line: every image of a batch, in order (patches/sdcpp/0059).
