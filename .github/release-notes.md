@@ -1,14 +1,13 @@
-Machete PS5SD 0.9.7 (Machete Studio Suite) introduces Face Studio 1-click identity lock, external USB storage support, HTTP 206 download resumption, Thermal Guardian APU safety alerts, a TV ambient art screensaver, and a remote Telegram companion bot.
+Machete PS5SD 0.9.8 (Machete Studio Suite Hotfix) delivers a complete overhaul of the Telegram Companion Bot, enabling interactive touch menu keyboards, live loopback generation on the PS5 GPU, full multipart image/video uploads to mobile devices, and case-insensitive numbered model selection.
 
-## New
+## Hotfix & Improvements
 
-- **Face Studio (Identity Lock)**: Upload a portrait once and preserve facial likeness automatically across generations using native PhotoMaker integration or facial reference guidance.
-- **Multi-storage engine & USB drives**: Full support for external USB drives (/mnt/usb0 .. /mnt/usb7) and decoupled console storage (/data/MacheteAI). Preserves downloaded models across clean app reinstalls and reuses existing models in /data/PS5SD/models automatically.
-- **HTTP Range download resumption**: Large multi-gigabyte model downloads now support HTTP 206 Range headers. Interrupted downloads resume from their last byte instead of starting over.
-- **Thermal Guardian alerts**: Configurable SoC temperature safety thresholds (default 80 C) with real-time visual alerts on both TV and Web to safeguard the console APU.
-- **TV ambient art screensaver**: Automatically presents generated artworks in full screen after 60 seconds of inactivity on the TV.
-- **Remote Telegram companion bot**: Generate images and inspect console telemetry remotely from your phone via Telegram while the PS5 runs in the background.
-- **Zero-hardcoded independence**: Eliminates rigid path dependencies across the codebase, allowing full peaceful coexistence with upstream PS5SD (PPSA99576).
+- **Interactive Mobile Keyboard**: Native Telegram ReplyKeyboardMarkup provides one-touch buttons on phones: Generate Image, Generate Video, Models, Parameters, Status, and Help.
+- **Active Loopback Generation**: Wired Companion Bot directly to the internal sd-server loopback API (/sdapi/v1/txt2img and /sdcpp/v1/vid_gen), eliminating mock placeholder behavior.
+- **Multipart Media Upload**: Finished images (.png) and videos (.webm) are now read from disk and uploaded directly to the Telegram chat using multipart form data.
+- **Conversational State Machine**: Introduces distinct states for prompt entry, step adjustment, CFG scale, resolution, and video frame count, preventing numerical settings from being mistakenly treated as image prompts.
+- **Numbered and Case-Insensitive Model Selection**: Users can switch models by simply typing the index number (e.g. 1, 2) or model name without worrying about mobile keyboard auto-capitalization.
+- **Face Studio & Multi-Storage Integration**: Preserves all 0.9.7 features including 1-click facial identity transfer, USB drive support (/mnt/usb0 .. /mnt/usb7), HTTP 206 download resumption, and Thermal Guardian APU safety monitoring.
 
 ## Install
 
@@ -18,17 +17,16 @@ Credits: PS5SD by Darkatek7 (Heel Tobias), stable-diffusion.cpp (ggerganov / lee
 
 ----
 
-Machete PS5SD 0.9.7 (Machete Studio Suite) incorpora Face Studio para bloqueo de identidad en 1 clic, soporte para memorias USB externas, reanudacion de descargas HTTP 206, alertas de seguridad de Guardian Termico, salvapantallas ambiental en TV y bot acompanante remoto de Telegram.
+Machete PS5SD 0.9.8 (Machete Studio Suite Hotfix) ofrece una renovacion completa del Bot Acompanante de Telegram, incorporando teclados tactiles interactivos, generacion real en bucle local sobre la GPU de PS5, subida directa de imagenes y videos al celular via multipart, y seleccion de modelos numerada e insensible a mayusculas.
 
-## Nuevo
+## Correcciones y Mejoras
 
-- **Face Studio (Bloqueo de identidad)**: Sube una foto de tu cara y genera imagenes conservando tu identidad facial de manera automatica con PhotoMaker o guia facial.
-- **Motor multi-almacenamiento y USB**: Soporte completo para memorias USB externas (/mnt/usb0 .. /mnt/usb7) y almacenamiento desacoplado (/data/MacheteAI). Protege los modelos ante reinstalaciones limpias y reutiliza modelos existentes en /data/PS5SD/models automaticamente.
-- **Reanudacion de descargas HTTP Range**: Las descargas pesadas de modelos admiten ahora cabeceras HTTP 206 Range. Si la conexion se corta, continua desde el ultimo byte descargado.
-- **Alertas de Guardian Termico**: Limites de temperatura de seguridad configurables (80 C por defecto) con avisos visuales en TV y Web para proteger el APU.
-- **Salvapantallas ambiental en TV**: Muestra una galeria de arte a pantalla completa con tus creaciones tras 60 segundos de inactividad en la TV.
-- **Bot acompanante de Telegram**: Genera contenido y consulta temperaturas y telemetria desde tu celular en Telegram con la consola encendida.
-- **Independencia sin rutas fijas**: Elimina dependencias de rutas fijas en el codigo, asegurando la coexistencia pacifica con PS5SD original (PPSA99576).
+- **Teclado Tactil Interactivo**: Teclado de respuesta nativo de Telegram con botones de un toque en el celular: Generate Image, Generate Video, Models, Parameters, Status y Help.
+- **Generacion Real en Bucle Local**: Bot conectado directamente al API interno del servidor (/sdapi/v1/txt2img y /sdcpp/v1/vid_gen), eliminando respuestas simuladas.
+- **Subida de Contenido Multimedia**: Las imagenes generadas (.png) y videos (.webm) se leen del almacenamiento de la consola y se transmiten directamente al chat de Telegram mediante multipart form-data.
+- **Maquina de Estados Conversacional**: Separa claramente la entrada de prompts de la configuracion de pasos, CFG, resolucion y fotogramas, evitando que numeros o ajustes se interpreten como prompts de imagen.
+- **Seleccion de Modelos Numerada e Insensible a Mayusculas**: Permite cambiar de modelo escribiendo simplemente su numero (ej. 1, 2) o nombre, sin importar las mayusculas del teclado movil.
+- **Integracion Completa con Face Studio y USB**: Mantiene todas las capacidades de 0.9.7, incluyendo bloqueo de identidad facial en 1 clic, discos USB (/mnt/usb0 .. /mnt/usb7), reanudacion HTTP 206 y alertas termicas de seguridad del APU.
 
 ## Instalacion
 
