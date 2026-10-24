@@ -1,35 +1,37 @@
-Machete PS5SD 0.9.6 brings full video generation (Wan 2.2 TI2V 5B, Wan 2.1 with fast decoder, LTX-Video 2B), CausVid acceleration, ControlNet SDXL, and live hardware telemetry on the TV and web UI.
+Machete PS5SD 0.9.7 (Machete Studio Suite) introduces Face Studio 1-click identity lock, external USB storage support, HTTP 206 download resumption, Thermal Guardian APU safety alerts, a TV ambient art screensaver, and a remote Telegram companion bot.
 
 ## New
 
-- **Video generation**: Wan 2.2 TI2V 5B (image to video), Wan 2.1 T2V 1.3B (with optional TAEHV fast decoder for 3.6 s decoding), and LTX-Video 2B Distilled.
-- **CausVid acceleration**: One click on the LoRAs panel creates a 2-second Wan video in ~3.5 minutes instead of 15 minutes.
-- **Hardware telemetry**: Live readings of APU temperature, SoC power consumption in watts, fan percentage, and CPU/GPU load on the TV dashboard and in the web UI.
-- **ControlNet with SDXL**: Guide image layout with Canny edge detection.
-- **Modernized web UI**: Clean layout with mobile bottom tabs, gallery pinch/drag zoom, search tags, Danbooru tag completions, and queue management.
-- **Crash diagnostics and logging**: Dual-location logging in /data/homebrew/PPSA99699/app.log and automatic crash reports in /data/homebrew/PPSA99699/crash.log.
+- **Face Studio (Identity Lock)**: Upload a portrait once and preserve facial likeness automatically across generations using native PhotoMaker integration or facial reference guidance.
+- **Multi-storage engine & USB drives**: Full support for external USB drives (/mnt/usb0 .. /mnt/usb7) and decoupled console storage (/data/MacheteAI). Preserves downloaded models across clean app reinstalls and reuses existing models in /data/PS5SD/models automatically.
+- **HTTP Range download resumption**: Large multi-gigabyte model downloads now support HTTP 206 Range headers. Interrupted downloads resume from their last byte instead of starting over.
+- **Thermal Guardian alerts**: Configurable SoC temperature safety thresholds (default 80 C) with real-time visual alerts on both TV and Web to safeguard the console APU.
+- **TV ambient art screensaver**: Automatically presents generated artworks in full screen after 60 seconds of inactivity on the TV.
+- **Remote Telegram companion bot**: Generate images and inspect console telemetry remotely from your phone via Telegram while the PS5 runs in the background.
+- **Zero-hardcoded independence**: Eliminates rigid path dependencies across the codebase, allowing full peaceful coexistence with upstream PS5SD (PPSA99576).
 
 ## Install
 
-Install from the homebrew store (Machete AI Studio, PPSA99699), or unpack PPSA99699.zip into /data/homebrew/ on the console and let ShadowMountPlus scan. Requirements: etaHEN + kstuff-lite, ShadowMountPlus, elfldr; ftpsrv on 2121 optional.
+Install from the homebrew store (Machete AI Studio, PPSA99699), or unpack PPSA99699.zip into /data/homebrew/ on the console and let ShadowMountPlus scan. Requirements: kstuff-lite, ShadowMountPlus, elfldr; ftpsrv on 2121 optional.
 
 Credits: PS5SD by Darkatek7 (Heel Tobias), stable-diffusion.cpp (ggerganov / leejet), ps5-exporter (Marice).
 
 ----
 
-Machete PS5SD 0.9.6 incorpora generacion de video completa (Wan 2.2 TI2V 5B, Wan 2.1 con decodificador rapido, LTX-Video 2B), aceleracion CausVid, ControlNet SDXL y telemetria de hardware en vivo en la TV y en la interfaz web.
+Machete PS5SD 0.9.7 (Machete Studio Suite) incorpora Face Studio para bloqueo de identidad en 1 clic, soporte para memorias USB externas, reanudacion de descargas HTTP 206, alertas de seguridad de Guardian Termico, salvapantallas ambiental en TV y bot acompanante remoto de Telegram.
 
 ## Nuevo
 
-- **Generacion de video**: Wan 2.2 TI2V 5B (imagen a video), Wan 2.1 T2V 1.3B (con decodificador rapido TAEHV para decodificar en 3.6 s) y LTX-Video 2B Distilled.
-- **Aceleracion CausVid**: Un clic en el panel de LoRAs genera un video Wan de 2 segundos en ~3.5 minutos en lugar de 15 minutos.
-- **Telemetria de hardware**: Lectura en tiempo real de temperatura del APU, consumo en vatios del SoC, porcentaje de ventilador y carga de CPU/GPU en la TV y en la web.
-- **ControlNet con SDXL**: Guia de diseno mediante deteccion de bordes Canny.
-- **Interfaz web renovada**: Navegacion optimizada con pestanas inferiores en moviles, zoom en galeria, etiquetas de busqueda, autocompletado Danbooru y cola de trabajos.
-- **Diagnostico de fallos y registros**: Registro dual en /data/homebrew/PPSA99699/app.log y reportes automaticos de fallo en /data/homebrew/PPSA99699/crash.log.
+- **Face Studio (Bloqueo de identidad)**: Sube una foto de tu cara y genera imagenes conservando tu identidad facial de manera automatica con PhotoMaker o guia facial.
+- **Motor multi-almacenamiento y USB**: Soporte completo para memorias USB externas (/mnt/usb0 .. /mnt/usb7) y almacenamiento desacoplado (/data/MacheteAI). Protege los modelos ante reinstalaciones limpias y reutiliza modelos existentes en /data/PS5SD/models automaticamente.
+- **Reanudacion de descargas HTTP Range**: Las descargas pesadas de modelos admiten ahora cabeceras HTTP 206 Range. Si la conexion se corta, continua desde el ultimo byte descargado.
+- **Alertas de Guardian Termico**: Limites de temperatura de seguridad configurables (80 C por defecto) con avisos visuales en TV y Web para proteger el APU.
+- **Salvapantallas ambiental en TV**: Muestra una galeria de arte a pantalla completa con tus creaciones tras 60 segundos de inactividad en la TV.
+- **Bot acompanante de Telegram**: Genera contenido y consulta temperaturas y telemetria desde tu celular en Telegram con la consola encendida.
+- **Independencia sin rutas fijas**: Elimina dependencias de rutas fijas en el codigo, asegurando la coexistencia pacifica con PS5SD original (PPSA99576).
 
 ## Instalacion
 
-Instala desde la tienda homebrew (Machete AI Studio, PPSA99699), o descomprime PPSA99699.zip en /data/homebrew/ en la consola y deja que ShadowMountPlus lo detecte. Requisitos: etaHEN + kstuff-lite, ShadowMountPlus, elfldr; ftpsrv en 2121 opcional.
+Instala desde la tienda homebrew (Machete AI Studio, PPSA99699), o descomprime PPSA99699.zip en /data/homebrew/ en la consola y deja que ShadowMountPlus lo detecte. Requisitos: kstuff-lite, ShadowMountPlus, elfldr; ftpsrv en 2121 opcional.
 
 Creditos: PS5SD de Darkatek7 (Heel Tobias), stable-diffusion.cpp (ggerganov / leejet), ps5-exporter (Marice).
