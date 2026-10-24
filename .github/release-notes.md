@@ -1,25 +1,35 @@
-Machete PS5SD 0.5.1 fixes the video models, which did not start in 0.5.0.
+Machete PS5SD 0.9.6 brings full video generation (Wan 2.2 TI2V 5B, Wan 2.1 with fast decoder, LTX-Video 2B), CausVid acceleration, ControlNet SDXL, and live hardware telemetry on the TV and web UI.
 
-## Fixed
+## New
 
-- **Video models start again**: LTX-Video 2B, Wan 2.2 TI2V 5B and Wan 2.1 T2V 1.3B failed to load with `unknown argument: 0.0.0.0`, and the app went back to the previous model. The flash attention option in their presets was missing its value. If you installed a video model with 0.5.0, delete its preset on the Models tab and add the model again from the catalog, or open its preset file in `/data/PS5SD/presets/` and change the line `--flash-attn` to two lines: `--flash-attn` and `on`.
+- **Video generation**: Wan 2.2 TI2V 5B (image to video), Wan 2.1 T2V 1.3B (with optional TAEHV fast decoder for 3.6 s decoding), and LTX-Video 2B Distilled.
+- **CausVid acceleration**: One click on the LoRAs panel creates a 2-second Wan video in ~3.5 minutes instead of 15 minutes.
+- **Hardware telemetry**: Live readings of APU temperature, SoC power consumption in watts, fan percentage, and CPU/GPU load on the TV dashboard and in the web UI.
+- **ControlNet with SDXL**: Guide image layout with Canny edge detection.
+- **Modernized web UI**: Clean layout with mobile bottom tabs, gallery pinch/drag zoom, search tags, Danbooru tag completions, and queue management.
+- **Crash diagnostics and logging**: Dual-location logging in /data/homebrew/PPSA99699/app.log and automatic crash reports in /data/homebrew/PPSA99699/crash.log.
 
 ## Install
 
-Install from the homebrew store, or unpack `PPSA99699.zip` into `/data/homebrew/` on the console and let ShadowMountPlus scan. Requirements: etaHEN + kstuff-lite, ShadowMountPlus, elfldr; ftpsrv on 2121 optional.
+Install from the homebrew store (Machete AI Studio, PPSA99699), or unpack PPSA99699.zip into /data/homebrew/ on the console and let ShadowMountPlus scan. Requirements: etaHEN + kstuff-lite, ShadowMountPlus, elfldr; ftpsrv on 2121 optional.
 
-Credits: [PS5SD](https://github.com/Darkatek7/PS5SD) by Darkatek7 (Heel Tobias), [stable-diffusion.cpp](https://github.com/leejet/stable-diffusion.cpp).
+Credits: PS5SD by Darkatek7 (Heel Tobias), stable-diffusion.cpp (ggerganov / leejet), ps5-exporter (Marice).
 
 ----
 
-Machete PS5SD 0.5.1 corrige los modelos de video, que no arrancaban en 0.5.0.
+Machete PS5SD 0.9.6 incorpora generacion de video completa (Wan 2.2 TI2V 5B, Wan 2.1 con decodificador rapido, LTX-Video 2B), aceleracion CausVid, ControlNet SDXL y telemetria de hardware en vivo en la TV y en la interfaz web.
 
-## Corregido
+## Nuevo
 
-- **Los modelos de video arrancan de nuevo**: LTX-Video 2B, Wan 2.2 TI2V 5B y Wan 2.1 T2V 1.3B no cargaban y daban `unknown argument: 0.0.0.0`, y la app volvía al modelo anterior. A la opción de flash attention de sus presets le faltaba el valor. Si instalaste un modelo de video con 0.5.0, borra su preset en la pestaña Models y agrega el modelo otra vez desde el catálogo, o abre su archivo en `/data/PS5SD/presets/` y cambia la línea `--flash-attn` por dos líneas: `--flash-attn` y `on`.
+- **Generacion de video**: Wan 2.2 TI2V 5B (imagen a video), Wan 2.1 T2V 1.3B (con decodificador rapido TAEHV para decodificar en 3.6 s) y LTX-Video 2B Distilled.
+- **Aceleracion CausVid**: Un clic en el panel de LoRAs genera un video Wan de 2 segundos en ~3.5 minutos en lugar de 15 minutos.
+- **Telemetria de hardware**: Lectura en tiempo real de temperatura del APU, consumo en vatios del SoC, porcentaje de ventilador y carga de CPU/GPU en la TV y en la web.
+- **ControlNet con SDXL**: Guia de diseno mediante deteccion de bordes Canny.
+- **Interfaz web renovada**: Navegacion optimizada con pestanas inferiores en moviles, zoom en galeria, etiquetas de busqueda, autocompletado Danbooru y cola de trabajos.
+- **Diagnostico de fallos y registros**: Registro dual en /data/homebrew/PPSA99699/app.log y reportes automaticos de fallo en /data/homebrew/PPSA99699/crash.log.
 
-## Instalación
+## Instalacion
 
-Instala desde la tienda homebrew, o descomprime `PPSA99699.zip` en `/data/homebrew/` en la consola y deja que ShadowMountPlus lo detecte. Requisitos: etaHEN + kstuff-lite, ShadowMountPlus, elfldr; ftpsrv en 2121 opcional.
+Instala desde la tienda homebrew (Machete AI Studio, PPSA99699), o descomprime PPSA99699.zip en /data/homebrew/ en la consola y deja que ShadowMountPlus lo detecte. Requisitos: etaHEN + kstuff-lite, ShadowMountPlus, elfldr; ftpsrv en 2121 opcional.
 
-Créditos: [PS5SD](https://github.com/Darkatek7/PS5SD) de Darkatek7 (Heel Tobias), [stable-diffusion.cpp](https://github.com/leejet/stable-diffusion.cpp).
+Creditos: PS5SD de Darkatek7 (Heel Tobias), stable-diffusion.cpp (ggerganov / leejet), ps5-exporter (Marice).

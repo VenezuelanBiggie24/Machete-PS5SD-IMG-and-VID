@@ -42,7 +42,9 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include <algorithm>
 #include <atomic>
+#include <cctype>
 #include <chrono>
 #include <cstdint>
 #include <cstdio>
@@ -65,18 +67,26 @@
 #include <vulkan/vulkan_core.h>
 
 #include "app_status.hpp"
+#include "console_stats.hpp"
 #include "gen_args.hpp"
 #include "ggml-backend.h"
 #include "download_core.hpp"
+#include "gallery_labels.hpp"
+#include "prompt_tags.hpp"
 #include "downloader.hpp"
 #include "https_client.hpp"
-#include "network.hpp"
 #include "upload.hpp"
 #include "models.hpp"
 #include "json.hpp"
+#include "mem_fit.hpp"
 #include "server_hooks.h"
 #include "stable-diffusion.h"
 #include "version.hpp"
+
+// patches/sdcpp/0065 (server_activity.h): the WARN and ERROR lines sd.cpp logged
+// since begin(), read back as a reason; here for a model that does not load.
+void        sd_server_failure_log_begin();
+std::string sd_server_failure_reason(const std::string & fallback);
 
 #include <ps5platform/heap.h>
 #include <ps5platform/kernel.h>
@@ -131,6 +141,12 @@ int  sd_server(int argc, char ** argv);
 void sd_server_terminate(void);
 // patches/sdcpp/0060 (auth.h): the key every request needs; "" for none.
 void sd_server_set_api_key(const char * key);
+// patches/sdcpp/0063 (runtime.h): the defaults of API requests, set at run time; -1 or "" for not set.
+void sd_server_set_request_defaults(int steps, float cfg, const char * sampler, const char * scheduler, int width, int height);
+// patches/sdcpp/0069 (runtime.h): the loaded preset's CLIP skip (-1 for none), its prompt starters and its name
+// (into each saved PNG); "" for none.
+void sd_server_set_preset_extras(int clip_skip, const char * prompt_starter, const char * negative_starter,
+                                 const char * preset_name);
 }
 
 namespace {
@@ -158,6 +174,7 @@ constexpr const char * kEmbeddings = "/data/PS5SD/embeddings";
 constexpr const char * kUpscalers = "/data/PS5SD/upscalers";  // ESRGAN models: hires fix and the Upscale button
 constexpr const char * kModels  = "/data/PS5SD/models";
 constexpr const char * kPresets = "/data/PS5SD/presets";
+constexpr const char * kTags    = "/data/PS5SD/tags";  // tag files for the prompt's completion
 #ifndef PS5SD_NO_DISPLAY
 constexpr const char * kFont    = "/app0/assets/fonts/dejavu-sans-mono.huifont";
 #endif
@@ -166,8 +183,13 @@ constexpr int          kPort    = 7860;  // sd-server's listen port unless serve
 constexpr int          kStopWaitSeconds = 120;  // how long a quit waits for the server to stop
 
 AppStatus g_status;
+ConsoleStats g_console;  // the temperature, power, fan and load (console_stats.hpp)
 
 const ModelLibrary g_library{ kModels, kPresets };
+// The names and tags of the gallery's files (gallery_labels.hpp).
+GalleryLabels g_labels{ kOutputs };
+// The tags the prompt fields suggest, from the files in kTags (prompt_tags.hpp).
+TagIndex g_tags{ kTags };
 std::mutex         g_settings_mutex;  // the HTTP threads read and change g_settings
 AppSettings        g_settings;
 std::mutex         g_key_mutex;  // the HTTP threads read and change g_api_key
@@ -183,6 +205,11 @@ std::atomic<bool> g_server_done{false};
 std::atomic<bool> g_worker_busy{false};
 std::atomic<int>  g_server_port{kPort};
 std::atomic<int>  g_generation{0};  // counts the server's starts
+// For the memory hint (mem_fit.hpp): the models loaded since PS5SD started, the largest
+// width x height that worked since the last one loaded, and the size of the request running.
+std::atomic<int>     g_model_loads{0};
+std::atomic<int64_t> g_largest_ok{0};
+std::atomic<int64_t> g_job_size{0};
 std::atomic<bool> g_quit_requested{false};
 std::atomic<bool> g_quit_file{false};  // kQuit seen by watch_quit_file()
 
@@ -551,6 +578,43 @@ void quit_if_asked() {
     sceSystemServiceLoadExec("exit", nullptr);
 }
 
+// The free parts of the direct memory pool that a buffer of 2 MiB and more can
+// use (2 MiB aligned): their sum, the largest and how many. Each GPU buffer is
+// one physically contiguous block of the pool (PS5_Mesa's radv_ps5_memory_alloc),
+// so the largest part is the largest buffer that can be made now.
+// sceKernelAvailableDirectMemorySize gives one free part of a range, so the
+// ranges left and right of it are asked again.
+struct PoolFree {
+    size_t total   = 0;
+    size_t largest = 0;
+    int    parts   = 0;
+};
+
+PoolFree pool_free(int64_t pool) {
+    constexpr size_t kAlign = 2 * 1024 * 1024;
+    PoolFree         out;
+    std::vector<std::pair<int64_t, int64_t>> ranges = { { 0, pool } };
+    while (!ranges.empty() && out.parts < 100000) {
+        const auto range = ranges.back();
+        ranges.pop_back();
+        if (range.second - range.first < static_cast<int64_t>(kAlign)) {
+            continue;
+        }
+        int64_t at   = 0;
+        size_t  size = 0;
+        if (sceKernelAvailableDirectMemorySize(range.first, range.second, kAlign, &at, &size) != 0 || size == 0 ||
+            at < range.first || at + static_cast<int64_t>(size) > range.second) {
+            continue;
+        }
+        out.total += size;
+        out.largest = std::max(out.largest, size);
+        out.parts++;
+        ranges.push_back({ range.first, at });
+        ranges.push_back({ at + static_cast<int64_t>(size), range.second });
+    }
+    return out;
+}
+
 // Where the memory is: the direct memory pool's free part (models, the GPU
 // heap and the platform's malloc all come from it), the CPU heap, and what
 // ggml says about each device.
@@ -559,10 +623,13 @@ void log_memory(const char * when) {
     size_t        free = 0;
     const int64_t pool = sceKernelGetDirectMemorySize();
     sceKernelAvailableDirectMemorySize(0, pool, 2 * 1024 * 1024, &at, &free);
+    const PoolFree parts = pool_free(pool);
     struct ps5_heap_stats heap = {};
     ps5_heap_stats(&heap);
-    std::printf("ps5sd: memory %s: pool free %.2f of %.2f GiB, cpu heap %.2f GiB (peak %.2f)", when, free / kGiB,
-                pool / kGiB, heap.mapped_bytes / kGiB, heap.peak_bytes / kGiB);
+    std::printf("ps5sd: memory %s: pool free %.2f of %.2f GiB (in %d parts: %.2f GiB, the largest %.2f), cpu heap %.2f GiB "
+                "(peak %.2f)",
+                when, free / kGiB, pool / kGiB, parts.parts, parts.total / kGiB, parts.largest / kGiB,
+                heap.mapped_bytes / kGiB, heap.peak_bytes / kGiB);
     for (size_t i = 0; i < ggml_backend_dev_count(); i++) {
         size_t dev_free = 0, dev_total = 0;
         ggml_backend_dev_memory(ggml_backend_dev_get(i), &dev_free, &dev_total);
@@ -732,10 +799,11 @@ struct ServerPlan {
 // sd-server's command line: the active model's arguments (model.txt's entry
 // in the library), the app's defaults, then server-args.txt (one argument a
 // line). With an entry, server-args.txt's own model options are left out;
-// without model.txt, server-args.txt must name the model. sd-server appends
-// to a string option given twice (--backend Vulkan --backend CPU would be
-// "Vulkan,CPU"), so a default is only added when no argument names that
-// option itself.
+// without model.txt, server-args.txt must name the model. The entry's own
+// settings ("# defaults:") are not on the command line: apply_preset_settings
+// sets them at run time. sd-server appends to a string option given twice
+// (--backend Vulkan --backend CPU would be "Vulkan,CPU"), so a default is only
+// added when no argument names that option itself.
 bool server_plan(ServerPlan & plan, std::string & error) {
     std::vector<std::string> extra  = read_lines(kServerArgs);
     const auto               active = read_lines(kModel);
@@ -861,6 +929,22 @@ bool write_active_model(const std::string & id) {
     return std::rename(tmp.c_str(), kModel) == 0;
 }
 
+// The entry's settings ("# defaults:") as the server's request defaults, set
+// at run time, so a switch needs no restart; nullptr clears them (standby).
+void apply_preset_settings(const ModelEntry * entry) {
+    if (entry == nullptr) {
+        sd_server_set_request_defaults(-1, -1, "", "", -1, -1);
+        sd_server_set_preset_extras(-1, "", "", "");
+        return;
+    }
+    const PresetSettings settings = preset_settings(entry->defaults);
+    sd_server_set_request_defaults(settings.steps, settings.cfg, settings.sampler.c_str(), settings.scheduler.c_str(),
+                                   settings.width, settings.height);
+    // a checkpoint's name is its file, which the PNG has as "Model:" already
+    sd_server_set_preset_extras(settings.clip_skip, entry->prompt_starter.c_str(), entry->negative_starter.c_str(),
+                                entry->kind == "preset" ? entry->name.c_str() : "");
+}
+
 // The server, on the worker thread, until a quit request stops it; started
 // again with the new model after a switch, and with the last model that
 // worked when a switched-to one does not load.
@@ -919,9 +1003,39 @@ void run_server() {
                 return;  // the quit came between two starts
             }
             ++g_generation;
+            // The settings of the entry being started (none in standby, or when
+            // server-args.txt names the model itself).
+            ModelEntry  entry;
+            std::string ignored;
+            if (!standby && !plan.id.empty() && g_library.find(plan.id, entry, ignored)) {
+                apply_preset_settings(&entry);
+            } else {
+                apply_preset_settings(nullptr);
+            }
+            sd_server_failure_log_begin();
             rc = sd_server((int) plan.args.size(), argv.data());
         }
         std::printf("ps5sd: sd_server returned %d\n", rc);
+        if (rc != 0 && !standby && !plan.id.empty() && !g_quit_requested && !g_restart) {
+            // Why, for the web UI (GET models' load_error) and the log: what
+            // sd.cpp said, or what the file is when it is only a part of a model.
+            ModelEntry  entry;
+            std::string ignored;
+            std::string why = sd_server_failure_reason("");
+            const std::string prefix = "Generation failed: ";
+            if (why.compare(0, prefix.size(), prefix) == 0) {
+                why.erase(0, prefix.size());
+            }
+            if (why.empty() && g_library.find(plan.id, entry, ignored)) {
+                why = part_reason(entry);
+            }
+            if (why.empty()) {
+                why = "sd.cpp stopped while loading it and did not say why; /data/PS5SD/app.log has its last lines. "
+                      "A damaged or incomplete file, or a model PS5SD's stable-diffusion.cpp does not know, ends so.";
+            }
+            std::printf("ps5sd: %s did not load: %s\n", plan.id.c_str(), why.c_str());
+            set_load_error(plan.id, plan.name + " did not load: " + why);
+        }
         log_memory("after the server");
         if (g_quit_requested) {
             set_phase("Server stopped");
@@ -1000,13 +1114,6 @@ void announce_when_listening() {
     }
     announced = generation;
     g_switching = false;
-    std::string ip = g_status.snapshot().address;
-    if (ip.empty()) {
-        ip = detect_console_ip();
-        if (!ip.empty()) {
-            g_status.set_address(ip);
-        }
-    }
     const std::string port = std::to_string(g_server_port.load());
     if (g_standby) {
         std::printf("ps5sd: listening on port %s, without a model\n", port.c_str());
@@ -1024,10 +1131,64 @@ void announce_when_listening() {
         g_loaded_id = !active.empty() && g_library.find(active[0], entry, ignored) ? entry.id : std::string();
         g_good_id   = g_loaded_id;
     }
+    ++g_model_loads;
+    g_largest_ok = 0;
     log_memory("after loading");
     std::printf("ps5sd: listening on port %s\n", port.c_str());
     set_phase("Ready", "API and web UI on port " + port);
     notify_outcome(("PS5SD: ready, API and web UI on port " + port).c_str());
+}
+
+// The console's address on the local network, for the dashboard's
+// "http://<address>:<port>" and its QR code. Connecting a UDP socket sends
+// nothing; the kernel only picks the interface a packet to that address would
+// leave by, and getsockname() names it. Needs a default route; without one,
+// PS5SD_ADDRESS in env.txt sets the address by hand. The approach comes from
+// Machete PS5SD (github.com/VenezuelanBiggie24/Machete-PS5SD-IMG-and-VID).
+std::string lan_address() {
+    if (const char * v = std::getenv("PS5SD_ADDRESS"); v != nullptr && *v != '\0') {
+        return v;
+    }
+    const int s = socket(AF_INET, SOCK_DGRAM, 0);
+    if (s < 0) {
+        return {};
+    }
+    sockaddr_in to     = {};
+    to.sin_family      = AF_INET;
+    to.sin_port        = htons(53);
+    to.sin_addr.s_addr = htonl(0x08080808);  // 8.8.8.8; any address off the local network does
+    sockaddr_in local  = {};
+    socklen_t   len    = sizeof(local);
+    std::string out;
+    if (connect(s, reinterpret_cast<const sockaddr *>(&to), sizeof(to)) == 0 &&
+        getsockname(s, reinterpret_cast<sockaddr *>(&local), &len) == 0) {
+        const uint32_t a = ntohl(local.sin_addr.s_addr);
+        if (a != 0 && (a >> 24) != 127) {
+            char text[16];
+            std::snprintf(text, sizeof(text), "%u.%u.%u.%u", a >> 24, (a >> 16) & 255u, (a >> 8) & 255u, a & 255u);
+            out = text;
+        }
+    }
+    close(s);
+    return out;
+}
+
+// From the main loop: looks every 5 s while the address is not known, then
+// once a minute (a new DHCP lease).
+void watch_address() {
+    static std::chrono::steady_clock::time_point next;
+    static std::string                           known;
+    const auto now = std::chrono::steady_clock::now();
+    if (now < next) {
+        return;
+    }
+    const std::string address = lan_address();
+    next = now + (address.empty() ? std::chrono::seconds(5) : std::chrono::seconds(60));
+    if (address != known) {
+        known = address;
+        g_status.set_address(address);
+        std::printf("ps5sd: address %s\n", address.empty() ? "not known" : address.c_str());
+    }
 }
 
 // A thread with a 16 MiB stack, as PS5LM gives llama-server: the console's
@@ -1063,16 +1224,26 @@ int ask_switch(const std::string & id, std::string & out) {
         out = error_json(error);
         return 404;
     }
+    // Only a part of a model (a diffusion model without its text encoder, a
+    // text encoder, a VAE): sd.cpp would stop while reading it, without a word.
+    const std::string part = part_reason(entry);
+    if (!part.empty()) {
+        std::printf("ps5sd: switch to %s refused: %s\n", entry.id.c_str(), part.c_str());
+        out = error_json(part);
+        return 422;
+    }
     if (g_switching || g_quit_requested) {
         out = error_json("the server is switching the model or stopping");
         return 409;
     }
+    set_load_error("", "");  // a new try: the last failure is old news
     if (entry.id == loaded_id()) {
         out = models_json(g_library, entry.id, entry.id, false);
         return 200;
     }
-    // A preset with the same arguments as the loaded model (a variant with
-    // other defaults): the server has it ready, so no restart.
+    // A preset with the same model arguments as the loaded one: the server has
+    // the model ready, so no restart. Its settings become the server's request
+    // defaults at run time (apply_preset_settings).
     {
         ModelEntry  loaded;
         std::string ignored;
@@ -1082,6 +1253,7 @@ int ask_switch(const std::string & id, std::string & out) {
                 out = error_json("could not write /data/PS5SD/model.txt");
                 return 500;
             }
+            apply_preset_settings(&entry);
             {
                 std::lock_guard<std::mutex> lock(g_model_mutex);
                 g_loaded_id = entry.id;
@@ -1129,6 +1301,7 @@ std::string current_checkpoint() {
 // progress reaches the app only through these.
 extern "C" void sd_activity_job_begin(const char * kind, const char * prompt, int w, int h, int steps) {
     std::printf("ps5sd: request %s, %dx%d, %d steps\n", kind, w, h, steps);
+    g_job_size = (int64_t) w * h;
     g_status.set_progress(0, steps, 0);
     set_phase("Generating", prompt != nullptr && *prompt != '\0' ? prompt : kind);
 }
@@ -1252,6 +1425,16 @@ bool set_api_key(bool on, std::string & error) {
 //                       keeps going while the server restarts.
 //   gallery (POST)      {"image": "<base64 PNG>"}: an image the web UI made,
 //                       saved to outputs (201 {"saved": "<name>"}).
+//   gallery/labels (GET) {"labels": {"<file>": {"title", "tags"}}}; (POST)
+//                       {"name": "<file>", "title": "...", "tags": [...]}: a
+//                       file's name and tags (gallery_labels.hpp), answered
+//                       with {"name", "title", "tags"} as kept.
+//   gallery/keep (POST) {"name": "tmp_<file>"}: keeps an image made with
+//                       "temporary" ({"kept": "<file>"}).
+//   tags (GET)          {"files": [...], "tags": n}: the tag files in
+//                       /data/PS5SD/tags; (POST) {"q": "...", "limit": n}:
+//                       {"tags": [{"tag", "count", "alias"}]}, the tags that
+//                       start with q (prompt_tags.hpp).
 //   upscalers (GET), upscalers/<file> (DELETE): the upscaler models in
 //                       /data/PS5SD/upscalers.
 //   settings (GET, POST) the app's settings (AppSettings): {"tv_images": bool,
@@ -1260,6 +1443,8 @@ bool set_api_key(bool on, std::string & error) {
 //                       a new one (also when there is one).
 //   presets (POST), presets/<id> (GET, POST, DELETE): saved presets, the
 //                       variants of a model (ModelLibrary::create_preset).
+//   console (GET)       the console's temperature, power, fan and load, now,
+//                       the last 2 minutes and the last hour (console_stats.hpp).
 // GET docs/<name>: docs/MODELS.md or docs/API.md, which the title carries,
 // for the web UI's Help tab.
 int doc_request(const std::string & name, char ** out_body, size_t * out_len, const char ** content_type) {
@@ -1311,7 +1496,7 @@ extern "C" int sd_app_upload(const char * path, uint64_t length, sd_app_reader r
                        },
                        &ctx) != 0;
         };
-        status = upload_file(UploadDirs{ kModels, kLoras, kEmbeddings, kPresets, kUpscalers }, p.substr(8), length, reader,
+        status = upload_file(UploadDirs{ kModels, kLoras, kEmbeddings, kPresets, kUpscalers, kTags }, p.substr(8), length, reader,
                              out);
     }
     *out_body = static_cast<char *>(std::malloc(out.size()));
@@ -1348,8 +1533,11 @@ extern "C" int sd_app_request(const char * method, const char * path, const char
         } else {
             status = ask_switch(id, out);
         }
+    } else if (m == "GET" && p == "console") {
+        out    = g_console.json();
+        status = 200;
     } else if (m == "GET" && p == "info") {
-        out    = info_json(get_app_version(), get_app_build(), sd_version(), sd_commit());
+        out    = info_json(get_app_version(), sd_version(), sd_commit(), get_app_build());
         status = 200;
     } else if (m == "GET" && p == "compat/sd-models") {
         out    = sd_models_json(g_library);
@@ -1489,6 +1677,23 @@ extern "C" int sd_app_request(const char * method, const char * path, const char
                                  g_standby && !g_switching);
             status = 200;
         }
+    } else if (m == "POST" && p == "fit") {
+        // An img_gen or vid_gen body: will it fit in memory (mem_fit.hpp)? Nothing runs.
+        FitQuery    q;
+        std::string error;
+        if (!fit_query_from_body(body != nullptr ? std::string(body, body_len) : std::string(), q, error)) {
+            out    = error_json(error);
+            status = 400;
+        } else {
+            ModelEntry        entry;
+            std::string       ignored;
+            const std::string id = loaded_id();
+            q.family             = !id.empty() && g_library.find(id, entry, ignored) ? model_family(entry) : "";
+            q.largest_ok         = g_largest_ok;
+            q.other_model_before = g_model_loads > 1;
+            out                  = fit_json(q, check_fit(q));
+            status               = 200;
+        }
     } else if (m == "GET" && p == "loras") {
         out    = loras_json(kLoras);
         status = 200;
@@ -1553,18 +1758,82 @@ extern "C" int sd_app_request(const char * method, const char * path, const char
                 status = 201;
             }
         }
+    } else if (m == "GET" && p == "tags") {
+        out    = g_tags.info_json();
+        status = 200;
+    } else if (m == "POST" && p == "tags") {
+        // {"q": "<what was typed>", "limit": n}: the tags that start with it, the most used first
+        const nlohmann::json j = nlohmann::json::parse(body != nullptr ? std::string(body, body_len) : std::string(), nullptr, false);
+        if (!j.is_object() || !j.contains("q") || !j["q"].is_string()) {
+            out    = error_json("the body must be {\"q\": \"...\", \"limit\": 10}");
+            status = 400;
+        } else {
+            const int limit = j.contains("limit") && j["limit"].is_number_integer() ? j["limit"].get<int>() : 10;
+            out    = TagIndex::hits_json(g_tags.find(j["q"].get<std::string>(), static_cast<size_t>(std::max(1, std::min(50, limit)))));
+            status = 200;
+        }
+    } else if (m == "GET" && p == "gallery/labels") {
+        out    = g_labels.all_json();
+        status = 200;
+    } else if (m == "POST" && p == "gallery/labels") {
+        const nlohmann::json j = nlohmann::json::parse(body != nullptr ? std::string(body, body_len) : std::string(), nullptr, false);
+        std::vector<std::string> tags;
+        bool                     ok = j.is_object() && j.contains("name") && j["name"].is_string() &&
+                  (!j.contains("title") || j["title"].is_string()) && (!j.contains("tags") || j["tags"].is_array());
+        if (ok && j.contains("tags")) {
+            for (const auto & t : j["tags"]) {
+                ok = ok && t.is_string();
+                if (t.is_string()) {
+                    tags.push_back(t.get<std::string>());
+                }
+            }
+        }
+        GalleryLabel label;
+        std::string  error;
+        if (!ok) {
+            out    = error_json("the body must be {\"name\": \"<file>\", \"title\": \"...\", \"tags\": [\"...\"]}");
+            status = 400;
+        } else if (!gallery_name_ok(j["name"].get<std::string>())) {
+            out    = error_json("not a gallery file: " + j["name"].get<std::string>());
+            status = 400;
+        } else if (!g_labels.set(j["name"].get<std::string>(), j.value("title", std::string()), tags, label, error)) {
+            out    = error_json(error);
+            status = error.rfind("no file", 0) == 0 ? 404 : 400;
+        } else {
+            out    = nlohmann::json{ { "name", j["name"] }, { "title", label.title }, { "tags", label.tags } }.dump(
+                -1, ' ', false, nlohmann::json::error_handler_t::replace);
+            status = 200;
+        }
+    } else if (m == "POST" && p == "gallery/keep") {
+        // An image made with "temporary" (patches/sdcpp/0069) kept after all.
+        const nlohmann::json j = nlohmann::json::parse(body != nullptr ? std::string(body, body_len) : std::string(), nullptr, false);
+        std::string          kept, error;
+        if (!j.is_object() || !j.contains("name") || !j["name"].is_string()) {
+            out    = error_json("the body must be {\"name\": \"tmp_<file>\"}");
+            status = 400;
+        } else if (!keep_temporary(kOutputs, j["name"].get<std::string>(), kept, error)) {
+            out    = error_json(error);
+            status = error.rfind("no file", 0) == 0 ? 404 : 409;
+        } else {
+            out    = nlohmann::json{ { "kept", kept } }.dump();
+            status = 200;
+        }
     } else if (m == "DELETE" && p.rfind("gallery/", 0) == 0) {
-        // One image of the gallery (the PNGs in outputs); the gallery lists
+        // One file of the gallery (the PNGs and videos in outputs); the gallery lists
         // that folder on each request, so the file is all there is.
         const std::string name = p.substr(8);
         if (!gallery_name_ok(name)) {
-            out    = error_json("not a gallery image: " + name);
+            out    = error_json("not a gallery file: " + name);
             status = 400;
         } else if (::unlink((std::string(kOutputs) + "/" + name).c_str()) == 0) {
+            // and what the server keeps for it: the thumbnail, a video's parameters
+            ::unlink((std::string(kOutputs) + "/.thumbs/" + name + ".jpg").c_str());
+            ::unlink((std::string(kOutputs) + "/.thumbs/" + name + ".txt").c_str());
+            g_labels.remove(name);
             out    = "{\"deleted\": \"" + name + "\"}";
             status = 200;
         } else if (errno == ENOENT) {
-            out    = error_json("no image " + name);
+            out    = error_json("no file " + name);
             status = 404;
         } else {
             out    = error_json("could not delete " + name + ": " + std::strerror(errno));
@@ -1619,10 +1888,35 @@ extern "C" int sd_app_request(const char * method, const char * path, const char
     return status;
 }
 
+// The dashboard draws PNGs; a video (vid_gen) is in the gallery, not on the TV.
+static bool is_png_path(const std::string & path) {
+    if (path.size() <= 4) {
+        return false;
+    }
+    std::string ext = path.substr(path.size() - 4);
+    std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    return ext == ".png";
+}
+
 extern "C" void sd_activity_job_end(int ok, const char * output_path) {
     log_memory("after a request");
+    if (ok && g_job_size > g_largest_ok) {
+        g_largest_ok = g_job_size.load();
+    }
     if (!ok) {
-        set_phase("Generation failed", "See /data/PS5SD/app.log");
+        // The server's reason for the failure ("Cancelled", out of memory, the
+        // last error), when it knows one (patches/sdcpp/0065).
+        std::string reason = output_path != nullptr ? output_path : "";
+        std::printf("ps5sd: failed: %s\n", reason.empty() ? "reason not known" : reason.c_str());
+        if (reason == "Cancelled") {
+            set_phase("Ready", "cancelled");  // a stop is no error (AppStatus::classify)
+            return;
+        }
+        const std::string prefix = "Generation failed: ";
+        if (reason.compare(0, prefix.size(), prefix) == 0) {
+            reason.erase(0, prefix.size());
+        }
+        set_phase("Generation failed", reason.empty() ? "See /data/PS5SD/app.log" : reason);
         return;
     }
     // One path a line: every image of a batch, in order (patches/sdcpp/0059).
@@ -1630,7 +1924,9 @@ extern "C" void sd_activity_job_end(int ok, const char * output_path) {
     std::istringstream paths(output_path);
     for (std::string path; std::getline(paths, path);) {
         if (!path.empty()) {
-            g_status.set_result(path);
+            if (is_png_path(path)) {
+                g_status.set_result(path);
+            }
             if (first.empty()) {
                 first = path;
             }
@@ -1647,21 +1943,20 @@ int main(int, char **) {
     mkdir(kHomebrewBaseDir, 0777);
     mkdir(kHomebrewDir, 0777);
     mkdir(kDir, 0777);
-    for (const char * dir : { kModels, kLoras, kEmbeddings, kPresets, kUpscalers }) {
+    for (const char * dir : { kModels, kLoras, kEmbeddings, kPresets, kUpscalers, kTags }) {
         mkdir(dir, 0777);  // uploads, downloads and sd-server's lists expect them
     }
-    // stdout and stderr to a file the PC can fetch over FTP.
+    // stdout and stderr to a file the PC can fetch over FTP. Both append: with
+    // "w", stdout kept its own offset and wrote over what stderr had appended
+    // (the start of every error line). The file is emptied first instead.
     // Dual-location logging: ensure both /data/PS5SD/app.log and
     // /data/homebrew/PPSA99699/app.log capture identical application logs.
-    {
-        FILE * init_f = std::fopen(kLog, "w");
-        if (init_f != nullptr) {
-            std::fclose(init_f);
-        }
-        unlink(kHomebrewLog);
-        if (link(kLog, kHomebrewLog) != 0) {
-            symlink(kLog, kHomebrewLog);
-        }
+    if (std::FILE * log = std::fopen(kLog, "w")) {
+        std::fclose(log);
+    }
+    unlink(kHomebrewLog);
+    if (link(kLog, kHomebrewLog) != 0) {
+        symlink(kLog, kHomebrewLog);
     }
     if (std::freopen(kLog, "a", stdout) != nullptr) {
         setvbuf(stdout, nullptr, _IOLBF, 0);
@@ -1670,11 +1965,17 @@ int main(int, char **) {
         setvbuf(stderr, nullptr, _IONBF, 0);
     }
     install_crash_handlers();
-    const std::string app_ver = get_app_version();
-    const std::string app_bld = get_app_build();
-    std::printf("ps5sd: version %s (%s), stable-diffusion.cpp %s (%s)\n", app_ver.c_str(), app_bld.c_str(), sd_version(), sd_commit());
+    std::printf("ps5sd: version " PS5SD_VERSION ", stable-diffusion.cpp %s (%s)\n", sd_version(), sd_commit());
     load_settings();
     load_api_key();
+    // The images made with "Don't keep on the console" last until the title starts again.
+    if (const int dropped = drop_temporary(kOutputs); dropped > 0) {
+        std::printf("ps5sd: deleted %d image(s) that were not to be kept\n", dropped);
+    }
+    for (const std::string & id : update_catalog_presets(kPresets)) {
+        std::printf("ps5sd: preset %s updated to the catalog's current settings\n", id.c_str());
+    }
+    g_console.start(g_status);
     // One device-local heap over the whole pool (RADV splits an APU's 2/3 to
     // 1/3), and a HOME, which a title lacks and libraries look up.
     setenv("radv_enable_unified_heap_on_apu", "true", 1);
@@ -1709,25 +2010,20 @@ int main(int, char **) {
     const bool         ui_ok = renderer.init() && view.load(renderer, kFont);
     std::printf("ps5sd: screen %s\n", ui_ok ? "ready" : "failed");
     // The model and the port the server will use, for the screen before the
-    // server has started (the same files server_args() reads). The console's
-    // own address is not known yet: g_status.set_address("a.b.c.d") fills the
-    // dashboard's "http://<address>:<port>" once something finds it.
+    // server has started (the same files server_args() reads), and the
+    // console's address (watch_address() keeps it current).
     {
         const ServerConfig config = read_server_config(kModel, kServerArgs, kPort);
         g_status.set_model(config.model);
         g_status.set_port(config.port);
-        const std::string ip = detect_console_ip();
-        if (!ip.empty()) {
-            g_status.set_address(ip);
-            std::printf("ps5sd: detected console address: %s\n", ip.c_str());
-        }
     }
+    watch_address();
     auto last_frame = std::chrono::steady_clock::now();
     const auto render = [&] {
         const auto now = std::chrono::steady_clock::now();
         view.update(g_status.snapshot(), std::chrono::duration<float>(now - last_frame).count());
         last_frame = now;
-        view.compose(renderer, app_ver.c_str(), app_bld.c_str());
+        view.compose(renderer, get_app_version().c_str(), get_app_build().c_str());
         display.present(renderer);
     };
     set_phase("Opening the GPU");
@@ -1736,7 +2032,7 @@ int main(int, char **) {
         display.swap();
     }
     sceSystemServiceHideSplashScreen();
-    notify("Machete PS5SD: starting");
+    notify("PS5SD: starting");
 #else
     std::printf("ps5sd: built without a display (PS5SD_NO_DISPLAY): status in this log, klog and notifications\n");
     // Nothing opens the video output in this build. PS5SD_VIDEOOUT=1 in
@@ -1747,7 +2043,7 @@ int main(int, char **) {
         std::printf("ps5sd: sceVideoOutOpen: %d (0x%08x)\n", handle, (unsigned) handle);
     }
     sceSystemServiceHideSplashScreen();
-    set_phase("Opening the GPU", ("version " + app_ver + ", no display").c_str());
+    set_phase("Opening the GPU", "version " PS5SD_VERSION ", no display");
 #endif
 
     // The server, or one image with PS5SD_ONESHOT=1 (env.txt). The worker is
@@ -1792,12 +2088,7 @@ int main(int, char **) {
             sceKernelUsleep(16 * 1000);  // no vsync to wait on
         }
         if (n % 60 == 0) {
-            if (g_status.snapshot().address.empty()) {
-                const std::string detected_ip = detect_console_ip();
-                if (!detected_ip.empty()) {
-                    g_status.set_address(detected_ip);
-                }
-            }
+            watch_address();
             announce_when_listening();
             switch_if_asked();
             quit_if_asked();
@@ -1809,12 +2100,7 @@ int main(int, char **) {
     // return from main or exit.
     for (;;) {
         sceKernelUsleep(500 * 1000);
-        if (g_status.snapshot().address.empty()) {
-            const std::string detected_ip = detect_console_ip();
-            if (!detected_ip.empty()) {
-                g_status.set_address(detected_ip);
-            }
-        }
+        watch_address();
         announce_when_listening();
         switch_if_asked();
         quit_if_asked();

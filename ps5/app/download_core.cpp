@@ -6,6 +6,8 @@
 #include <cmath>
 #include <cstdio>
 #include <filesystem>
+#include <fstream>
+#include <iterator>
 
 #include "catalog.hpp"
 #include "json.hpp"
@@ -256,7 +258,7 @@ bool classify_url(const std::string & text, Source & out, std::string & error) {
 
 bool is_model_file_name(const std::string & name) {
     const std::string n = lower(name);
-    for (const char * ext : { ".gguf", ".safetensors", ".ckpt", ".sft", ".pth", ".bin" }) {
+    for (const char * ext : { ".gguf", ".safetensors", ".ckpt", ".sft" }) {
         const std::string e = ext;
         if (n.size() > e.size() && n.compare(n.size() - e.size(), e.size(), e) == 0) {
             return true;
@@ -303,7 +305,7 @@ bool valid_dest(const std::string & dest, std::string & error) {
         }
     }
     if (!is_model_file_name(segs.back())) {
-        error = "only .gguf, .safetensors, .ckpt, .sft, .pth and .bin files go into the models directory: " + dest;
+        error = "only .gguf, .safetensors, .ckpt and .sft files go into the models directory: " + dest;
         return false;
     }
     return true;
@@ -402,6 +404,37 @@ const CatalogEntry * find_catalog(const std::string & id) {
 bool catalog_file_present(const CatalogFile & f, const std::string & models_dir) {
     const fs::path p = fs::u8path(models_dir) / fs::u8path(f.dest);
     return is_file_of_size(p, f.bytes) || (f.alt_bytes != 0 && is_file_of_size(p, f.alt_bytes));
+}
+
+std::vector<std::string> update_catalog_presets(const std::string & presets_dir) {
+    std::vector<std::string> updated;
+    for (const auto & old : catalog_data::old_presets()) {
+        const CatalogEntry * e    = find_catalog(old.first);
+        const fs::path       path = fs::u8path(presets_dir) / fs::u8path(std::string(old.first) + ".txt");
+        std::ifstream        in(path, std::ios::binary);
+        if (e == nullptr || !in) {
+            continue;
+        }
+        const std::string text((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+        in.close();
+        if (text != old.second) {
+            continue;
+        }
+        const fs::path tmp = fs::u8path(path.u8string() + ".tmp");
+        {
+            std::ofstream out(tmp, std::ios::binary | std::ios::trunc);
+            out << e->preset;
+            if (!out) {
+                continue;
+            }
+        }
+        std::error_code ec;
+        fs::rename(tmp, path, ec);
+        if (!ec) {
+            updated.push_back(e->id);
+        }
+    }
+    return updated;
 }
 
 bool catalog_files_present(const CatalogEntry & e, const std::string & models_dir) {
@@ -516,8 +549,9 @@ bool upload_target(const std::string & path, std::string & kind, std::string & n
     const size_t slash = path.find('/');
     kind               = path.substr(0, slash);
     name               = slash == std::string::npos ? std::string() : path.substr(slash + 1);
-    if (kind != "models" && kind != "loras" && kind != "embeddings" && kind != "presets" && kind != "upscalers") {
-        error = "uploads go to models, loras, embeddings, presets or upscalers, not '" + kind + "'";
+    if (kind != "models" && kind != "loras" && kind != "embeddings" && kind != "presets" && kind != "upscalers" &&
+        kind != "tags") {
+        error = "uploads go to models, loras, embeddings, presets, upscalers or tags, not '" + kind + "'";
         return false;
     }
     if (kind == "models") {
@@ -534,6 +568,17 @@ bool upload_target(const std::string & path, std::string & kind, std::string & n
         if (!is_upscaler_file_name(name) || dot == std::string::npos ||
             !valid_dest(name.substr(0, dot) + ".gguf", ignored)) {
             error = "an upscaler is a .pth, .pt, .safetensors or .gguf file name: " + name;
+            return false;
+        }
+        return true;
+    }
+    if (kind == "tags") {
+        // tag files for the prompt's completion (prompt_tags.hpp)
+        const std::string n = lower(name);
+        std::string       ignored;
+        if (n.size() <= 4 || (n.compare(n.size() - 4, 4, ".csv") != 0 && n.compare(n.size() - 4, 4, ".txt") != 0) ||
+            !valid_dest(name.substr(0, name.size() - 4) + ".gguf", ignored)) {
+            error = "a tag file is a .csv or .txt file name: " + name;
             return false;
         }
         return true;
@@ -575,16 +620,11 @@ bool gallery_name_ok(const std::string & name) {
     if (name.size() <= 4 || name.size() > 200 || name[0] == '.') {
         return false;
     }
-    const std::string n = lower(name);
-    bool ext_ok = false;
-    for (const char * ext : { ".png", ".jpg", ".jpeg", ".mp4", ".webm", ".gif" }) {
-        const std::string e = ext;
-        if (n.size() >= e.size() && n.compare(n.size() - e.size(), e.size(), e) == 0) {
-            ext_ok = true;
-            break;
-        }
-    }
-    if (!ext_ok) {
+    // a PNG or a video (vid_gen): the same extensions gallery_type serves
+    const std::string n  = lower(name);
+    const bool        ext = n.compare(n.size() - 4, 4, ".png") == 0 || n.compare(n.size() - 4, 4, ".avi") == 0 ||
+                     n.compare(n.size() - 5, 5, ".webm") == 0 || n.compare(n.size() - 5, 5, ".webp") == 0;
+    if (!ext) {
         return false;
     }
     for (const char c : name) {
@@ -806,11 +846,6 @@ bool parse_civitai_version(const std::string & text, const std::string & file_id
         bytes = static_cast<uint64_t>(std::llround((*pick)["sizeKB"].get<double>() * 1024.0));
     }
     const std::string type = j.contains("model") && j["model"].is_object() ? str_of(j["model"], "type") : "";
-    const std::string nl = lower(name);
-    if (type == "Checkpoint" && (nl.size() > 4 && (nl.compare(nl.size() - 4, 4, ".pth") == 0 || nl.compare(nl.size() - 4, 4, ".bin") == 0))) {
-        error = "a checkpoint must not be a .pth: " + name;
-        return false;
-    }
     if (name.empty() || !(is_model_file_name(name) || (type == "Upscaler" && is_upscaler_file_name(name)))) {
         error = "the file of this model version is not a model file: " + name;
         return false;

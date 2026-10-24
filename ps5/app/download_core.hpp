@@ -71,9 +71,9 @@ bool is_lora_type(const std::string & civitai_type);
 bool valid_target(const std::string & kind, const std::string & dest, std::string & error);
 std::string download_key(const std::string & kind, const std::string & dest);
 
-// A gallery image's name (DELETE /ps5sd/v1/app/gallery/<name>): a .png file
-// name of letters, digits, '_', '-' and '.', as the gallery lists them, not
-// starting with '.' and without folders.
+// A gallery file (a PNG or a video) name (DELETE /ps5sd/v1/app/gallery/<name>):
+// letters, digits, '_', '-' and '.', ending in .png, .webm, .webp or .avi, as
+// the gallery lists them, not starting with '.' and without folders.
 bool gallery_name_ok(const std::string & name);
 
 // A stable id for a destination (16 hex digits): the same file is one entry.
@@ -110,6 +110,10 @@ const CatalogEntry *              find_catalog(const std::string & id);
 
 // True when the file is in the models directory at its size (or alt_bytes).
 bool catalog_file_present(const CatalogFile & f, const std::string & models_dir);
+
+// Gives each catalog preset in presets_dir that is still byte for byte one an older PS5SD wrote
+// (catalog_data::old_presets) the entry's current text. Returns the ids it updated.
+std::vector<std::string> update_catalog_presets(const std::string & presets_dir);
 // True when every file of the entry is.
 bool catalog_files_present(const CatalogEntry & e, const std::string & models_dir);
 

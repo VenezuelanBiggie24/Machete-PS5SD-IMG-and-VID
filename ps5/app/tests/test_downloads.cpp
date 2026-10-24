@@ -8,6 +8,7 @@
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
+#include <iterator>
 #include <set>
 #include <string>
 
@@ -30,6 +31,11 @@ void check(bool ok, const char * what) {
 void write(const fs::path & p, const std::string & text) {
     fs::create_directories(p.parent_path());
     std::ofstream(p, std::ios::binary) << text;
+}
+
+std::string read(const fs::path & p) {
+    std::ifstream in(p, std::ios::binary);
+    return std::string((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
 }
 
 void write_size(const fs::path & p, uint64_t bytes) {
@@ -143,6 +149,12 @@ int main() {
     check(ids.size() == catalog().size() && ids.count("sdxs-512") && ids.count("sdxl-base") && ids.count("sd-turbo"),
           "catalog ids are unique, the starters are there");
     check(find_catalog("sdxs-512") != nullptr && find_catalog("nope") == nullptr, "find_catalog");
+    {
+        const CatalogEntry * canny = find_catalog("sdxl-canny");
+        check(canny != nullptr && !canny->featured && canny->files.size() == 3 &&
+                  std::string(canny->files[2].dest) == "controlnet/xinsir-canny-sdxl-v2.safetensors",
+              "sdxl-canny: not featured, the ControlNet is its third file");
+    }
 
     const fs::path root = fs::temp_directory_path() / "ps5sd-test-downloads";
     fs::remove_all(root);
@@ -165,13 +177,62 @@ int main() {
                 check(e["files"].size() == 2 && e["files"][1]["dest"] == "vae/sdxl_vae_fp16_fix.safetensors",
                       "files in the JSON");
                 check(e["bytes"] == 5040957760ull + 334641162ull, "bytes add up");
-                check(e["preset"].get<std::string>().find("--vae-tile-size\n512") != std::string::npos,
+                check(e["preset"].get<std::string>().find("--vae-tile-size\n640") != std::string::npos,
                       "the preset's text");
             }
         }
         check(found, "sdxl-base in the catalog JSON");
     }
     write(presets / "sdxl-base.txt", sdxl.preset);
+    {
+        // an older PS5SD's Wan preset gets the current one; a changed one and the others stay
+        const std::string wan   = find_catalog("wan21-t2v-1.3b")->preset;
+        const std::string tiles = "--vae-tile-size\n256\n--vae-tile-overlap\n0.25\n";
+        const size_t      at    = wan.find(tiles);
+        check(at != std::string::npos, "Wan decodes in 256 px tiles at 0.25");
+        // 0.9.0's, as the console has it
+        const std::string old = wan.substr(0, at) + "--vae-tile-size\n128\n" + wan.substr(at + tiles.size());
+        check(update_catalog_presets(presets.u8string()).empty(), "nothing to update without the file");
+        write(presets / "wan21-t2v-1.3b.txt", old);
+        const auto updated = update_catalog_presets(presets.u8string());
+        check(updated.size() == 1 && updated[0] == "wan21-t2v-1.3b" && read(presets / "wan21-t2v-1.3b.txt") == wan &&
+                  !fs::exists(presets / "wan21-t2v-1.3b.txt.tmp"),
+              "the old preset becomes the current one");
+        check(update_catalog_presets(presets.u8string()).empty(), "the current one is left alone");
+        const std::string changed = old + "--seed\n5\n";
+        write(presets / "wan21-t2v-1.3b.txt", changed);
+        check(update_catalog_presets(presets.u8string()).empty() && read(presets / "wan21-t2v-1.3b.txt") == changed,
+              "a preset someone changed stays");
+        check(read(presets / "sdxl-base.txt") == sdxl.preset, "other presets stay");
+        const CatalogEntry * tae = find_catalog("wan21-t2v-1.3b-tae");
+        check(tae != nullptr && !tae->featured && tae->files.size() == 3 &&
+                  std::string(tae->files[0].dest) == find_catalog("wan21-t2v-1.3b")->files[0].dest &&
+                  std::string(tae->preset).find("--taesd\nvae/taew2_1.safetensors\n") != std::string::npos,
+              "the Wan variant with TAEHV shares the model files");
+        const CatalogEntry * ti2v = find_catalog("wan22-ti2v-5b");
+        check(ti2v != nullptr && ti2v->files.size() == 3 &&
+                  std::string(ti2v->files[1].dest) == find_catalog("wan21-t2v-1.3b")->files[1].dest &&
+                  std::string(ti2v->preset).find("--vae\nvae/wan2.2_vae.safetensors\n") != std::string::npos &&
+                  std::string(ti2v->preset).find("width=1280 height=704") != std::string::npos,
+              "Wan 2.2 TI2V shares the text encoder, has its own VAE and its own size");
+        fs::remove(presets / "wan21-t2v-1.3b.txt");
+    }
+    {
+        // 0.9.1's SDXL preset: euler_a at 25 steps, 512 px tiles, no --eager-load
+        const std::string now   = sdxl.preset;
+        const std::string ays   = "steps=10 cfg=6 width=1024 height=1024 sampler=dpm++2m scheduler=ays\n";
+        const std::string tiles = "--vae-tile-size\n640\n--eager-load\n";
+        const size_t      a     = now.find(ays);
+        const size_t      t     = now.find(tiles);
+        check(a != std::string::npos && t != std::string::npos && t + tiles.size() == now.size(),
+              "SDXL samples with ays at 10 steps and decodes in 640 px tiles");
+        const std::string old = now.substr(0, a) + "steps=25 cfg=6 width=1024 height=1024 sampler=euler_a\n" +
+                                now.substr(a + ays.size(), t - a - ays.size()) + "--vae-tile-size\n512\n";
+        write(presets / "sdxl-base.txt", old);
+        const auto updated = update_catalog_presets(presets.u8string());
+        check(updated.size() == 1 && updated[0] == "sdxl-base" && read(presets / "sdxl-base.txt") == now,
+              "0.9.1's SDXL preset becomes the current one");
+    }
     {
         const json j = json::parse(catalog_json(models.u8string(), presets.u8string()));
         for (const auto & e : j["entries"]) {
@@ -200,13 +261,11 @@ int main() {
             }
         }
         check(featured == 6 && find_catalog("sdxl-full")->featured && find_catalog("z-image-turbo")->featured &&
-                  find_catalog("wan2.2-ti2v-5b")->featured && find_catalog("wan2.1-t2v-1.3b")->featured &&
-                  find_catalog("ltx-video-2b")->featured,
-              "SDXL full, Klein Q4, Z-Image Turbo and 3 video models are featured");
+                  find_catalog("wan21-t2v-1.3b")->featured && find_catalog("flux2-klein-4b")->featured &&
+                  find_catalog("wan22-ti2v-5b")->featured,
+              "SDXL full, Klein Q4, FLUX.2 Klein 4B, Z-Image Turbo, Wan 2.1 and Wan 2.2 TI2V are featured");
         check(j["entries"][0]["id"] == "sdxl-full" && j["entries"][1]["id"] == "flux3-klein-q4" &&
-                  j["entries"][2]["id"] == "z-image-turbo" && j["entries"][0]["good_for"].is_string() &&
-                  j["entries"][3]["id"] == "wan2.2-ti2v-5b" && j["entries"][4]["id"] == "wan2.1-t2v-1.3b" &&
-                  j["entries"][5]["id"] == "ltx-video-2b",
+                  j["entries"][2]["id"] == "z-image-turbo" && j["entries"][0]["good_for"].is_string(),
               "featured order and good_for");
         check(std::string(find_catalog("sdxl-full")->preset).find("--type\nq8_0\n") != std::string::npos,
               "the full SDXL is converted to Q8_0 while it loads");
@@ -306,24 +365,26 @@ int main() {
     check(pieces_within("0001", 10, 35, 35) && !pieces_within("0001", 10, 35, 34), "the short last piece");
     check(!pieces_within("1", 0, 35, 35), "no piece size");
     check(pieces_in_order("1101", 10, 35, 35) == "1100", "in order: a done piece after a gap is fetched again");
-    check(gallery_name_ok("sd_20261020_185438_001.png") && gallery_name_ok("my-image.PNG") &&
-              gallery_name_ok("video_001.mp4") && gallery_name_ok("clip.webm") && gallery_name_ok("anim.gif"),
-          "gallery: image and video names");
+    check(gallery_name_ok("sd_20261020_185438_001.png") && gallery_name_ok("my-image.PNG"), "gallery: image names");
     check(!gallery_name_ok("../model.txt") && !gallery_name_ok("../x.png") && !gallery_name_ok("a/b.png") &&
               !gallery_name_ok(".png") && !gallery_name_ok(".hidden.png") && !gallery_name_ok("x.txt") &&
               !gallery_name_ok("a b.png") && !gallery_name_ok(""),
           "gallery: no paths, hidden files or other files");
+    check(gallery_name_ok("sd_20261021_183000_000.webm") && gallery_name_ok("clip.WEBP") && gallery_name_ok("a.avi") &&
+              !gallery_name_ok(".webm") && !gallery_name_ok("x.mp4") && !gallery_name_ok("x.webm.txt"),
+          "gallery: video names");
     {
         std::string kind, name, e;
         check(upload_target("models/vae/my vae.safetensors", kind, name, e) && kind == "models" &&
                   name == "vae/my vae.safetensors",
               "upload: a model in a folder");
-        check(upload_target("models/vae/Wan2.1_VAE.pth", kind, name, e) && kind == "models" &&
-                  name == "vae/Wan2.1_VAE.pth",
-              "upload: a .pth VAE in a folder");
         check(upload_target("loras/style.safetensors", kind, name, e) && kind == "loras", "upload: a LoRA");
         check(!upload_target("loras/x/style.safetensors", kind, name, e), "upload: no folders for LoRAs");
         check(upload_target("presets/my-model.txt", kind, name, e), "upload: a preset");
+        check(upload_target("tags/danbooru.csv", kind, name, e) && kind == "tags" && name == "danbooru.csv", "upload: tags");
+        check(upload_target("tags/mine.TXT", kind, name, e), "upload: tags in a .txt");
+        check(!upload_target("tags/danbooru.json", kind, name, e), "upload: tags are .csv or .txt");
+        check(!upload_target("tags/x/danbooru.csv", kind, name, e), "upload: no folders for tags");
         check(!upload_target("presets/my-model.gguf", kind, name, e), "upload: a preset must be .txt");
         check(!upload_target("presets/.hidden.txt", kind, name, e), "upload: no hidden preset");
         check(!upload_target("models/../env.txt", kind, name, e) && !upload_target("models/a.txt", kind, name, e),

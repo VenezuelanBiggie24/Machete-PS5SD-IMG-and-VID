@@ -1,0 +1,570 @@
+  :root {
+    --bg: #0a0d14; --surface: #121826; --raised: #1a2336; --field: #0b101b;
+    --border: #26314a; --text: #f4f7fb; --body: #dbe3f0; --muted: #a3b2c9; --faint: #8493ac;
+    --accent: #0070d1; --accent-hi: #2d8ff0; --ok: #5fd38d; --bad: #ff8f8f; --warn: #f5c26b;
+  }
+  html { font-size: 20px; font-size: clamp(17px, 1.3vw, 26px); -webkit-text-size-adjust: 100%; }
+  html, body { margin: 0; background: var(--bg); color: var(--body);
+    font-family: "SST", "SST Roman", "SST-Roman", -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; line-height: 1.5; }
+  body { background: var(--bg) linear-gradient(180deg, #0f1a30 0, var(--bg) 24rem) no-repeat; min-height: 100vh; }
+  a { color: var(--accent-hi); text-decoration: none; }
+  /* The PS5's own focus: a white frame around what the cursor is on. Kept
+     apart from :focus-visible, since a browser that does not know it drops
+     the whole rule, frame included. */
+  button:focus, input:focus, select:focus, textarea:focus, a:focus { outline: 3px solid #fff; outline-offset: 3px; }
+  :focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+  /* a tap or a click in a browser that knows :focus-visible: no frame (the PS5's browser drops this rule) */
+  :focus:not(:focus-visible) { outline: none; }
+
+  .top { display: flex; align-items: center; min-height: 4rem; padding: 0 2rem; }
+  .brandbox { display: flex; align-items: center; }
+  .logo { width: 1.1rem; height: 1.1rem; border-radius: 0.3rem; background: var(--accent); margin-right: 0.7rem;
+    box-shadow: 0 0 1.2rem rgba(45, 143, 240, 0.7); }
+  .brand { color: var(--text); font-size: 1.25rem; font-weight: 600; letter-spacing: 0.04em; margin-right: 1.25rem; }
+  .ver { color: var(--muted); font-size: 0.8rem; margin: 0.2rem 1.25rem 0 -0.9rem; }
+  .model { color: var(--muted); font-size: 0.95rem; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* the model name is a button: it opens the model list */
+  button.model { display: block; min-height: 0; margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent;
+    text-align: left; line-height: 1.5; cursor: pointer; }
+  button.model:hover { background: transparent; color: var(--text); }
+  button.model::after { content: "\00a0\25BE"; color: var(--faint); }
+  .pill { display: flex; align-items: center; font-size: 0.875rem; color: var(--faint); background: var(--surface);
+    border: 1px solid var(--border); border-radius: 2rem; padding: 0.2rem 1rem 0.2rem 0.8rem; margin-left: 1rem; white-space: nowrap; }
+  .pill .dot { width: 0.6rem; height: 0.6rem; border-radius: 50%; background: var(--faint); margin-right: 0.55rem; }
+  .pill.on { color: var(--ok); } .pill.on .dot { background: var(--ok); }
+  .pill.off { color: var(--bad); } .pill.off .dot { background: var(--bad); }
+  .pill.work { color: var(--accent-hi); } .pill.work .dot { background: var(--accent-hi); }
+  .pill.busy { color: var(--warn); } .pill.busy .dot { background: var(--warn); }
+  /* the console's temperature and power next to the state; a click opens the charts in Settings */
+  .cchip { align-items: center; min-height: 0; margin: 0 0 0 1rem; padding: 0.2rem 0.9rem; font-size: 0.875rem; color: var(--muted);
+    background: var(--surface); border: 1px solid var(--border); border-radius: 2rem; white-space: nowrap;
+    font-variant-numeric: tabular-nums; cursor: pointer; }
+  .cchip:hover { color: var(--text); background: var(--raised); }
+  /* Settings, Console: one small chart a reading */
+  .crange { margin: 0.2rem 0 0.8rem; max-width: 20rem; }
+  .cgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr)); gap: 0.6rem; }
+  .ccard { background: var(--field); border: 1px solid var(--border); border-radius: 10px; padding: 0.6rem 0.75rem 0.5rem; min-width: 0; }
+  .chead { display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem; }
+  .ctitle { color: var(--muted); font-size: 0.8125rem; }
+  .cnow { color: var(--text); font-size: 1.15rem; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .cplot { display: block; width: 100%; height: 3.6rem; margin: 0.35rem 0 0.25rem; overflow: visible; touch-action: pan-y; cursor: crosshair; }
+  .cplot .cline { fill: none; stroke: var(--accent-hi); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+  .cplot .cbase { stroke: var(--border); stroke-width: 1; }
+  .cplot .ccross { stroke: var(--muted); stroke-width: 1; }
+  .cfoot { color: var(--faint); font-size: 0.75rem; min-height: 1.1rem; font-variant-numeric: tabular-nums;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cfoot.ctip { color: var(--text); }
+
+  .tabs { max-width: 90rem; margin: 0 auto; padding: 0.25rem 2rem 0; display: flex; }
+  .tabs button { font-size: 1.05rem; min-height: 3rem; padding: 0 1.6rem; margin-right: 0.6rem; border-radius: 2rem;
+    background: transparent; color: var(--muted); border: 1px solid transparent; }
+  .tabs button:hover { color: var(--text); background: var(--surface); }
+  .tabs button.on { color: #fff; background: var(--accent); }
+  /* the tab icons show on a phone only (see the 720px rules) */
+  .tabs svg { display: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+  .main { display: flex; flex-wrap: wrap; align-items: flex-start; max-width: 90rem; margin: 0 auto; padding: 0.5rem 1.25rem 2rem; }
+  .panel { box-sizing: border-box; margin: 0.75rem; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 16px; padding: 1.5rem; }
+  .controls { position: relative; flex: 1 1 26rem; min-width: 0; }
+  .result { flex: 1.5 1 28rem; min-width: 0; }
+
+  label, .lbl { display: block; color: var(--muted); font-size: 0.875rem; margin: 1.1rem 0 0.4rem; }
+  label:first-child { margin-top: 0; }
+  .row label:first-child, .row .lbl:first-child { margin-top: 1.1rem; }
+  textarea, input, select { box-sizing: border-box; width: 100%; font: inherit; color: var(--text); background: var(--field);
+    border: 1px solid var(--border); border-radius: 10px; padding: 0.7rem 0.95rem; }
+  textarea { display: block; resize: vertical; min-height: 5.5rem; }
+  textarea.big { font-size: 1.15rem; min-height: 9rem; line-height: 1.45; }
+  select { height: 3.25rem; }
+  input { height: 3.25rem; }
+  textarea::placeholder, input::placeholder { color: var(--faint); }
+
+  button { font: inherit; font-size: 1rem; color: var(--text); background: var(--raised); border: 1px solid var(--border);
+    border-radius: 10px; min-height: 3.25rem; padding: 0 1.2rem; cursor: pointer; }
+  button:hover { background: #222e47; }
+  button.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+  button:disabled { opacity: 0.45; cursor: default; }
+  button.go { flex: 1; min-height: 4.25rem; font-size: 1.3rem; font-weight: 600; color: #fff; letter-spacing: 0.02em;
+    background: var(--accent); border: 0; border-radius: 14px; }
+  button.go:hover { background: var(--accent-hi); }
+  button.go:disabled { background: #2a3a55; color: #8c9bb4; opacity: 1; }
+  /* Create tab: generate row, mode switch, model and preset blocks, settings groups */
+  .gorow { display: flex; align-items: stretch; margin-top: 1.4rem; }
+  .gorow .go { min-height: 4.6rem; }
+  .dice { flex: none; width: 4.6rem; min-height: 4.6rem; margin-left: 0.7rem; padding: 0; border-radius: 14px; color: var(--muted); }
+  .dice svg { display: block; width: 1.8rem; height: 1.8rem; margin: 0 auto; }
+  .dice rect { fill: none; stroke: currentColor; stroke-width: 2; }
+  /* the count next to Generate: - N + (typing is free; the value is clamped when the box is left) */
+  .count { flex: none; display: flex; align-items: stretch; margin-left: 0.7rem; }
+  .count button { width: 2.6rem; min-height: 4.6rem; padding: 0; font-size: 1.3rem; border-radius: 12px; }
+  .count input { width: 4.8rem; min-width: 0; height: 4.6rem; margin: 0 0.4rem; padding: 0 0.2rem; text-align: center; font-size: 1.25rem; border-radius: 12px; }
+  .dice circle { fill: currentColor; stroke: none; }
+  .dice:hover { color: var(--text); }
+  .linkbtn { display: inline-flex; align-items: center; min-height: 2.6rem; margin: 0.2rem 0 0; padding: 0 0.2rem; background: transparent;
+    border: 0; border-radius: 6px; color: var(--accent-hi); font-size: 0.95rem; }
+  .linkbtn:hover { background: transparent; color: #fff; text-decoration: underline; }
+  .linkrow { display: flex; margin-top: 0.3rem; }
+  .linkrow .fill { flex: 1; }
+  .linkrow .linkbtn + .linkbtn { margin-left: 0.6rem; }
+  .tagbox { position: absolute; z-index: 6; box-sizing: border-box; max-height: 18rem; overflow-y: auto; background: var(--surface);
+    border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45); }
+  .tagbox button { display: flex; width: 100%; min-height: 2.6rem; margin: 0; padding: 0 0.8rem; border: 0; border-radius: 0;
+    background: transparent; text-align: left; font-size: 0.95rem; }
+  .tagbox button.on, .tagbox button:hover { background: var(--raised); }
+  .tagbox .tg { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
+  .tagbox .tn { flex: none; margin-left: 0.8rem; color: var(--faint); font-size: 0.8rem; }
+  .hint.starter { margin: 0 0 0.4rem; overflow-wrap: anywhere; }
+  label.opt.nokeep { margin-top: 0.6rem; font-size: 0.95rem; color: var(--muted); }
+  label.opt.nokeep .info { margin-left: 0.4rem; }
+
+  .cmblock { position: relative; }
+  .cm-tags { display: flex; flex-wrap: wrap; margin: 0.35rem 0 0; }
+  .tag { display: inline-block; font-size: 0.75rem; line-height: 1.4; padding: 0 0.6rem; margin: 0.2rem 0.4rem 0 0; border-radius: 2rem;
+    border: 1px solid var(--border); color: var(--muted); white-space: nowrap; }
+  .tag.fam { color: var(--text); border-color: #2c4a78; background: #0e1a2e; }
+  .tag.cn { color: var(--ok); border-color: var(--ok); }
+  .tag.vid { color: var(--warn); border-color: var(--warn); }
+  .cmlist { margin-top: 0.7rem; max-height: 50vh; overflow-y: auto; padding: 0.4rem 0.6rem; background: var(--field);
+    border: 1px solid var(--border); border-radius: 12px; }
+  .cmlist .mrow { margin-top: 0.4rem; }
+
+  .prblock { margin-top: 1rem; }
+  .prrow { display: flex; align-items: center; flex-wrap: wrap; }
+  .prtoggle { display: inline-flex; align-items: center; min-height: 2.8rem; max-width: 100%; padding: 0 0.9rem; background: transparent;
+    font-size: 1rem; color: var(--text); overflow: hidden; }
+  .prtoggle:hover { background: var(--raised); }
+  .prtoggle #pr-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+  .prlabel { color: var(--muted); margin-right: 0.35rem; white-space: nowrap; }
+  .prtoggle .caret, .grphead .caret { flex: none; margin-left: 0.6rem; color: var(--faint); transition: transform 0.15s; }
+  .prtoggle[aria-expanded="true"] .caret, .grphead[aria-expanded="true"] .caret { transform: rotate(180deg); }
+  .prrow #savepreset { margin-left: 0.6rem; min-height: 2.8rem; }
+  .prmenu { margin-top: 0.5rem; padding: 0.5rem; background: var(--field); border: 1px solid var(--border); border-radius: 12px; }
+  .prmenu button { display: block; width: 100%; min-height: 2.9rem; margin: 0.2rem 0; text-align: left; overflow: hidden; text-overflow: ellipsis; }
+  .prmenu button.on { background: #10213a; border-color: var(--accent-hi); color: var(--text); }
+  .prmenu .prfoot { margin-top: 0.4rem; padding-top: 0.4rem; border-top: 1px solid var(--border); }
+  .prmenu .prfoot button { background: transparent; }
+
+  .modes { display: flex; margin-top: 1.1rem; padding: 0.3rem; background: var(--field); border: 1px solid var(--border); border-radius: 14px; }
+  .modes button { flex: 1 1 0; min-width: 0; min-height: 2.9rem; margin: 0; padding: 0 0.5rem; background: transparent; border: 0; border-radius: 10px; color: var(--muted); }
+  .modes button:hover { background: var(--raised); color: var(--text); }
+  .modes button.on { background: var(--accent); color: #fff; }
+  #edit-sect, #cn-sect { margin-top: 0.4rem; }
+
+  /* settings groups: a row with its title and a summary of its values; the fields open under it */
+  .groups { margin-top: 1.2rem; border-bottom: 1px solid var(--border); }
+  .grp { border-top: 1px solid var(--border); }
+  .grphead { display: flex; align-items: center; width: 100%; min-height: 3.4rem; margin: 0; padding: 0.3rem 0.2rem; background: transparent;
+    border: 0; border-radius: 8px; text-align: left; color: var(--text); }
+  .grphead:hover { background: rgba(255, 255, 255, 0.04); }
+  .grptitle { flex: none; font-size: 1rem; color: var(--text); }
+  .grpsum { flex: 1 1 auto; min-width: 0; margin-left: 1rem; text-align: right; color: var(--faint); font-size: 0.9rem;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .grpbody { padding: 0.2rem 0 1.1rem; }
+  .grpbody > .presets:first-child { margin-top: 0.2rem; }
+  .grpbody label:first-child { margin-top: 0; }
+
+  .presets { display: flex; flex-wrap: wrap; margin: 0 -0.25rem; }
+  .presets button { margin: 0.25rem; min-height: 2.75rem; padding: 0 0.9rem; font-size: 0.9rem; }
+  .row { display: flex; flex-wrap: wrap; margin: 0 -0.5rem; }
+  .row > div { flex: 1 1 11rem; min-width: 0; margin: 0 0.5rem; }
+  .step { display: flex; }
+  .step button { width: 3.25rem; padding: 0; flex: none; font-size: 1.3rem; }
+  .step input { text-align: center; margin: 0 0.3rem; min-width: 0; }
+  .seed { display: flex; }
+  .seed input { margin-right: 0.4rem; min-width: 0; }
+  .seed button { flex: none; }
+  .hint { color: var(--faint); font-size: 0.8125rem; margin: 0.5rem 0 0; }
+  .hint button { min-height: 2.5rem; margin-left: 0.5rem; font-size: 0.85rem; padding: 0 0.9rem; }
+  label.opt { display: flex; align-items: center; color: var(--text); font-size: 1rem; margin: 0.3rem 0; min-height: 2.75rem; cursor: pointer; }
+  label.opt input { width: 1.4rem; height: 1.4rem; margin: 0 0.75rem 0 0; padding: 0; flex: none; accent-color: var(--accent); }
+  .presets button.mine { padding-right: 0.3rem; }
+  .presets button .x { display: inline-block; margin-left: 0.4rem; padding: 0 0.55rem; border-radius: 8px; color: var(--muted); }
+  .presets button .x:hover { color: var(--text); background: rgba(255, 255, 255, 0.12); }
+  .presets button.save { background: transparent; border-style: dashed; color: var(--muted); }
+
+  .state { display: flex; align-items: baseline; }
+  #status { color: var(--text); font-size: 1.3rem; font-weight: 500; flex: 1; min-width: 0; min-height: 1.9rem; }
+  #status.error { color: var(--bad); }
+  #sub { color: var(--muted); font-size: 0.9rem; min-height: 1.4rem; }
+  .bar { height: 0.55rem; background: var(--field); border-radius: 0.3rem; margin: 0.7rem 0 1rem; overflow: hidden; position: relative; }
+  .bar div { height: 100%; width: 0%; background: var(--accent-hi); border-radius: 0.3rem; }
+  .bar.ind div { width: 30% !important; position: absolute; left: 0; animation: slide 1.1s ease-in-out infinite; }
+  @keyframes slide { 0% { left: -30%; } 100% { left: 100%; } }
+  .stage { display: flex; align-items: center; justify-content: center; min-height: 20rem; background: var(--field);
+    border: 1px solid var(--border); border-radius: 12px; padding: 0.5rem; text-align: center; }
+  .stage img, .stage video { display: block; max-width: 100%; max-height: 78vh; width: auto; height: auto; border-radius: 6px; }
+  .stage .empty { color: var(--faint); padding: 3rem 1rem; font-size: 1.05rem; }
+  .strip { display: flex; flex-wrap: wrap; margin: 0.6rem -0.25rem 0; }
+  .strip button { position: relative; width: 4.5rem; height: 4.5rem; min-height: 0; margin: 0.25rem; padding: 0; overflow: hidden;
+    background: var(--field); border: 2px solid var(--border); border-radius: 10px; }
+  .strip button.on { border-color: var(--accent-hi); }
+  .strip img { position: absolute; left: 0; top: 0; width: 100%; height: 100%; object-fit: cover; }
+  .actions { margin-top: 1rem; min-height: 3.25rem; display: flex; flex-wrap: wrap; }
+  .actions a, .actions button { display: block; margin: 0 0.6rem 0.6rem 0; padding: 0 1.3rem; min-height: 3.25rem; line-height: 3.25rem;
+    background: var(--raised); border: 1px solid var(--border); border-radius: 10px; color: var(--text); font-size: 1rem; }
+  .actions button { line-height: normal; }
+  .actions a:hover { background: #222e47; }
+  #cancel { flex: none; margin-left: 1rem; min-height: 2.75rem; }
+  /* the queue: "+ 2 waiting" and Cancel all; the prompt of a job this page follows (two lines at most) */
+  .waitrow { align-items: center; margin: 0.4rem 0 0; color: var(--muted); font-size: 0.95rem; }
+  .waitrow span { flex: 1; min-width: 0; }
+  .waitrow button { flex: none; min-height: 2.5rem; padding: 0 0.9rem; font-size: 0.9rem; }
+  .runprompt { color: var(--faint); font-size: 0.875rem; margin: 0.35rem 0 0; overflow: hidden; overflow-wrap: anywhere;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+
+  .gal { max-width: 90rem; margin: 0 auto; padding: 0.5rem 2rem 3rem; }
+  .galbar { display: flex; align-items: center; margin-bottom: 0.75rem; }
+  .galbar h2 { flex: 1; color: var(--text); font-size: 1.3rem; font-weight: 500; margin: 0; }
+  .thumbs { display: flex; flex-wrap: wrap; margin: 0 -0.4rem; }
+  .thumbs .t { box-sizing: border-box; flex: 0 0 16.666%; padding: 0.4rem; }
+  .thumbs a { display: block; position: relative; padding-bottom: 100%; background: var(--field);
+    border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+  .thumbs img, .thumbs video { position: absolute; left: 0; top: 0; width: 100%; height: 100%; object-fit: cover; }
+  .vbadge { position: absolute; left: 6px; bottom: 6px; background: rgba(0, 0, 0, 0.6); color: #fff; border-radius: 4px;
+    padding: 1px 6px; font-size: 12px; pointer-events: none; }
+  .gal .none { color: var(--faint); padding: 2rem 0; }
+  .galtools { display: flex; flex-wrap: wrap; align-items: center; margin: 0 0 0.9rem; }
+  .galtools input { flex: 1 1 14rem; width: auto; min-width: 0; margin: 0 0.6rem 0.4rem 0; }
+  .galtools select { flex: 0 0 auto; width: auto; margin: 0 0.6rem 0.4rem 0; }
+  .galtools button { margin: 0 0 0.4rem; }
+  .gselbar { display: flex; flex-wrap: wrap; align-items: center; margin: 0 0 0.9rem; padding: 0.5rem 0.75rem;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px; }
+  .gselbar span { flex: 1 1 8rem; color: var(--muted); }
+  .gselbar button { margin: 0.2rem 0 0.2rem 0.5rem; }
+  .gselbar button.danger { color: var(--bad); }
+  .thumbs .t.sel a { border-color: var(--accent); box-shadow: inset 0 0 0 3px var(--accent); }
+  .thumbs .t.sel a::after { content: "\2713"; position: absolute; right: 6px; top: 6px; width: 1.6rem; height: 1.6rem;
+    line-height: 1.6rem; text-align: center; border-radius: 50%; background: var(--accent); color: #fff; font-size: 0.95rem; }
+  .more { text-align: center; margin-top: 1rem; }
+
+  /* Help tab */
+  .docbar { display: flex; flex-wrap: wrap; align-items: center; margin-bottom: 0.5rem; }
+  .docbar button { margin: 0 0.5rem 0.5rem 0; }
+  .docbar button.on { color: #fff; background: var(--accent); border-color: var(--accent); }
+  .docbar a { margin: 0 0 0.5rem auto; color: var(--muted); }
+  .doc { max-width: 60rem; color: var(--muted); line-height: 1.55; }
+  .doc h1, .doc h2, .doc h3, .doc h4 { color: var(--text); font-weight: 500; line-height: 1.25; margin: 1.8rem 0 0.6rem; }
+  .doc h1 { font-size: 1.7rem; margin-top: 0.5rem; }
+  .doc h2 { font-size: 1.35rem; }
+  .doc h3, .doc h4 { font-size: 1.1rem; }
+  .doc p, .doc ul, .doc ol { margin: 0.6rem 0; }
+  .doc ul, .doc ol { padding-left: 1.6rem; }
+  .doc li { margin: 0.25rem 0; }
+  .doc strong { color: var(--text); font-weight: 600; }
+  .doc a { color: var(--accent-hi); }
+  .doc code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.88em; color: var(--text);
+    background: var(--field); border-radius: 4px; padding: 0.05rem 0.3rem; overflow-wrap: anywhere; }
+  .doc pre { background: var(--field); border: 1px solid var(--border); border-radius: 10px; padding: 0.8rem 1rem;
+    overflow-x: auto; }
+  .doc pre code { background: none; padding: 0; word-break: normal; white-space: pre; }
+  .doc .tw { overflow-x: auto; margin: 0.8rem 0; }
+  .doc table { border-collapse: collapse; min-width: 60%; }
+  .doc th, .doc td { border: 1px solid var(--border); padding: 0.45rem 0.7rem; text-align: left; vertical-align: top; }
+  .doc th { color: var(--text); font-weight: 500; background: var(--field); }
+  .foot { text-align: center; color: var(--faint); font-size: 0.8125rem; padding: 0 1rem 2rem; }
+
+  .lb { position: fixed; left: 0; top: 0; right: 0; bottom: 0; z-index: 10; background: #05080e; flex-direction: column; }
+  .lb-bar { display: flex; align-items: center; padding: 0.75rem 1.25rem; }
+  .lb-title { flex: 1; min-width: 0; color: var(--muted); font-size: 0.95rem; }
+  .lb-acts { display: flex; }
+  .lb-bar a, .lb-bar button { flex: none; margin-left: 0.6rem; min-height: 3.25rem; line-height: 3.25rem; padding: 0 1.3rem; background: var(--raised);
+    border: 1px solid var(--border); border-radius: 10px; color: var(--text); }
+  .lb-bar button { line-height: normal; }
+  .lb-bar button.danger { color: var(--bad); }
+  .lb-body { flex: 1; min-height: 0; display: flex; align-items: center; padding: 0 1rem 1rem; }
+  .lb-body .nav { flex: none; width: 4.5rem; height: 6rem; font-size: 2.4rem; padding: 0; border-radius: 14px; }
+  .lb-img { flex: 1; min-width: 0; text-align: center; }
+  .lb-img img, .lb-img video { max-width: 100%; height: calc(100vh - 8rem); object-fit: contain; border-radius: 6px; }
+  .lb.withinfo .lb-img img, .lb.withinfo .lb-img video { height: calc(100vh - 15rem); }
+  .lb-info { flex: none; display: flex; align-items: center; padding: 0 1.5rem 1rem; }
+  .lb-text { flex: 1; min-width: 0; margin-right: 1rem; }
+  .lb-prompt { margin: 0 0 0.3rem; color: var(--text); max-height: 3.2em; overflow: auto; line-height: 1.6em; }
+  .lb-set { margin: 0; color: var(--muted); font-size: 0.9rem; }
+  .lb-info button { flex: none; }
+  .lb-main { flex: 1; min-width: 0; margin-right: 1rem; }
+  .lb-main .lb-text { margin-right: 0; }
+  .lb-neg { margin: 0 0 0.3rem; color: var(--muted); font-size: 0.9rem; max-height: 3.2em; overflow: auto; }
+  .lb-copy { display: flex; flex-wrap: wrap; margin-top: 0.4rem; }
+  .lb-copy button { min-height: 2.4rem; padding: 0 0.9rem; margin: 0 0.5rem 0 0; font-size: 0.85rem; }
+  .lb-lab { display: flex; flex-wrap: wrap; align-items: center; margin-bottom: 0.3rem; }
+  .lb-name { color: var(--text); font-weight: 500; margin-right: 0.6rem; }
+  .ltag { min-height: 0; font-size: 0.8rem; line-height: 1.5; padding: 0.1rem 0.7rem; margin: 0.2rem 0.4rem 0.2rem 0;
+    border-radius: 2rem; color: var(--muted); }
+  .lb-img { overflow: hidden; }
+  .lb-img img { transition: none; user-select: none; -webkit-user-select: none; }
+  .thumbs .t { position: relative; }
+  .tname { position: absolute; left: 0.4rem; right: 0.4rem; bottom: 0.4rem; padding: 0.25rem 0.5rem; font-size: 0.8rem;
+    color: #fff; background: rgba(5, 8, 14, 0.7); border-radius: 0 0 12px 12px; white-space: nowrap; overflow: hidden;
+    text-overflow: ellipsis; pointer-events: none; }
+  .ld-field input { margin-top: 0.4rem; }
+  .ld-used { margin: 0.8rem 0 1.2rem; }
+  .ld-used .hint { margin-right: 0.3rem; }
+
+  #toast { position: fixed; left: 50%; bottom: 2rem; z-index: 20; display: none; max-width: 90%; background: var(--raised);
+    border: 1px solid var(--accent-hi); color: var(--text); border-radius: 2rem; padding: 0.7rem 1.6rem; transform: translateX(-50%); }
+
+  /* model in use, on the Create tab */
+  .curmodel { display: flex; align-items: center; }
+  .cm-name { flex: 1; min-width: 0; color: var(--text); font-size: 1.05rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .curmodel button { flex: none; margin-left: 0.8rem; min-height: 2.75rem; }
+  .tabdot { display: none; width: 0.55rem; height: 0.55rem; margin-left: 0.5rem; border-radius: 50%; background: var(--accent-hi); }
+
+  /* Models tab */
+  .mcol { flex: 1 1 28rem; min-width: 0; }
+  .ph { display: flex; align-items: center; margin: 0 0 0.4rem; }
+  .ph h2 { flex: 1; min-width: 0; margin: 0; color: var(--text); font-size: 1.3rem; font-weight: 500; }
+  .ph button { flex: none; min-height: 2.75rem; }
+  .mrow { display: flex; align-items: center; margin-top: 0.6rem; padding: 0.8rem 1rem; background: var(--field);
+    border: 1px solid var(--border); border-radius: 12px; }
+  .mrow.on { border-color: var(--accent-hi); background: #10213a; }
+  .mrow.dim { opacity: 0.7; }
+  .mmain { flex: 1; min-width: 0; }
+  .mname { color: var(--text); font-size: 1.05rem; word-wrap: break-word; }
+  .mmeta { color: var(--muted); font-size: 0.85rem; word-wrap: break-word; }
+  .mmeta.bad, .empty-note.bad { color: var(--bad); }
+  .hint.bad { color: var(--warn); }
+  .mrow > button { flex: none; min-width: 6.5rem; margin-left: 0.9rem; }
+  .mrow.mwrap { flex-wrap: wrap; }
+  .mwrap .mmain { flex: 1 1 11rem; }
+  .macts { display: flex; flex: none; margin-left: 0.9rem; }
+  .macts button { flex: none; min-width: 5.5rem; margin-left: 0.5rem; }
+  .macts button:first-child { margin-left: 0; }
+  button.danger { color: var(--bad); border-color: #5c3a47; background: transparent; }
+  button.danger:hover { background: #2a1822; }
+  button.danger:disabled { color: var(--faint); border-color: var(--border); }
+  .dlg { position: fixed; left: 0; top: 0; right: 0; bottom: 0; z-index: 15; align-items: center; justify-content: center;
+    background: rgba(5, 8, 14, 0.85); }
+  .dlg-box { box-sizing: border-box; width: 90%; max-width: 32rem; padding: 1.6rem; background: var(--surface);
+    border: 1px solid var(--border); border-radius: 16px; }
+  .dlg-title { color: var(--text); font-size: 1.3rem; font-weight: 500; word-wrap: break-word; }
+  .dlg-body { margin: 0.6rem 0 1.4rem; color: var(--muted); }
+  .dlg-btns { display: flex; }
+  .dlg-btns button { flex: 1; min-height: 3.75rem; font-size: 1.1rem; }
+  .dlg-btns button + button { margin-left: 0.8rem; }
+  .badge { display: inline-block; font-size: 0.75rem; line-height: 1.4; padding: 0 0.6rem; margin-left: 0.4rem; border-radius: 2rem;
+    border: 1px solid var(--border); color: var(--muted); white-space: nowrap; vertical-align: 0.1rem; }
+  .badge.ok { color: var(--ok); border-color: var(--ok); }
+  .badge.bad { color: var(--bad); border-color: var(--bad); }
+  .badge.warn { color: var(--warn); border-color: var(--warn); }
+  .featrow { display: flex; flex-wrap: wrap; margin: 0 -0.3rem; }
+  .mrow.feat { box-sizing: border-box; flex: 1 1 10rem; min-width: 0; flex-direction: column; align-items: stretch; margin: 0.3rem; padding: 1.1rem 1.2rem;
+    border-color: #2c4a78; background: #0e1a2e; }
+  .mrow.feat .mmain { flex: 1 1 auto; }
+  .mrow.feat > button { flex: none; margin: 0.9rem 0 0; min-height: 3.75rem; }
+  .feat .mname { font-size: 1.25rem; margin-bottom: 0.15rem; }
+  .feat .mmeta { font-size: 0.95rem; }
+  .feat .mmeta.good { color: var(--body); }
+  .empty-note { color: var(--faint); padding: 0.8rem 0 0.2rem; font-size: 0.95rem; }
+  /* Models tab: Installed | Get more | Downloads, the groups, the saved settings under a model, the ⋯ menu */
+  .mseg { display: flex; box-sizing: border-box; flex: 0 1 calc(100% - 1.5rem); max-width: 36rem; margin: 0.75rem 0.75rem 0; padding: 0.3rem; background: var(--surface);
+    border: 1px solid var(--border); border-radius: 2rem; }
+  .mseg button { flex: 1 1 0; min-width: 0; min-height: 2.9rem; margin: 0; padding: 0 0.7rem; border: 0; border-radius: 2rem;
+    background: transparent; color: var(--muted); white-space: nowrap; }
+  .mseg button:hover { background: var(--raised); color: var(--text); }
+  .mseg button.on { background: var(--accent); color: #fff; }
+  .seg-badge { display: inline-block; min-width: 1.4rem; margin-left: 0.4rem; padding: 0 0.4rem; border-radius: 1rem;
+    background: var(--accent-hi); color: #fff; font-size: 0.75rem; line-height: 1.4rem; text-align: center; vertical-align: 0.1rem; }
+  .mseg button.on .seg-badge { background: #fff; color: var(--accent); }
+  .mview { flex: 1 1 100%; min-width: 0; flex-wrap: wrap; align-items: flex-start; }
+  .mcol.wide { flex: 1 1 100%; max-width: 60rem; }
+  .ghead { color: var(--muted); font-size: 0.875rem; font-weight: 500; margin: 1.2rem 0 0; }
+  .mfile { color: var(--faint); font-size: 0.8rem; word-break: break-all; }
+  .mtags { margin-top: 0.15rem; }
+  .mitem { margin-top: 0.6rem; }
+  .mitem > .mrow { margin-top: 0; }
+  .subs { margin: 0.2rem 0 0.2rem 0.9rem; padding-left: 0.9rem; border-left: 2px solid var(--border); }
+  .subhead { color: var(--faint); font-size: 0.8rem; margin-top: 0.5rem; }
+  .sub { display: flex; align-items: center; margin-top: 0.4rem; padding: 0.55rem 0.8rem; background: var(--field);
+    border: 1px solid var(--border); border-radius: 10px; }
+  .sub.on { border-color: var(--accent-hi); background: #10213a; }
+  .smain { flex: 1; min-width: 0; }
+  .sname { color: var(--text); font-size: 0.95rem; word-wrap: break-word; }
+  .sacts { display: flex; flex: none; margin-left: 0.6rem; }
+  .sacts button { flex: none; min-height: 2.5rem; min-width: 4.2rem; margin-left: 0.4rem; padding: 0 0.6rem; font-size: 0.9rem; }
+  .sacts button:first-child { margin-left: 0; }
+  .rmore { position: relative; flex: none; margin-left: 0.9rem; }
+  .macts .rmore { margin-left: 0.5rem; }
+  .macts .more-btn, .rmore .more-btn { flex: none; min-width: 3rem; padding: 0 0.6rem; font-size: 1.2rem; line-height: 1; }
+  .menu { position: absolute; right: 0; top: calc(100% + 0.3rem); z-index: 6; min-width: 12rem; max-width: 18rem; padding: 0.3rem;
+    background: var(--raised); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); }
+  .menu .menu-item { display: block; width: 100%; min-width: 0; min-height: 2.9rem; margin: 0; padding: 0 0.8rem; text-align: left;
+    background: transparent; border: 0; border-radius: 8px; }
+  .menu .menu-item:hover { background: #222e47; }
+  .menu .menu-item.danger { color: var(--bad); }
+  .menu .menu-item:disabled { opacity: 0.45; }
+  .menu .menu-note { padding: 0.4rem 0.8rem 0.3rem; color: var(--faint); font-size: 0.8rem; line-height: 1.35; }
+  #dl-clear:disabled { opacity: 0.45; }
+  .notice { margin: 0.6rem 0 0.4rem; padding: 1rem; background: #10213a; border: 1px solid var(--accent-hi); border-radius: 12px; }
+  .nline { color: var(--text); font-size: 1.1rem; }
+  .notice .bar { margin: 0.7rem 0 0.4rem; }
+  .notice .hint { margin: 0.3rem 0 0; }
+  .spin { display: inline-block; width: 0.9rem; height: 0.9rem; margin-right: 0.6rem; border: 3px solid var(--border);
+    border-top-color: var(--accent-hi); border-radius: 50%; vertical-align: -0.15rem; animation: spin 0.9s linear infinite; }
+  @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+  .drow .bar { margin: 0.45rem 0 0.35rem; }
+  .inrow { display: flex; }
+  .lrow { display: flex; align-items: center; margin-bottom: 0.5rem; }
+  .lrow .lname { flex: 1; min-width: 0; color: var(--text); word-wrap: break-word; }
+  .lrow input { flex: none; width: 6rem; margin: 0 0.5rem; }
+  .lrow button { flex: none; min-width: 3.25rem; padding: 0 0.8rem; }
+  .inrow select.upkind { flex: none; width: auto; margin-right: 0.6rem; }
+  .upmeta { display: flex; align-items: center; }
+  .upmeta .mmeta { flex: 1; min-width: 0; }
+  .inrow input { flex: 1; min-width: 0; margin-right: 0.6rem; }
+  .inrow button { flex: none; }
+  .hrow { margin-top: 0.6rem; padding: 0.8rem 1rem; background: var(--field); border: 1px solid var(--border); border-radius: 12px; }
+  .hfile { display: flex; align-items: center; margin-top: 0.5rem; }
+  .hfile .fn { flex: 1; min-width: 0; font-size: 0.9rem; word-break: break-all; }
+  .hfile .sz { flex: none; margin: 0 0.8rem; color: var(--muted); font-size: 0.85rem; white-space: nowrap; }
+  .hfile button { flex: none; min-height: 2.75rem; }
+  .hmore { margin-top: 0.5rem; min-height: 2.75rem; }
+
+  .dlg-box.wide { max-width: 48rem; }
+  #pe-text { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.9rem; margin: 0.6rem 0 0.4rem; }
+  #login-key { margin: 0.2rem 0 0.4rem; font-family: ui-monospace, Menlo, Consolas, monospace; }
+  code.key { display: block; margin: 0.3rem 0 0.6rem; padding: 0.7rem 0.95rem; color: var(--text); background: var(--field);
+    border: 1px solid var(--border); border-radius: 10px; font-family: ui-monospace, Menlo, Consolas, monospace;
+    font-size: 1.05rem; word-break: break-all; -webkit-user-select: all; user-select: all; }
+  #hr-hint { min-height: 1.2rem; }
+  .initbar { display: flex; align-items: center; flex-wrap: wrap; margin-top: 0.8rem; }
+  .initbar button { flex: none; min-height: 2.75rem; margin-right: 0.8rem; }
+  .initbar .hint { margin: 0; }
+  .initrow { display: flex; align-items: center; }
+  #init-thumb, #cn-thumb { flex: none; width: 7rem; height: 7rem; object-fit: contain; background: var(--field); border: 1px solid var(--border);
+    border-radius: 10px; margin-right: 1rem; }
+  .initmain { flex: 1; min-width: 0; }
+  .initbtns { display: flex; flex-wrap: wrap; margin: 0.4rem -0.25rem 0; }
+  .initbtns button { margin: 0.25rem; min-height: 2.75rem; }
+  .me-body { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 0 1rem 1rem; }
+  #me-canvas { touch-action: none; cursor: crosshair; border-radius: 6px; }
+  .me-size { flex: none; color: var(--muted); margin: 0 0.4rem 0 0.6rem; min-width: 5.5rem; text-align: center; }
+  .authbtns { display: flex; flex-wrap: wrap; margin: 0 -0.25rem; }
+  .authbtns button { margin: 0.25rem; min-height: 2.75rem; }
+  .arow { display: flex; justify-content: space-between; align-items: baseline; padding: 0.55rem 0; border-bottom: 1px solid var(--border); }
+  .arow span:first-child { color: var(--muted); }
+  .arow span:last-child { color: var(--text); text-align: right; min-width: 0; overflow-wrap: anywhere; margin-left: 1rem; }
+  #savepreset { margin-left: 0.5rem; }
+  /* the ⓘ buttons: a small round button that opens Help at its section (it comes after the .hint and .ph buttons) */
+  button.info { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 2.4rem; min-width: 2.4rem;
+    height: 2.4rem; min-height: 2.4rem; margin: 0 0 0 0.45rem; padding: 0; border-radius: 50%; background: transparent;
+    border-color: var(--border); color: var(--accent-hi); font-size: 1.1rem; line-height: 1; vertical-align: middle; }
+  button.info:hover { background: var(--raised); color: #fff; }
+  /* the gallery's filter: the Models tab's segmented control, smaller */
+  .gal .gfilter { flex: 0 1 auto; max-width: 26rem; margin: 0 0 0.9rem; }
+  .gal .gfilter button { min-height: 2.5rem; font-size: 0.95rem; }
+
+  @media (max-width: 1300px) { .thumbs .t { flex-basis: 25%; } }
+  @media (max-width: 900px) { .thumbs .t { flex-basis: 33.333%; } }
+  @media (max-width: 720px) {
+    html { font-size: 17px; }
+    .top { padding: 0 1rem; flex-wrap: wrap; padding-top: 0.5rem; padding-bottom: 0.25rem; }
+    .model { order: 3; flex-basis: 100%; margin-top: 0.1rem; }
+    .pill { margin-left: auto; }
+    .cchip { margin-left: auto; padding: 0.2rem 0.7rem; }
+    .cchip + .pill { margin-left: 0.5rem; }
+    .cchip .cw { display: none; }
+    /* The tab bar sits at the foot of the screen: five equal buttons, an icon over a label.
+       The page keeps room under it, and the bar stays below the viewer and the mask editor (.lb, .dlg). */
+    body { padding-bottom: 5.5rem; padding-bottom: calc(5.5rem + env(safe-area-inset-bottom)); }
+    #toast { bottom: 6rem; }
+    .tabs { position: fixed; left: 0; right: 0; bottom: 0; z-index: 5; max-width: none; margin: 0; padding: 0.3rem 0.4rem;
+      background: var(--surface); border-top: 1px solid var(--border); }
+    .tabs { padding-bottom: calc(0.3rem + env(safe-area-inset-bottom)); }
+    .tabs > button { flex: 1 1 0; min-width: 0; min-height: 3.4rem; margin: 0; padding: 0.25rem 0.1rem; border: 0; border-radius: 12px;
+      font-size: 0.8rem; line-height: 1.15; }
+    .tabs > button > span { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .tabs > button.on { background: var(--accent); color: #fff; }
+    .tabs svg { display: block; width: 1.5rem; height: 1.5rem; margin: 0 auto 0.15rem; }
+    .tabs #gcount { display: block; font-size: 0.7rem; }
+    .panel { margin: 0.5rem 0; padding: 1.1rem; }
+    .main { padding: 0.25rem 0.75rem 1.5rem; }
+    .gal { padding: 0.5rem 0.75rem 2rem; }
+    .stage { min-height: 12rem; }
+    .state { display: block; }
+    #cancel { margin: 0.5rem 0 0; width: 100%; }
+    /* Create tab on a phone: the result comes first once a run starts; Generate stays above the tab bar */
+    #view-create > .controls, #view-create > .result { flex: 1 1 100%; }
+    .gorow { position: sticky; bottom: calc(4.6rem + env(safe-area-inset-bottom)); z-index: 3; margin: 0; padding: 0.6rem 0 0.5rem;
+      background: var(--surface); }
+    .gorow .go { min-height: 4rem; }
+    .gorow .go { font-size: 1.1rem; min-width: 0; }
+    .count { margin-left: 0.4rem; }
+    .count button { width: 2rem; min-height: 4rem; }
+    .count input { width: 3rem; height: 4rem; margin: 0 0.2rem; padding: 0; font-size: 1.1rem; }
+    .dice { width: 3.4rem; min-height: 4rem; margin-left: 0.4rem; }
+    .mrow { flex-wrap: wrap; }
+    .mmain { flex-basis: 100%; }
+    .mrow > button { flex: 1; margin: 0.7rem 0 0; }
+    .macts { flex: 1 1 100%; justify-content: flex-end; margin: 0.7rem 0 0; }
+    .macts > button { flex: 1; }
+    .sub { flex-wrap: wrap; }
+    .smain { flex: 1 1 100%; }
+    .sacts { flex: 1 1 100%; justify-content: flex-end; margin: 0.5rem 0 0; }
+    .sacts > button { flex: 1; }
+    .mseg button { padding: 0 0.3rem; font-size: 0.95rem; }
+    .inrow { flex-wrap: wrap; }
+    .inrow input { flex-basis: 100%; margin: 0 0 0.6rem; }
+    .inrow button { flex: 1; }
+    .hfile { flex-wrap: wrap; }
+    .hfile .fn { flex-basis: 100%; }
+    .hfile .sz { margin-left: 0; flex: 1; }
+    /* The viewer on a phone scrolls as one column: the title with Close, the picture across the whole
+       width with the arrows on it, the prompt and its settings, then the actions three to a row. The bar
+       lets its parts take their own place in that order. */
+    .lb { flex-direction: row; flex-wrap: wrap; align-content: flex-start; overflow-y: auto; }
+    .lb-bar { display: contents; }
+    .lb-title { order: 1; flex: 1 1 0; padding: 0.75rem 0 0.75rem 1rem; font-size: 0.85rem; overflow-wrap: anywhere; }
+    .lb-bar #lb-close { order: 2; align-self: center; margin: 0.5rem 1rem 0.5rem 0.75rem; min-height: 2.75rem; padding: 0 1rem; }
+    .lb-body { order: 3; flex: 0 0 100%; position: relative; padding: 0; }
+    .lb-img img, .lb-img video, .lb.withinfo .lb-img img, .lb.withinfo .lb-img video {
+      width: auto; height: auto; max-width: 100%; max-height: 65vh; border-radius: 0; }
+    .lb-body .nav { position: absolute; top: 50%; transform: translateY(-50%); z-index: 1; width: 2.75rem; height: 4.5rem;
+      font-size: 2rem; background: rgba(5, 8, 14, 0.55); border-color: transparent; }
+    #lb-prev { left: 0.4rem; }
+    #lb-next { right: 0.4rem; }
+    .lb-info { order: 4; flex: 0 0 100%; flex-direction: column; align-items: stretch; box-sizing: border-box; padding: 0.9rem 1rem 0; }
+    .lb-text { margin: 0 0 0.75rem; }
+    .lb-main { margin: 0 0 0.75rem; }
+    .lb-prompt { max-height: 9.6em; }
+    .lb-info button { min-height: 3.25rem; }
+    .lb-acts { order: 5; flex: 0 0 100%; display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; box-sizing: border-box;
+      padding: 0.9rem 1rem 1.25rem; }
+    .lb-acts a, .lb-acts button { margin: 0; padding: 0 0.3rem; text-align: center; white-space: nowrap; overflow: hidden;
+      text-overflow: ellipsis; }
+  }
+  /* Create tab on a PC: settings on the left, the result large on the right, in view while the settings scroll */
+  @media (min-width: 721px) {
+    #view-create > .controls { flex: 0 0 min(27rem, 42%); width: min(27rem, 42%); max-width: none; }
+    #view-create > .result { flex: 1 1 0; min-width: 0; position: sticky; top: 1rem; align-self: flex-start; }
+    /* the picture fits with the actions under it in view, from the top of the page: the page header, the
+       status and the sub line above it, the actions (and the strip) below it */
+    #view-create .stage img, #view-create .stage video { max-height: calc(100vh - 23.5rem); }
+    #view-create .stage.with-strip img { max-height: calc(100vh - 29.5rem); }
+  }
+  /* Desktop, 1100px and up: the tabs are a sidebar on the left. The brand (logo, name, version) sits at its top;
+     the top bar (model, status) and every view start to its right, so body gets the sidebar's width as padding.
+     The sidebar is z-index 8: the image viewer (.lb, 10), the dialogs (.dlg, 15) and the toast (20) cover it. */
+  @media (min-width: 1100px) {
+    :root { --side: 14rem; }
+    body { padding-left: var(--side); }
+    .brandbox { position: fixed; left: 0; top: 0; z-index: 8; box-sizing: border-box; width: var(--side); height: 4rem;
+      padding: 0 1.25rem; background: var(--surface); border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+    .tabs { position: fixed; left: 0; top: 4rem; bottom: 0; z-index: 8; box-sizing: border-box; width: var(--side);
+      flex-direction: column; max-width: none; margin: 0; padding: 0.75rem; overflow-y: auto;
+      background: var(--surface); border-right: 1px solid var(--border); }
+    .tabs button { display: flex; align-items: center; min-height: 3rem; margin: 0 0 0.35rem; padding: 0 1rem; border-radius: 0.8rem;
+      font-size: 1.05rem; text-align: left; }
+    .tabs button:not(.on):hover { background: var(--raised); color: var(--text); }
+    .tabs button > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .tabs svg { display: block; flex: none; width: 1.3rem; height: 1.3rem; margin: 0 0.8rem 0 0; }
+  }
+  @media (max-width: 520px) { .thumbs .t { flex-basis: 50%; } }
+  /* the narrowest phones: Generate keeps its word next to the count and the dice */
+  @media (max-width: 380px) {
+    .gorow .go { padding: 0 0.4rem; letter-spacing: 0; }
+    .count { margin-left: 0.3rem; }
+    .count button { width: 1.8rem; }
+    .count input { width: 2.4rem; margin: 0 0.15rem; }
+    .dice { width: 3rem; margin-left: 0.3rem; }
+  }

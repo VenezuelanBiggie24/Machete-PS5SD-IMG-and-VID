@@ -4,14 +4,17 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstdlib>
 #include <cstring>
 #include <ctime>
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
+#include <mutex>
 #include <sstream>
 
 #include "json.hpp"
+#include "net_family.hpp"
 
 namespace fs = std::filesystem;
 
@@ -91,6 +94,16 @@ void add_files(ModelEntry & e) {
     }
 }
 
+// The ControlNet a preset loads (--control-net): its file name, or "".
+std::string control_net_name(const ModelEntry & e) {
+    for (size_t i = 0; i + 1 < e.args.size(); i++) {
+        if (e.args[i] == "--control-net") {
+            return fs::u8path(e.args[i + 1]).filename().u8string();
+        }
+    }
+    return {};
+}
+
 ModelEntry file_entry(const std::string & id, const std::string & path) {
     ModelEntry e;
     e.id   = id;
@@ -106,7 +119,7 @@ ModelEntry file_entry(const std::string & id, const std::string & path) {
 bool is_model_path_option(const std::string & o) {
     static const char * const kOptions[] = {
         "-m",           "--model",       "--diffusion-model", "--high-noise-diffusion-model", "--vae",
-        "--taesd",      "--clip_l",      "--clip_g",          "--clip_vision",                "--t5xxl",
+        "--taesd",      "--tae",         "--clip_l",      "--clip_g",          "--clip_vision",                "--t5xxl",
         "--llm",        "--llm_vision",  "--control-net",     "--upscale-model",              "--photo-maker",
         "--audio-vae",  "--tokenizer",
     };
@@ -116,6 +129,103 @@ bool is_model_path_option(const std::string & o) {
         }
     }
     return false;
+}
+
+namespace {
+
+bool whole_int(const std::string & v, long lo, long hi, long & out) {
+    if (v.empty() || v.size() > 6 || v.find_first_not_of("0123456789") != std::string::npos) {
+        return false;
+    }
+    out = std::strtol(v.c_str(), nullptr, 10);
+    return out >= lo && out <= hi;
+}
+
+// "7", "7.5": digits with at most one point, 0 to 30.
+bool valid_cfg(const std::string & v) {
+    if (v.empty() || v.size() > 6 || v.find_first_not_of("0123456789.") != std::string::npos ||
+        std::count(v.begin(), v.end(), '.') > 1 || v == "." || v.front() == '.' || v.back() == '.') {
+        return false;
+    }
+    return std::strtod(v.c_str(), nullptr) <= 30.0;
+}
+
+// A sampler or scheduler name: sd-server knows which exist and refuses to start
+// on one it does not, so only the shape is checked here.
+bool valid_name(const std::string & v) {
+    if (v.empty() || v.size() > 24 || v == "default") {
+        return false;
+    }
+    for (unsigned char c : v) {
+        if (!(std::islower(c) || std::isdigit(c) || c == '_' || c == '+' || c == '.')) {
+            return false;
+        }
+    }
+    return true;
+}
+
+}  // namespace
+
+std::vector<std::string> defaults_to_args(const std::vector<std::pair<std::string, std::string>> & defaults) {
+    std::string steps, cfg, sampler, scheduler, width, height, clip_skip;  // the last valid value of each
+    for (const auto & kv : defaults) {
+        long n = 0;
+        if (kv.first == "steps" && whole_int(kv.second, 1, 150, n)) {
+            steps = kv.second;
+        } else if (kv.first == "cfg" && valid_cfg(kv.second)) {
+            cfg = kv.second;
+        } else if (kv.first == "sampler" && valid_name(kv.second)) {
+            sampler = kv.second;
+        } else if (kv.first == "scheduler" && valid_name(kv.second)) {
+            scheduler = kv.second;
+        } else if (kv.first == "width" && whole_int(kv.second, 64, 4096, n) && n % 8 == 0) {
+            width = kv.second;
+        } else if (kv.first == "height" && whole_int(kv.second, 64, 4096, n) && n % 8 == 0) {
+            height = kv.second;
+        } else if (kv.first == "clip_skip" && whole_int(kv.second, 1, 12, n)) {
+            clip_skip = kv.second;
+        }
+    }
+    std::vector<std::string> out;
+    const auto               add = [&](const char * option, const std::string & value) {
+        if (!value.empty()) {
+            out.push_back(option);
+            out.push_back(value);
+        }
+    };
+    add("--steps", steps);
+    add("--cfg-scale", cfg);
+    add("--sampling-method", sampler);
+    add("--scheduler", scheduler);
+    add("--width", width);
+    add("--height", height);
+    add("--clip-skip", clip_skip);
+    return out;
+}
+
+PresetSettings preset_settings(const std::vector<std::pair<std::string, std::string>> & defaults) {
+    PresetSettings                 settings;
+    const std::vector<std::string> args = defaults_to_args(defaults);
+    for (size_t i = 0; i + 1 < args.size(); i += 2) {
+        const std::string & option = args[i];
+        const std::string & value  = args[i + 1];
+        if (option == "--steps") {
+            settings.steps = std::atoi(value.c_str());
+        } else if (option == "--cfg-scale") {
+            settings.cfg = static_cast<float>(std::atof(value.c_str()));
+        } else if (option == "--sampling-method") {
+            settings.sampler = value;
+        } else if (option == "--scheduler") {
+            settings.scheduler = value;
+        } else if (option == "--width") {
+            settings.width = std::atoi(value.c_str());
+        } else if (option == "--height") {
+            settings.height = std::atoi(value.c_str());
+        } else if (option == "--clip-skip") {
+            settings.clip_skip = std::atoi(value.c_str());
+        }
+    }
+    return settings;
 }
 
 ModelEntry ModelLibrary::parse_preset(const std::string & id, const std::string & text) const {
@@ -143,6 +253,10 @@ ModelEntry ModelLibrary::parse_preset(const std::string & id, const std::string 
                 e.defaults = parse_defaults(value);
             } else if (key == "base") {
                 e.base = value;
+            } else if (key == "prompt") {
+                e.prompt_starter = value;
+            } else if (key == "negative") {
+                e.negative_starter = value;
             }
             continue;
         }
@@ -284,7 +398,18 @@ bool ModelLibrary::remove(const std::string & id_in, const std::vector<std::stri
         std::ostringstream text;
         text << in.rdbuf();
         in.close();
-        files = parse_preset(id, text.str()).files;
+        const ModelEntry parsed = parse_preset(id, text.str());
+        if (!parsed.base.empty()) {
+            // A saved preset is settings on its base: the model files are the base's.
+            std::error_code ec;
+            if (!fs::remove(preset, ec) || ec) {
+                error = "could not delete " + preset.u8string() + (ec ? ": " + ec.message() : "");
+                return false;
+            }
+            deleted.push_back(preset.u8string());
+            return true;
+        }
+        files = parsed.files;
     } else {
         const std::string other = user_of(file.u8string());
         if (!other.empty()) {
@@ -360,7 +485,7 @@ std::string slug(const std::string & name) {
 bool valid_default(const std::string & key, const std::string & value) {
     static const char * const kKeys[] = { "steps",       "cfg",         "width",         "height",        "sampler",
                                           "scheduler",   "loras",       "hires_scale",   "hires_steps",   "hires_denoise",
-                                          "hires_upscaler" };
+                                          "hires_upscaler", "clip_skip" };
     bool known = false;
     for (const char * k : kKeys) {
         known = known || key == k;
@@ -456,6 +581,13 @@ bool ModelLibrary::create_preset(const std::string & name_in, const std::string 
         }
     }
     std::string text = "# name: " + name + "\n# base: " + root + "\n";
+    // the base's prompt starters: a variant is the same model with other settings
+    if (!base.prompt_starter.empty()) {
+        text += "# prompt: " + base.prompt_starter + "\n";
+    }
+    if (!base.negative_starter.empty()) {
+        text += "# negative: " + base.negative_starter + "\n";
+    }
     if (!defaults.empty()) {
         text += "# defaults:";
         for (const auto & kv : defaults) {
@@ -522,6 +654,48 @@ bool ModelLibrary::remove_variant(const std::string & id_in, std::string & error
     return true;
 }
 
+std::string model_family(const ModelEntry & e) {
+    for (const char * opt : { "--diffusion-model", "-m", "--model" }) {
+        for (size_t i = 0; i + 1 < e.args.size(); i++) {
+            if (e.args[i] == opt) {
+                return net_family(e.args[i + 1]);
+            }
+        }
+    }
+    return "";
+}
+
+std::string part_reason(const ModelEntry & e) {
+    if (e.kind != "file" || e.files.empty()) {
+        return "";
+    }
+    const std::string part = net_part(e.files[0]);
+    if (part.empty()) {
+        return "";
+    }
+    const std::string family = net_family(e.files[0]);
+    const std::string what   = part == "diffusion model" && !family.empty() ? "the " + family + " diffusion model" : "the " + part;
+    const std::string others = part == "diffusion model" ? "a text encoder and a VAE"
+                               : part == "text encoder"  ? "a diffusion model and a VAE"
+                                                         : "a diffusion model and a text encoder";
+    return fs::u8path(e.files[0]).filename().u8string() + " is only a part of a model (" + what + "): it runs together with " +
+           others + ". Install the model from Get more, which brings all its files and a preset, or write a preset "
+           "that names them (Help, Models: Presets).";
+}
+
+namespace {
+
+std::mutex  g_load_error_mutex;
+std::string g_load_error_id, g_load_error_message;
+
+}  // namespace
+
+void set_load_error(const std::string & id, const std::string & message) {
+    std::lock_guard<std::mutex> lock(g_load_error_mutex);
+    g_load_error_id      = id;
+    g_load_error_message = id.empty() ? "" : message;
+}
+
 std::string models_json(const ModelLibrary & library, const std::string & active, const std::string & loaded,
                         bool switching, bool standby) {
     nlohmann::json list = nlohmann::json::array();
@@ -537,9 +711,22 @@ std::string models_json(const ModelLibrary & library, const std::string & active
                          { "files", e.files },
                          { "missing", e.missing },
                          { "base", e.base },
+                         { "control_net", control_net_name(e) },
+                         { "family", model_family(e) },
+                         { "part", e.kind == "file" && !e.files.empty() ? net_part(e.files[0]) : "" },
+                         { "prompt", e.prompt_starter },
+                         { "negative", e.negative_starter },
                          { "defaults", defaults } });
     }
-    nlohmann::json out = { { "active", active }, { "loaded", loaded }, { "switching", switching }, { "standby", standby }, { "models", list } };
+    nlohmann::json load_error = nullptr;
+    {
+        std::lock_guard<std::mutex> lock(g_load_error_mutex);
+        if (!g_load_error_id.empty()) {
+            load_error = { { "id", g_load_error_id }, { "message", g_load_error_message } };
+        }
+    }
+    nlohmann::json out = { { "active", active }, { "loaded", loaded }, { "switching", switching },
+                           { "standby", standby }, { "load_error", load_error }, { "models", list } };
     // A file name that is not UTF-8 must not throw on an HTTP thread.
     return out.dump(-1, ' ', false, nlohmann::json::error_handler_t::replace);
 }
@@ -566,9 +753,12 @@ std::string loras_json(const std::string & dir) {
     std::sort(files.begin(), files.end());
     nlohmann::json list = nlohmann::json::array();
     for (const auto & f : files) {
-        list.push_back({ { "name", fs::u8path(f.first).stem().u8string() }, { "path", f.first }, { "bytes", f.second } });
+        list.push_back({ { "name", fs::u8path(f.first).stem().u8string() },
+                         { "path", f.first },
+                         { "bytes", f.second },
+                         { "family", net_family((root / fs::u8path(f.first)).u8string()) } });
     }
-    return nlohmann::json{ { "loras", list } }.dump();
+    return nlohmann::json{ { "loras", list } }.dump(-1, ' ', false, nlohmann::json::error_handler_t::replace);
 }
 
 std::string upscalers_json(const std::string & dir) {
@@ -594,10 +784,34 @@ std::string upscalers_json(const std::string & dir) {
     return nlohmann::json{ { "upscalers", list } }.dump(-1, ' ', false, nlohmann::json::error_handler_t::replace);
 }
 
+namespace {
+
+// Whether an entry is a model for the APIs' model lists: not a saved preset
+// (settings on a model), and not a checkpoint that a preset without a base
+// stands for. The web UI's Models tab counts the same way.
+bool counts_as_model(const ModelEntry & e, const std::vector<ModelEntry> & all) {
+    if (!e.base.empty()) {
+        return false;
+    }
+    if (e.kind != "file" || e.files.empty()) {
+        return true;
+    }
+    for (const ModelEntry & o : all) {
+        if (o.kind == "preset" && o.base.empty() &&
+            std::find(o.files.begin(), o.files.end(), e.files.front()) != o.files.end()) {
+            return false;
+        }
+    }
+    return true;
+}
+
+}  // namespace
+
 std::string sd_models_json(const ModelLibrary & library) {
-    nlohmann::json list = nlohmann::json::array();
-    for (const ModelEntry & e : library.list()) {
-        if (!e.missing.empty() || e.files.empty()) {
+    nlohmann::json                list    = nlohmann::json::array();
+    const std::vector<ModelEntry> entries = library.list();
+    for (const ModelEntry & e : entries) {
+        if (!e.missing.empty() || e.files.empty() || !counts_as_model(e, entries)) {
             continue;
         }
         // No hashes: hashing gigabytes on the console for a label is not worth it.
@@ -612,9 +826,10 @@ std::string sd_models_json(const ModelLibrary & library) {
 }
 
 std::string openai_models_json(const ModelLibrary & library) {
-    nlohmann::json list = nlohmann::json::array();
-    for (const ModelEntry & e : library.list()) {
-        if (e.missing.empty() && !e.files.empty()) {
+    nlohmann::json                list    = nlohmann::json::array();
+    const std::vector<ModelEntry> entries = library.list();
+    for (const ModelEntry & e : entries) {
+        if (e.missing.empty() && !e.files.empty() && counts_as_model(e, entries)) {
             list.push_back({ { "id", e.id }, { "object", "model" }, { "owned_by", "ps5sd" } });
         }
     }
@@ -660,7 +875,7 @@ std::string checkpoint_from_options(const std::string & body) {
     return {};
 }
 
-std::string info_json(const std::string & version, const std::string & build, const std::string & sd_version, const std::string & sd_commit) {
+std::string info_json(const std::string & version, const std::string & sd_version, const std::string & sd_commit, const std::string & build) {
     nlohmann::json out = { { "name", "Machete PS5SD" },
                            { "version", version },
                            { "sd_cpp", { { "version", sd_version }, { "commit", sd_commit } } } };
@@ -669,12 +884,6 @@ std::string info_json(const std::string & version, const std::string & build, co
     }
     return out.dump(-1, ' ', false, nlohmann::json::error_handler_t::replace);
 }
-
-std::string info_json(const std::string & version, const std::string & sd_version, const std::string & sd_commit) {
-    return info_json(version, "", sd_version, sd_commit);
-}
-
-}  // namespace ps5sd
 
 std::string get_app_version() {
     static std::string cached_version;
@@ -711,8 +920,6 @@ std::string get_app_build() {
     return "";
 #endif
 }
-
-namespace ps5sd {
 
 std::string api_key_from_bytes(const unsigned char * bytes, size_t n) {
     static const char kAlphabet[] = "abcdefghijklmnopqrstuvwxyz234567";
@@ -805,7 +1012,56 @@ bool png_from_json(const std::string & body, std::string & png, std::string & er
         error = "the image is not a PNG";
         return false;
     }
+    const auto params = j.find("parameters");
+    if (params != j.end() && params->is_string() && !params->get<std::string>().empty()) {
+        png = png_with_text(png, "parameters", params->get<std::string>());
+    }
     return true;
+}
+
+namespace {
+
+uint32_t png_crc(const std::string & bytes) {
+    static uint32_t table[256];
+    static bool     ready = false;
+    if (!ready) {
+        for (uint32_t n = 0; n < 256; n++) {
+            uint32_t c = n;
+            for (int k = 0; k < 8; k++) {
+                c = (c & 1) ? 0xedb88320u ^ (c >> 1) : c >> 1;
+            }
+            table[n] = c;
+        }
+        ready = true;
+    }
+    uint32_t c = 0xffffffffu;
+    for (unsigned char b : bytes) {
+        c = table[(c ^ b) & 0xff] ^ (c >> 8);
+    }
+    return c ^ 0xffffffffu;
+}
+
+void put_u32(std::string & out, uint32_t v) {
+    out.push_back(static_cast<char>(v >> 24));
+    out.push_back(static_cast<char>(v >> 16));
+    out.push_back(static_cast<char>(v >> 8));
+    out.push_back(static_cast<char>(v));
+}
+
+}  // namespace
+
+std::string png_with_text(const std::string & png, const std::string & keyword, const std::string & text) {
+    // the signature (8), then IHDR: its length, "IHDR", 13 bytes, its CRC
+    const size_t after_ihdr = 8 + 4 + 4 + 13 + 4;
+    if (png.size() < after_ihdr || png.compare(12, 4, "IHDR") != 0) {
+        return png;
+    }
+    const std::string body = "tEXt" + keyword + std::string(1, '\0') + text;
+    std::string       chunk;
+    put_u32(chunk, static_cast<uint32_t>(body.size() - 4));
+    chunk += body;
+    put_u32(chunk, png_crc(body));
+    return png.substr(0, after_ihdr) + chunk + png.substr(after_ihdr);
 }
 
 std::string edited_image_name(const std::string & dir, long long t) {

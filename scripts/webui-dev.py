@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Dev helper: serve ps5/webui/index.html at / and forward every other path to a PS5SD server.
+"""Dev helper: serve the web UI at / and forward every other path to a PS5SD server.
 
     python scripts/webui-dev.py [--port 8787] [--target http://10.0.0.101:7860] [--mock-downloads] [--mock-models]
 
-The page is re-read from disk on every request, so an edit shows after a reload.
+The page is put together from ps5/webui/src on every request (as scripts/bundle-webui.sh does
+for the build), so an edit shows after a reload.
 
 --mock-downloads answers the download routes of the app (catalog, downloads, Hugging Face
 search) in this process, with simulated progress, so the Models tab can be tried before the
@@ -29,7 +30,23 @@ import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-PAGE = os.path.join(HERE, "..", "ps5", "webui", "index.html")
+SRC = os.path.join(HERE, "..", "ps5", "webui", "src")
+VERSION_HPP = os.path.join(HERE, "..", "ps5", "app", "version.hpp")
+
+
+def bundle():
+    """page.html with each "@@include <file>" line replaced by that file, as bytes."""
+    out = []
+    with open(os.path.join(SRC, "page.html"), "rb") as f:
+        for line in f.read().split(b"\n"):
+            if line.startswith(b"@@include "):
+                with open(os.path.join(SRC, line[10:].decode()), "rb") as part:
+                    text = part.read()
+                    out.append(text[:-1] if text.endswith(b"\n") else text)
+            else:
+                out.append(line)
+    return b"\n".join(out)
+
 
 APP = "/ps5sd/v1/app/"
 MB = 1000 * 1000
@@ -65,31 +82,6 @@ class MockDownloads:
                     "dest": "z-image/text_encoder.safetensors", "bytes": 2500 * MB},
                    {"url": "https://huggingface.co/example/z-image-turbo/resolve/main/ae.safetensors",
                     "dest": "z-image/ae.safetensors", "bytes": 330 * MB}]},
-        {"id": "wan2.2-ti2v-5b", "name": "Wan 2.2 TI2V 5B (Q4_K_M)", "preset": "wan2.2-ti2v-5b", "featured": True,
-         "description": "Best quality local video (T2V & I2V). 480p/540p, 16-24 fps.",
-         "bytes": 3433 * MB + 3655 * MB + 508 * MB, "installed": False,
-         "files": [{"url": "https://huggingface.co/QuantStack/Wan2.2-TI2V-5B-GGUF/resolve/main/Wan2.2-TI2V-5B-Q4_K_M.gguf",
-                    "dest": "diffusion_models/Wan2.2-TI2V-5B-Q4_K_M.gguf", "bytes": 3433 * MB},
-                   {"url": "https://huggingface.co/city96/umt5-xxl-encoder-gguf/resolve/main/umt5-xxl-encoder-Q4_K_M.gguf",
-                    "dest": "text_encoders/umt5-xxl-encoder-Q4_K_M.gguf", "bytes": 3655 * MB},
-                   {"url": "https://huggingface.co/Wan-AI/Wan2.1-T2V-1.3B/resolve/main/Wan2.1_VAE.pth",
-                    "dest": "vae/Wan2.1_VAE.pth", "bytes": 508 * MB}]},
-        {"id": "wan2.1-t2v-1.3b", "name": "Wan 2.1 T2V 1.3B (Q8_0)", "preset": "wan2.1-t2v-1.3b", "featured": True,
-         "description": "Lightweight & stable video generation. Great for 480p loops.",
-         "bytes": 1536 * MB + 3655 * MB + 508 * MB, "installed": False,
-         "files": [{"url": "https://huggingface.co/samuelchristlie/Wan2.1-T2V-1.3B-GGUF/resolve/main/Wan2.1-T2V-1.3B-Q8_0.gguf",
-                    "dest": "diffusion_models/Wan2.1-T2V-1.3B-Q8_0.gguf", "bytes": 1536 * MB},
-                   {"url": "https://huggingface.co/city96/umt5-xxl-encoder-gguf/resolve/main/umt5-xxl-encoder-Q4_K_M.gguf",
-                    "dest": "text_encoders/umt5-xxl-encoder-Q4_K_M.gguf", "bytes": 3655 * MB},
-                   {"url": "https://huggingface.co/Wan-AI/Wan2.1-T2V-1.3B/resolve/main/Wan2.1_VAE.pth",
-                    "dest": "vae/Wan2.1_VAE.pth", "bytes": 508 * MB}]},
-        {"id": "ltx-video-2b", "name": "LTX-Video 2B (Q8_0)", "preset": "ltx-video-2b", "featured": True,
-         "description": "Fast distilled video model (8-12 steps). Supports camera controls.",
-         "bytes": 2088 * MB + 2896 * MB, "installed": False,
-         "files": [{"url": "https://huggingface.co/city96/LTX-Video-0.9.6-distilled-gguf/resolve/main/ltxv-2b-0.9.6-distilled-04-25-Q8_0.gguf",
-                    "dest": "diffusion_models/ltxv-2b-distilled-Q8_0.gguf", "bytes": 2088 * MB},
-                   {"url": "https://huggingface.co/city96/t5-v1_1-xxl-encoder-gguf/resolve/main/t5-v1_1-xxl-encoder-Q4_K_M.gguf",
-                    "dest": "text_encoders/t5-v1_1-xxl-encoder-Q4_K_M.gguf", "bytes": 2896 * MB}]},
         {"id": "sd-turbo", "name": "SD Turbo (Q8_0)", "preset": "sd-turbo",
          "description": "One step, 512x512. Fast, good for trying prompts.", "bytes": 2023745376, "installed": False,
          "files": [{"url": "https://huggingface.co/example/sd-turbo-gguf/resolve/main/sd_turbo-f16-q8_0.gguf",
@@ -378,8 +370,7 @@ class Handler(BaseHTTPRequestHandler):
         pass
 
     def _page(self):
-        with open(PAGE, "rb") as f:
-            body = f.read()
+        body = bundle()
         self.send_response(200)
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
@@ -428,7 +419,7 @@ class Handler(BaseHTTPRequestHandler):
         body = self.rfile.read(length) if length else None
         res = None
         if self.models is not None and self.path.split("?")[0] == APP + "info":
-            src = open(os.path.join(os.path.dirname(PAGE), "..", "app", "version.hpp"), encoding="utf-8").read()
+            src = open(VERSION_HPP, encoding="utf-8").read()
             version = re.search(r'PS5SD_VERSION "([^"]*)"', src).group(1)
             self._json(200, {"name": "PS5SD", "version": version, "sd_cpp": {"version": "mock", "commit": "mock"}})
             return
@@ -471,6 +462,6 @@ if __name__ == "__main__":
     if a.mock_standby:
         Handler.models.standby = True
         Handler.models.active = Handler.models.loaded = ""
-    print("serving %s on http://127.0.0.1:%d -> %s%s" % (PAGE, a.port, a.target,
+    print("serving %s on http://127.0.0.1:%d -> %s%s" % (SRC, a.port, a.target,
                                                       (" (mock downloads)" if a.mock_downloads else "") + (" (mock models)" if Handler.models else "")))
     ThreadingHTTPServer(("127.0.0.1", a.port), Handler).serve_forever()

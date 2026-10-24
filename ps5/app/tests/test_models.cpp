@@ -4,6 +4,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "models.hpp"
 
+#include <algorithm>
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
@@ -76,6 +77,12 @@ int main() {
     check(j["active"] == "sdxl" && j["loaded"] == "sdxs.gguf" && j["switching"] == true, "json header");
     check(j["models"].size() == 4 && j["models"][1]["defaults"]["cfg"] == "6", "json models");
     check(j["models"][0]["missing"].size() == 1, "json missing files");
+    check(j["load_error"].is_null() && j["models"][0]["part"] == "", "json without a load error, no parts");
+    ps5sd::set_load_error("sdxl", "SDXL did not load: a reason");
+    const auto jl = nlohmann::json::parse(ps5sd::models_json(lib, "sdxl", "", false));
+    check(jl["load_error"]["id"] == "sdxl" && jl["load_error"]["message"] == "SDXL did not load: a reason", "json load error");
+    ps5sd::set_load_error("", "");
+    check(nlohmann::json::parse(ps5sd::models_json(lib, "", "", false))["load_error"].is_null(), "load error cleared");
 
     check(nlohmann::json::parse(ps5sd::error_json("no \"x\""))["error"] == "no \"x\"", "error json");
     check(!ps5sd::error_json("bad \xff byte").empty(), "error json with a byte that is not UTF-8");
@@ -120,6 +127,21 @@ int main() {
                   ps5sd::checkpoint_from_options(R"({"CLIP_stop_at_last_layers": 2})").empty() &&
                   ps5sd::checkpoint_from_options("not json").empty(),
               "checkpoint from an options body");
+    }
+
+    // A diffusion-only file in the models folder that a preset loads with --diffusion-model is the
+    // preset's, as a checkpoint behind -m is: not a model of its own in the A1111 and OpenAI lists.
+    {
+        write(models / "klein.gguf", "x");
+        write(presets / "klein.txt", "--diffusion-model\nklein.gguf\n--vae\nvae/sdxl_vae.safetensors\n");
+        bool has_file = false, has_preset = false;
+        for (const auto & m : nlohmann::json::parse(ps5sd::sd_models_json(lib))) {
+            has_file   = has_file || m["title"] == "klein.gguf";
+            has_preset = has_preset || m["title"] == "klein";
+        }
+        check(has_preset && !has_file, "a file behind --diffusion-model is not listed again");
+        fs::remove(models / "klein.gguf");
+        fs::remove(presets / "klein.txt");
     }
 
     // remove(): a second preset shares the VAE; a lone checkpoint; a broken preset.
@@ -191,6 +213,32 @@ int main() {
         check(!lib.create_preset("x", "flux", { { "hires_upscaler", "Latent (nearest)" } }, id, error),
               "an upscaler name with spaces must be encoded");
         check(!lib.create_preset("x", "nope", {}, id, error), "no such base");
+
+        // prompt starters ("# prompt:", "# negative:") and CLIP skip; a variant takes its base's starters
+        write(presets / "pony.txt", "# name: Pony\n# prompt: score_9, score_8_up, score_7_up\n# negative: score_4, score_5\n"
+                                    "# defaults: clip_skip=2 steps=25\n-m\nilu.safetensors\n");
+        check(lib.find("pony", v, error) && v.prompt_starter == "score_9, score_8_up, score_7_up" &&
+                  v.negative_starter == "score_4, score_5",
+              "the prompt starters of a preset");
+        check(ps5sd::preset_settings(v.defaults).clip_skip == 2, "clip_skip in # defaults:");
+        check(lib.create_preset("Pony fast", "pony", { { "clip_skip", "1" }, { "steps", "8" } }, id, error) &&
+                  lib.find(id, v, error) && v.prompt_starter == "score_9, score_8_up, score_7_up" &&
+                  v.negative_starter == "score_4, score_5" && ps5sd::preset_settings(v.defaults).clip_skip == 1,
+              "a variant keeps its base's starters, and a clip_skip of its own");
+        check(lib.create_preset("Flux plain", "flux", {}, id, error) && lib.find(id, v, error) && v.prompt_starter.empty(),
+              "no starters, none in the variant");
+        {
+            const auto jp = nlohmann::json::parse(ps5sd::models_json(lib, "", "", false));
+            bool       starters = false;
+            for (const auto & m : jp["models"]) {
+                starters = starters || (m["id"] == "pony" && m["prompt"] == "score_9, score_8_up, score_7_up" &&
+                                        m["negative"] == "score_4, score_5");
+            }
+            check(starters, "json: the starters");
+        }
+        fs::remove(presets / "pony.txt");
+        fs::remove(presets / "pony-fast.txt");
+        fs::remove(presets / "flux-plain.txt");
         const auto j = nlohmann::json::parse(ps5sd::models_json(lib, "", "", false));
         bool       seen = false;
         for (const auto & m : j["models"]) {
@@ -265,6 +313,15 @@ int main() {
         check(!ps5sd::png_from_json(R"({"image": "aGVsbG8gd29ybGQ="})", png, error), "not a PNG");
         check(!ps5sd::png_from_json(R"({"image": "iVBOR w0KGgo"})", png, error), "not base64");
         check(!ps5sd::png_from_json(R"({"img": "x"})", png, error) && !ps5sd::png_from_json("[]", png, error), "no image");
+        // the parameters as a tEXt chunk right after IHDR (the CRC as zlib's crc32 gives it)
+        const std::string head = std::string("\x89PNG\r\n\x1a\n", 8) + std::string("\0\0\0\x0dIHDR", 8) +
+                                 std::string(13, '\x01') + std::string("CRC!", 4);
+        const std::string tail = std::string("\0\0\0\0IEND\xae\x42\x60\x82", 12);
+        const std::string with = ps5sd::png_with_text(head + tail, "parameters", "a house\nSteps: 4");
+        check(with == head + std::string("\0\0\0\x1b", 4) + "tEXtparameters" + std::string(1, '\0') + "a house\nSteps: 4" +
+                          std::string("\xfd\x0c\x0b\xc7", 4) + tail,
+              "the parameters after IHDR");
+        check(ps5sd::png_with_text("not a png", "parameters", "x") == "not a png", "no IHDR: unchanged");
         const fs::path out = root / "outputs";
         fs::create_directories(out);
         const std::string a = ps5sd::edited_image_name(out.u8string(), 1792570000);
@@ -297,6 +354,122 @@ int main() {
         const auto u = nlohmann::json::parse(ps5sd::upscalers_json(ups.u8string()))["upscalers"];
         check(u.size() == 2 && u[0]["file"] == "4x.safetensors" && u[1]["name"] == "RealESRGAN_x4plus" && u[1]["bytes"] == 3,
               "upscalers json: the top of the folder, upscaler files only");
+    }
+
+    // A preset is settings on a model: its defaults become the server's, it never counts as a model of its
+    // own, and deleting it never deletes a model file.
+    {
+        using Defaults = std::vector<std::pair<std::string, std::string>>;
+        using Args     = std::vector<std::string>;
+        check(ps5sd::defaults_to_args(Defaults{ { "steps", "10" },
+                                                { "cfg", "6" },
+                                                { "sampler", "dpm++2m" },
+                                                { "scheduler", "ays" },
+                                                { "width", "832" },
+                                                { "height", "1216" },
+                                                { "loras", "a.safetensors:1" },
+                                                { "hires_scale", "1.5" } }) ==
+                  Args{ "--steps", "10", "--cfg-scale", "6", "--sampling-method", "dpm++2m", "--scheduler", "ays",
+                        "--width", "832", "--height", "1216" },
+              "defaults become sd-server options; loras and hires stay with the web UI");
+        check(ps5sd::defaults_to_args(Defaults{ { "steps", "0" },
+                                                { "steps", "151" },
+                                                { "cfg", "31" },
+                                                { "cfg", "." },
+                                                { "sampler", "Euler A" },
+                                                { "scheduler", "default" },
+                                                { "width", "100" },
+                                                { "height", "70000" } })
+                  .empty(),
+              "values that cannot be options are left out");
+        check(ps5sd::defaults_to_args(Defaults{ { "steps", "10 --listen-ip" }, { "sampler", "x;y" }, { "cfg", "-1" } }).empty(),
+              "no extra arguments through a value");
+        check(ps5sd::defaults_to_args(Defaults{ { "steps", "abc" }, { "steps", "20" }, { "cfg", "7.5" }, { "cfg", "7.5.1" } }) ==
+                  Args{ "--steps", "20", "--cfg-scale", "7.5" },
+              "the last valid value wins; an invalid one does not replace it");
+        check(ps5sd::defaults_to_args({}).empty(), "no defaults, no options");
+        check(ps5sd::defaults_to_args(Defaults{ { "clip_skip", "2" } }) == Args{ "--clip-skip", "2" }, "clip_skip");
+        check(ps5sd::defaults_to_args(Defaults{ { "clip_skip", "0" }, { "clip_skip", "13" }, { "clip_skip", "-1" } }).empty(),
+              "clip_skip from 1 to 12");
+
+        // The same settings as the server's request defaults, set at run time.
+        const ps5sd::PresetSettings full = ps5sd::preset_settings(Defaults{ { "steps", "10" },
+                                                                            { "cfg", "6" },
+                                                                            { "sampler", "dpm++2m" },
+                                                                            { "scheduler", "ays" },
+                                                                            { "width", "832" },
+                                                                            { "height", "1216" },
+                                                                            { "loras", "a.safetensors:1" } });
+        check(full.steps == 10 && full.cfg == 6 && full.sampler == "dpm++2m" && full.scheduler == "ays" && full.width == 832 &&
+                  full.height == 1216,
+              "a preset's settings become the request defaults");
+        const ps5sd::PresetSettings invalid = ps5sd::preset_settings(Defaults{ { "steps", "abc" } });
+        check(invalid.steps == -1 && invalid.cfg == -1 && invalid.sampler.empty() && invalid.scheduler.empty() &&
+                  invalid.width == -1 && invalid.height == -1,
+              "an invalid value stays unset");
+        const ps5sd::PresetSettings unset = ps5sd::preset_settings({});
+        check(unset.steps == -1 && unset.cfg == -1 && unset.sampler.empty() && unset.scheduler.empty() && unset.width == -1 &&
+                  unset.height == -1 && unset.clip_skip == -1,
+              "no defaults, all unset");
+
+        // A saved preset (# base:) is deleted alone, even when it is the only one of its model.
+        const fs::path m2 = root / "m2", p2 = root / "p2";
+        write(m2 / "base.gguf", "x");
+        write(p2 / "fast.txt", "# name: Fast\n# base: base.gguf\n# defaults: steps=10\n-m\nbase.gguf\n");
+        ps5sd::ModelLibrary      l2{ m2.u8string(), p2.u8string() };
+        std::vector<std::string> del, kep;
+        check(l2.remove("fast", {}, del, kep, error) && del.size() == 1 && kep.empty() && !fs::exists(p2 / "fast.txt") &&
+                  fs::exists(m2 / "base.gguf"),
+              "deleting a saved preset leaves the model file");
+
+        // The model lists of the APIs: models only.
+        const fs::path m3 = root / "m3", p3 = root / "p3";
+        write(m3 / "plain.gguf", "x");
+        write(m3 / "covered.gguf", "x");
+        write(p3 / "plain-fast.txt", "# base: plain.gguf\n-m\nplain.gguf\n");
+        write(p3 / "cover.txt", "-m\ncovered.gguf\n--vae-tiling\n");
+        ps5sd::ModelLibrary l3{ m3.u8string(), p3.u8string() };
+        const auto          sd3 = nlohmann::json::parse(ps5sd::sd_models_json(l3));
+        const auto          oa3 = nlohmann::json::parse(ps5sd::openai_models_json(l3))["data"];
+        std::vector<std::string> sd_titles, oa_ids;
+        for (const auto & m : sd3) {
+            sd_titles.push_back(m["title"]);
+        }
+        for (const auto & m : oa3) {
+            oa_ids.push_back(m["id"]);
+        }
+        std::sort(sd_titles.begin(), sd_titles.end());
+        std::sort(oa_ids.begin(), oa_ids.end());
+        check(sd_titles == Args{ "cover", "plain.gguf" } && oa_ids == sd_titles,
+              "the model lists leave out a saved preset and a checkpoint a preset stands for");
+        check(ps5sd::checkpoint_id(l3, "plain-fast") == "plain-fast", "a saved preset can still be asked for by name");
+    }
+
+    // The ControlNet a preset loads: its file name in the JSON, "" without one.
+    {
+        const fs::path m4 = root / "m4", p4 = root / "p4";
+        write(m4 / "sdxl.gguf", "x");
+        write(m4 / "controlnet" / "canny.safetensors", std::string(7, 'x'));
+        write(p4 / "guided.txt", "# name: Guided\n-m\nsdxl.gguf\n--control-net\ncontrolnet/canny.safetensors\n");
+        write(p4 / "plain.txt", "# name: Plain\n-m\nsdxl.gguf\n");
+        write(p4 / "guided-2.txt", "# base: guided\n# name: Guided 2\n-m\nsdxl.gguf\n--control-net\n"
+                                   "controlnet/canny.safetensors\n");
+        ps5sd::ModelLibrary l4{ m4.u8string(), p4.u8string() };
+        const auto          j4 = nlohmann::json::parse(ps5sd::models_json(l4, "", "", false));
+        std::string         guided, plain, variant, file;
+        for (const auto & m : j4["models"]) {
+            if (m["id"] == "guided") {
+                guided = m["control_net"];
+            } else if (m["id"] == "plain") {
+                plain = m["control_net"];
+            } else if (m["id"] == "guided-2") {
+                variant = m["control_net"];
+            } else if (m["id"] == "sdxl.gguf") {
+                file = m["control_net"];
+            }
+        }
+        check(guided == "canny.safetensors" && variant == "canny.safetensors", "control_net is the file name");
+        check(plain.empty() && file.empty(), "control_net is empty without a ControlNet");
     }
 
     fs::remove_all(root);

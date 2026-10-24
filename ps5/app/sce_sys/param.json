@@ -15,7 +15,7 @@
   "conceptId": "99699",
   "contentBadgeType": 1,
   "contentId": "UP9000-PPSA99699_00-PS5SDVULKAN00001",
-  "contentVersion": "01.005.001",
+  "contentVersion": "01.009.006",
   "downloadDataSize": 256,
   "gameIntent": {
     "permittedIntents": [
@@ -31,7 +31,7 @@
   "localizedParameters": {
     "defaultLanguage": "en-US",
     "en-US": {
-      "titleName": "Machete PS5SD (Image & Video)"
+      "titleName": "Machete PS5SD"
     }
   },
   "masterVersion": "01.00",

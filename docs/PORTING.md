@@ -17,7 +17,7 @@ compiles out; code that checks `__FreeBSD__` takes BSD paths that may not exist 
 which is what the patches below are about.
 
 The app is a **title**, not a payload: an fSELF `eboot.bin` on PS5_Vulkan's start code
-(`app_crt.cpp`) and clean-room `libc.prx`, registered through ShadowMountPlus as PPSA99699. A
+(`app_crt.cpp`) and clean-room `libc.prx`, registered through ShadowMountPlus as PPSA99576. A
 title gets the console's direct memory (12 GiB, PS5LM measured an 11.44 GiB unified device heap
 with `radv_enable_unified_heap_on_apu`) and the GPU; a payload gets neither. In exchange:
 
@@ -158,7 +158,8 @@ instead of trapping, so `main.cpp` reports an out-of-memory load or generation a
 
 ## The app (`ps5/app`)
 
-- `main.cpp`: PS5LM's boot order: log to `/data/PS5SD/app.log`, `radv_enable_unified_heap_on_apu`
+- `main.cpp`: PS5LM's boot order: log to `/data/PS5SD/app.log` (stdout and stderr both appending, or
+  stdout writes over the start of the error lines), `radv_enable_unified_heap_on_apu`
   and `HOME`, `env.txt` switches (`RADV_`, `MESA_`, `ACO_`, `GGML_`, `SD_`, `PS5SD_`) before the GPU opens,
   the screen first (it takes from the same memory as the model), splash hidden, then the work on
   a 16 MiB-stack thread while the main thread draws and polls for `quit`. The work is the HTTP server
@@ -171,13 +172,20 @@ instead of trapping, so `main.cpp` reports an out-of-memory load or generation a
   and the direct-memory figure before and after each phase in the log, the PNG (with a
   `parameters` text chunk) in `/data/PS5SD/outputs`.
 - The server: `sd_server()` from `sd-server-lib` (`build-app.sh` builds it with `SD_SERVER_LIBRARY=ON`
-  and `ps5/webui/index.html` embedded), started with the active model's arguments, `--listen-ip 0.0.0.0`,
+  and the web UI embedded, put together from `ps5/webui/src` by `scripts/bundle-webui.sh`), started with the active model's arguments, `--listen-ip 0.0.0.0`,
   `--listen-port 7860`, `--output-dir /data/PS5SD/outputs`, `--backend Vulkan`, `--auto-fit off`,
   `--lora-model-dir /data/PS5SD/loras` and `--embd-dir /data/PS5SD/embeddings` (neither has to exist;
   an empty one would stop the server at start, because sd-server checks the embeddings directory with
   the throwing `std::filesystem::exists` and on the console `stat("")` fails with `EINVAL` rather than
   `ENOENT`, which libc++ throws on; measured on the first server start), then the lines of `/data/PS5SD/server-args.txt` (`scripts/ps5sd-app.sh server-args <file>`). A default
   is left out when the file names that option, since sd-server appends a string option given twice.
+  `patches/sdcpp/0064` saves a `vid_gen` video into the output directory too
+  (`sd_<date>_<time>_<n>.webm`), hands its path to `sd_activity_job_end` (which keeps it off the TV,
+  the dashboard draws PNGs only), and lets the gallery list and serve videos with their type.
+  `patches/sdcpp/0065` keeps the WARN and ERROR lines of the log while a job runs, so a failed job says
+  why: `Not enough memory on the console ...` when the log names a memory failure, otherwise the last
+  error, and `Cancelled` after a stop. The job's error, the A1111 and OpenAI answers and
+  `sd_activity_job_end` (for the TV) carry it.
   The request's own settings (steps, CFG, size) win over the server's defaults, which are sd.cpp's, not
   the one-shot's SD-Turbo ones. `main.cpp` defines the activity hooks of `server_hooks.h` (in its own
   object: from an archive, lld could take the weak no-ops instead), which feed the status and the
@@ -192,7 +200,16 @@ instead of trapping, so `main.cpp` reports an out-of-memory load or generation a
   `# defaults: steps=25 cfg=6 ...` comment lines. A relative path after a model option (`-m`, `--vae`,
   `--llm`, ...) is taken from the models directory, so the parts of a model can sit in subdirectories
   without being listed as checkpoints. With an entry, the model options of `server-args.txt` are left
-  out (logged), the rest of it still applies. Without `model.txt`, `server-args.txt` must name the
+  out (logged), the rest of it still applies. The entry's own `# defaults:` (`steps`, `cfg`, `sampler`,
+  `scheduler`, `width`, `height`; a value that cannot be one is left out, `defaults_to_args`) are applied
+  at run time with `sd_server_set_request_defaults` (`patches/sdcpp/0063`, with the values of
+  `preset_settings`), over the same options of `server-args.txt`: a request that names none of them gets
+  the preset's settings and one that names them overrides them. They are not command-line options, so a
+  switch between presets of one model needs no restart (`ask_switch`).
+  `patches/sdcpp/0062` makes `/sdapi/v1/txt2img` take the server's default size, not 512x512. The model
+  lists of the A1111 and OpenAI APIs skip a saved preset (`# base:`) and a checkpoint that a preset
+  without a base stands for, and `ModelLibrary::remove` deletes a saved preset's own file only.
+  Without `model.txt`, `server-args.txt` must name the
   model itself. `models.cpp` uses only the `error_code` overloads of `std::filesystem` (the `EINVAL`
   above) and dumps JSON with invalid UTF-8 replaced, since it runs on the server's HTTP threads.
 - The app's routes (`patches/sdcpp/0054`, `sd_app_request` in `main.cpp`): `GET /ps5sd/v1/app/models`
@@ -261,7 +278,7 @@ the same picture as a 512x512 BC7 texture with one mip and a DX10 header. That f
 after a new icon0.png, make it again on Windows with
 `texconv -f BC7_UNORM -m 1 -y -o ps5/app/sce_sys ps5/app/sce_sys/icon0.png`. build-app.sh stops if it is
 older than the PNG. Without it the tile showed no icon at all. The home screen reads both from
-`/user/appmeta/PPSA99699`, which `scripts/ps5sd-app.sh deploy` (or `appmeta`) keeps in step. The home screen background (`sce_sys/source/background.png`) is still a
+`/user/appmeta/PPSA99576`, which `scripts/ps5sd-app.sh deploy` (or `appmeta`) keeps in step. The home screen background (`sce_sys/source/background.png`) is still a
 generated placeholder.
 
 ## The model downloader (`downloader.cpp`, `https_client.cpp`, `download_core.cpp`, `catalog.hpp`)
@@ -287,6 +304,11 @@ restart).
   `sceNetPoolCreate` (64 KiB), and a `sceNetResolverCreate`/`sceNetResolverStartNtoa`/`Destroy` per
   lookup (the prototypes of the SDK fork's own `libc/netdb.c`), cached for five minutes. On the PC
   it uses `getaddrinfo`.
+- **The console's own address** (the TV's `http://<address>:<port>` and its QR code): `lan_address()`
+  in `main.cpp` connects a UDP socket to 8.8.8.8 (nothing is sent) and reads the local end with
+  `getsockname`, so it needs a default route; `PS5SD_ADDRESS` in `env.txt` sets it by hand. It looks
+  every 5 s until it has one, then once a minute. No `getifaddrs`: a title that imports a function the
+  console does not resolve does not start, and the socket calls are imported already.
 - **mbedTLS** (`scripts/build-mbedtls.sh`, run by `build-app.sh` and `setup-deps.sh`, skipped when the
   stamp matches): 3.6.7, sha256-checked, built with the title's compilers (`toolchain.cmake`) into
   `.deps/mbedtls-ps5`, with `MBEDTLS_THREADING_C` and `MBEDTLS_THREADING_PTHREAD` (16 handshakes at

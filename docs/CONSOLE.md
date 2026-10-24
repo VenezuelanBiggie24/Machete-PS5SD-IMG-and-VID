@@ -18,7 +18,7 @@ the figures come from `/data/PS5SD/app.log` and the kernel log (klogsrv), not fr
 
 - `scripts/ps5sd-app.sh deploy` uploads the title folder but does not register it. ShadowMountPlus has to
   rescan (`POST http://<console>:10101/api/v1/scan`, body `{"reset_attempts":true}`); after that
-  `/user/app/PPSA99699` and `/user/appmeta/PPSA99699` exist and the launch payload can start it.
+  `/user/app/PPSA99576` and `/user/appmeta/PPSA99576` exist and the launch payload can start it.
 - `launch.elf` started the title: `EXEC /app0/eboot.bin [user] ... category=native_game`, then the payload
   exited with 0. The eboot's container magic is `4F 15 3D 1D` (the PS4 one; `libc.prx` has the PS5 one,
   `54 14 F5 EE`), and the system loads it anyway.
@@ -123,7 +123,8 @@ CFG 6, euler_a.
 - The server loads the weights again for each request (the model manager keeps the context but not the
   tensors on the device). `--eager-load` has not been tried yet.
 - Pool free: 11.02 GiB before loading, 10.89 GiB with the server up, 5.61 GiB after a request (the
-  allocator keeps what it freed).
+  largest free part only; what was freed is free in smaller parts, see "Why freed GPU memory is not usable
+  again").
 - The VAE decode wanted 6.05 GB at once with 5.74 GB free, so sd.cpp fell back to 512x512 tiles by
   itself. The image shows no seams.
 
@@ -445,3 +446,381 @@ the server; pixel-art-xl (`nerijs/pixel-art-xl`, 170 MB) downloaded with `"kind"
 - Before `patches/sdcpp/0058`, B failed on `/sdapi/v1/txt2img` with "invalid lora path" because the
   file had come after the server started; the web UI's route (`/sdcpp/v1/img_gen`) already refreshed
   the list.
+
+## Hires fix at x1, and a run that does not fit (2026-10-21)
+
+iLustMix v11.1 (preset `ilustmix-portrait`), 832x1216, 10 steps, CFG 6, seed 7, a cabin by a lake:
+
+| Request | Request time | Size of the image |
+|---|---|---|
+| no hires fix | 30 s | 832x1216 |
+| hires fix x1, `Latent`, strength 0.35, steps 0 | 57 s | 832x1216 |
+| hires fix x1, `Lanczos`, strength 0.35, steps 0 | 63 s | 832x1216 |
+
+- sd.cpp takes a scale of 1: the target is the first pass's size, and the second pass runs 10 of the 28
+  steps of its schedule (`hires fix: scheduler_steps=28, denoising_strength=0.35`), 25.6 s of sampling.
+- Both images keep the first one's picture with crisper detail; `Lanczos` at x1 resizes nothing, so it
+  is image to image over the decoded first pass.
+
+The same model at 2048x2048, 4 steps, failed after 24 s in the first sampling step. The log said why:
+
+```
+[W] model manager cannot make enough memory available on Vulkan0: need 512.00 MB device / 2866.11 MB budget, available 0.00 MB device / unlimited budget --- model_manager.cpp:2018
+[E] sampling for image 1/1 failed after 18.50s --- image.cpp:907
+```
+
+The job's error was only `generate_image returned no results` until `patches/sdcpp/0065`. After the run,
+5.71 of 11.44 GiB of the pool were free again.
+
+In 0.8.1 this size fits: the run came after smaller images, see "Memory: what fits" below.
+
+## The catalog's models, one image each (2026-10-22)
+
+For the catalog's "about … an image": each model with its own defaults (size, steps, sampler), the prompt
+`a stone lighthouse on a cliff above the sea, evening light, detailed`, seed 42, one image through
+`POST /sdapi/v1/txt2img`, timed on the PC around the whole request. The first image after a switch, then a
+second one ("warm").
+
+| Model | Size, steps | First | Warm |
+|---|---|---|---|
+| FLUX.3 Image Klein Q4_K | 1024×1024, 16 | 136 s | 121 s |
+| Z-Image Turbo Q4_K | 1024×1024, 8 | 87 s | 74 s |
+| SDXL Base 1.0 Q8_0 (GGUF) | 1024×1024, 25 | 77 s | 68 s |
+| SDXL Base 1.0 f16, loaded as Q8_0 | 1024×1024, 25 | 82 s | 68 s |
+| SD-Turbo Q8_0 | 512×512, 4, CFG 1 | 2.7 s | 1.6 s |
+| SDXS-512 Q8_0 | 512×512, 1, CFG 1 | 2.3 s | 0.3 s |
+
+FLUX.3 Image Klein **Q6_K does not fit at 1024×1024**: with the model (7.18 GB of weights) loaded, 4.96 GiB
+of the pool is free, and the first sampling step asks for 5,366 MB on the GPU against 5,078 MB available
+(`model manager cannot make enough memory available`). The run fails after 0.24 s with the out-of-memory
+reason of 0.7.1. Smaller sizes fit: 896×896 in 114 s, 768×768 in 78 s, 1024×768 in 105 s, 832×1216 in
+130 s. The catalog's preset now defaults to 896×896.
+
+This run came after FLUX.3 Klein Q4_K at 1024×1024 in the same session. Right after a start, and after a
+switch from SDXL at 1024×1024, Q6_K fits at 1024×1024; see "Memory: what fits" below.
+
+## FLUX.2 Klein 4B (2026-10-22)
+
+leejet's GGUFs of FLUX.2 Klein 4B (Apache 2.0), with the Qwen3-4B Instruct 2507 Q4_K_M text encoder that
+Z-Image Turbo uses (Klein was trained with Qwen3-4B; the Instruct weights load and give clean images) and
+the FLUX.2 VAE, CFG 1, Euler, the lighthouse prompt of the catalog measurements, seed 42:
+
+| Model | Weights | Size, steps | First | Warm | Pool free after |
+|---|---|---|---|---|---|
+| Q8_0 (4.30 GB) | 6.64 GB | 1024×1024, 4 | 46.7 s | 30.5 s | 3.92 GiB |
+| Q4_0 (2.46 GB) | | 1024×1024, 4 | 43.7 s | 26.1 s | 4.71 GiB |
+
+The warm Q8_0 image: 34.4 s of sampling the first time, 24.1 s after; the text encoder 5.6 s once (cached
+for the same prompt), the VAE decode about 6 s. The catalog has Q8_0.
+
+## Memory: what fits, and why runs failed (2026-10-22)
+
+Each run below right after a start of the title (`ps5sd-app.sh close` and `launch`), one step, with
+`-v` in `server-args.txt` so that sd.cpp logs its compute buffers. The weights load when the first request
+needs them and the model manager evicts them block by block when memory runs short, so what a run needs
+depends on the run before it.
+
+| Model | Size | 0.8.0 | 0.8.1 (`patches/sdcpp/0067`) |
+|---|---|---|---|
+| SDXL Base Q8_0, CFG 6 | 1024×1024 | fits (UNet 984 MB) | 13.0 s, the same |
+| SDXL Base Q8_0, CFG 6 | 1536×1536 | the batched step fails, the step without batching runs (32.7 s) | batched, in 17 segments (31.7 s) |
+| SDXL Base Q8_0 | 2048×2048 | fits right after a start (17 segments, 58.7 s); fails after 1024 and 1536 | fits after them too (17 segments, 42.5 s) |
+| FLUX.2 Klein 4B Q8_0 | 1024×1024 | fits (diffusion 1,120 MB) | the same |
+| FLUX.2 Klein 4B Q8_0 | 1536×1536 | fails | fits, 27 segments (60 s) |
+| FLUX.2 Klein 4B Q8_0 | 2048×2048 | fails | fails: one segment needs 4,489 MB, 4,089 MB free. Fits since 0.9.0 (`patches/mesa/0010`), see the next section |
+| FLUX.3 Klein Q6_K | 1024×1024 | fits (794 MB), also after a switch from SDXL | the same |
+| FLUX.3 Klein Q6_K | 1536×1536 | fails | fails: sd.cpp has no cut points for this network |
+| Z-Image Turbo Q4_K | 1536×1536 | fits | |
+| Wan 2.1 T2V 1.3B | 832×480, 33 frames | fits (diffusion 670 MB, VAE 826 MB at 128 px tiles) | |
+
+What made runs fail:
+
+- **The plan picks one piece when two would be needed.** sd.cpp runs a graph whole when it estimates that
+  it fits next to the weights, and in segments (weights streamed per block) when it does not. On the
+  console the estimate says "fits", the allocation goes through, and the check after it finds no room:
+  `unet segment 1/1 (graph) failed during allocated capacity check`. `patches/sdcpp/0067` builds the graph
+  again and runs it in segments then (`[W] unet does not fit in one piece; retrying in segments`).
+- **Memory that earlier runs freed is not all usable again: the pool falls apart in pieces.** See the next
+  section. A size that ran once keeps running, and so does a smaller one. A larger one can fail where it
+  would run right after a start.
+
+Two older measurements were such runs: FLUX.3 Klein Q6_K at 1024×1024 ("The catalog's models, one image
+each") failed after FLUX.3 Klein Q4_K at the same size. It fits right after a start and after a switch from
+SDXL. SDXL at 2048×2048 ("Hires fix at x1") failed after smaller images, and it fits now.
+
+The web UI says before a run when it may not fit (`POST /ps5sd/v1/app/fit`, `ps5/app/mem_fit.cpp` has the
+sizes of this table).
+
+## Why freed GPU memory is not usable again: the pool in pieces (2026-10-22)
+
+Freed memory does go back. PS5_Mesa's winsys (`src/amd/vulkan/winsys/ps5/radv_ps5_platform.c`) makes each
+Vulkan buffer of one `sceKernelAllocateDirectMemory` block, which is physically contiguous, and a
+destroyed buffer unmaps it and gives it back with `sceKernelReleaseDirectMemory` once the GPU is done
+(`patches/mesa/0007`). What does not come back is one large free block: the weights, which load when a
+request needs them, the CPU heap (it draws from the same pool) and the compute buffers lie mixed in the
+pool, and the compute buffers leave holes between the others when they go. A buffer larger than the
+largest hole cannot be made, however much is free in all.
+
+`pool free` in app.log was `sceKernelAvailableDirectMemorySize`: one free part, the largest. ggml's
+`Vulkan0 free` was about the same number (the winsys reported it as the heap's budget). Since 0.9.0 the line also
+gives the sum of the free parts, how many there are and the largest (`pool_free` in `ps5/app/main.cpp`).
+FLUX.2 Klein 4B Q8_0, right after a start, one step each:
+
+| When | Free in all | Parts | The largest |
+|---|---|---|---|
+| Before loading | 11.01 GiB | 1 | 11.01 GiB |
+| After loading (the weights load later) | 10.83 GiB | 1 | 10.83 GiB |
+| After 1024×1024 | 7.23 GiB | 13 | 4.21 GiB |
+| After 1536×1536 (in segments) | 7.13 GiB | 15 | 4.21 GiB |
+| After 1024×1024 | 7.18 GiB | 14 | 4.21 GiB |
+| After 1280×1280 (in segments: one piece needed more than 4.21 GiB) | 7.02 GiB | 15 | 4.21 GiB |
+
+About 3 GiB is free in pieces after the first image, and stays so. Two ways to use it:
+
+- **A large buffer of several parts**, mapped one after the other at one GPU address. Done in 0.9.0, see
+  below.
+- **Long-lived and short-lived memory apart**: weights from one end of the pool, compute buffers from the
+  other, so the holes they leave are one. Not tried.
+
+### Buffers of several blocks (`patches/mesa/0010`, 2026-10-22)
+
+The winsys now makes a buffer that no free block holds whole from several, the largest first: it reserves
+one range of the device-memory region, allocates block after block of the pool and maps each right after
+the one before, so the GPU reaches the buffer at one address. It does so only outside the 32-bit window
+and for buffers of 4 MiB and more; a placed mapping or a sparse bind of such a buffer is refused (they
+need one block). The pool's available bytes, which RADV's heap budget is made of, are the sum of the free
+blocks of 2 MiB and more.
+
+The budget had a second fault: RADV's APU branch adds the visible VRAM heap's allocations to the VRAM
+heap's, and the PS5 heap info gave both the driver's total, so the driver's bytes counted twice. ggml adds
+the heaps' free bytes of an integrated GPU, and saw that much less. A first build of the patch, with the
+sum but still the double count, showed `Vulkan0 free` 5.5 GB against 7.1 GiB in parts, and 1536 and 1280
+still ran in segments after the capacity check failed; the patch counts the driver's bytes once.
+
+FLUX.2 Klein 4B Q8_0 (`flux-2-klein-4b-quality-1024`), one sequence right after a start, one step, CFG 1:
+
+| Run | First build (driver counted twice) | `0010` |
+|---|---|---|
+| 1024×1024 | 35.5 s | 36.1 s |
+| 1536×1536 | 48.2 s, in segments | 30.7 s, in one piece (sampling 13.1 s) |
+| 1024×1024 | 15.1 s | 11.3 s |
+| 1280×1280 | 37.9 s, in segments | 20.0 s, in one piece |
+| 2048×2048 | | 72.9 s (sampling 39.2 s, VAE decode 31.0 s) |
+
+0.8.1 ran 1536×1536 in 27 segments (60 s) and failed at 2048×2048 ("Memory: what fits").
+
+SDXL Base Q8_0 (`sdxl-base`), one sequence right after a start, 6 steps, CFG 6, euler_a:
+
+| Run | Request | Sampling | VAE decode (512 px tiles) |
+|---|---|---|---|
+| 1024×1024 | 30.9 s | 19.9 s | 5.9 s |
+| 1536×1536 | 54.5 s | 37.5 s | 15.8 s |
+| 2048×2048 | 115.1 s | 82.4 s | 30.7 s |
+| 1024×1024 | 21.4 s | 15.0 s | 5.7 s |
+
+- With Klein, the gain at 1536 and 1280 came from the budget: those runs found one block large enough
+  once the capacity check let them try, and no buffer of several blocks was made. After the first image
+  `Vulkan0 free` is 4.75 GB with 4.43 GiB free in 10 parts: the budget is the sum.
+- Less is free after the first Klein image than with the first build (4.43 against 7.1 GiB), likely
+  because the model manager now keeps the text encoder loaded: the conditioning took 0.38 s on the second
+  request, so its weights were not read again.
+- Buffers of several blocks were made at 2048: two of 198 MiB (2 blocks each) with Klein, one of
+  2160 MiB (2 blocks) with SDXL (`radv/ps5: a buffer of ... made of N blocks` in app.log). The images
+  are right, with no seam. The console did not hang.
+- The other families, each in one sequence right after a start, one step, all ran with no error and no
+  buffer of several blocks: Z-Image Turbo 1024, 1536, 1024, 1536 (39.6 s both times); FLUX.3 Klein Q6_K
+  1024, 896, 1024 (14.3 s the second time); Wan 2.1 T2V 1.3B 832×480 with 9 frames (65.3 s), then 33
+  (165.6 s).
+- `mem_fit.cpp` has 2048×2048 as measured for FLUX.2 Klein 4B, after other runs too.
+
+## Longer videos with CausVid (2026-10-22)
+
+0.9.0 with `patches/mesa/0010`, preset `wan21-t2v-1.3b` (Wan 2.1 T2V 1.3B, VAE in 128 px tiles), the
+CausVid LoRA at 1, 832×480, 4 steps, CFG 1, euler, 16 frames per second. One sequence right after a
+start, through `POST /sdcpp/v1/vid_gen`:
+
+| Frames | Video | Request | Sampling | VAE decode |
+|---|---|---|---|---|
+| 33 | 2 s | 225.8 s | 80.4 s | 125.4 s |
+| 49 | 3 s | 331.2 s | 138.8 s | 185.1 s |
+| 81 | 5 s | 636.9 s | 325.1 s | 305.0 s |
+
+- All three ran with no error and no buffer of several blocks; after each, 4.0 GiB were free in 6 or 7
+  parts. The decode grows with the frames, the sampling faster (attention over all frames).
+- The 81 frames keep the scene from the first to the last (a lighthouse on a cliff, waves breaking).
+- The web UI and `mem_fit.cpp` take 81 frames as measured since 0.9.1.
+
+## Faster video decoding (2026-10-22)
+
+Half of a CausVid video's time was the VAE decode. The preset decoded in 128 px tiles at sd.cpp's default
+overlap of 0.5: a tile moves on by half its size, so each pixel is decoded about three times. The same
+33-frame video as above (seed 7), the tiling changed per request (`vae_tiling_params`):
+
+| Tiles | Overlap | VAE decode | Request |
+|---|---|---|---|
+| 128 px | 0.5 (the preset up to 0.9.0) | 125.4 s | 225.8 s |
+| 128 px | 0.25 | 69.6 s | 150.6 s |
+| 192 px | 0.25 | 68.8 s | 150.6 s |
+| 256 px | 0.25 | 54.9 s | 135.5 s |
+| 128 px | 0 | 48.7 s | 130.4 s |
+
+- Against the preset's decode, the middle frame differs by 0.7 of 255 on average at an overlap of 0.25,
+  with no pattern. At an overlap of 0 the difference image shows the tile grid: the seams are visible.
+- 256 px at 0.25 with 81 frames: decode 134.2 s instead of 305.0 s, the request 466.8 s instead of
+  636.9 s. It made a buffer of 1296 MiB of 2 blocks (`patches/mesa/0010`); 256 px tiles ran out of memory
+  before 0.9.0. The frames differ from the preset's as little as at 33.
+- The catalog's Wan preset has `--vae-tile-size 256 --vae-tile-overlap 0.25` since 0.9.1, and the title
+  gives the preset that 0.9.0 wrote the new text when it starts, unless it was changed
+  (`update_catalog_presets` in `ps5/app/download_core.cpp`).
+
+A small decoder instead of the VAE, `--taesd` (sd.cpp's TAEHV), with the same 33 and 81 frames:
+
+| Decoder | 33 frames: decode | request | 81 frames: decode | request |
+|---|---|---|---|---|
+| Wan 2.1 VAE, 256 px at 0.25 | 54.9 s | 135.5 s | 134.2 s | 466.8 s |
+| TAEHV `taew2_1` (madebyollin, 22.6 MB) | 6.85 s | 105.5 s | 14.5 s | 356.4 s |
+| lightx2v's `lighttaew2_1` (45.3 MB) | 6.81 s | 110.5 s | 14.4 s | 356.4 s |
+
+- TAEHV's frames are a little softer and darker than the VAE's (8.6 of 255 apart on average), the scene and
+  its motion the same over all 81 frames. The catalog has it as a second Wan entry, `wan21-t2v-1.3b-tae`,
+  which shares the model files.
+- `lighttaew2_1` came out washed out, with a fine pattern of stripes (28.4 apart): sd.cpp b13a482 does not
+  read it right. Not used.
+- Whole, TAEHV asks for 20 GB for 33 frames. sd.cpp then retries with temporal tiling (7 GB, fails too)
+  and then with tiles of 416×240 as well, which works; the log has the failed allocations and the system's
+  "Internal Memory is running out". The decode times above include that. Tiled from the start
+  (`--vae-tiling --temporal-tiling`, 256 px at 0.25), on 0.9.1's release build: decode 3.63 s, request
+  90.4 s, with no error; the frame differs from the fallback's by 0.35 of 255. The catalog entry does that.
+- The title passed `--tae` to sd-server unresolved (a path relative to the models folder) and the model did
+  not load; it knew only `--taesd`. 0.9.1 resolves both.
+
+## Faster SDXL (2026-10-22)
+
+0.9.1's release build, FW 13.00. `POST /sdcpp/v1/img_gen`, seed 5, the request time on the PC and the
+phases from `app.log` (sampling, `decode_first_stage`). Each request came after one that had loaded the
+model and, with a LoRA, after one that had merged it into the weights.
+
+SDXL Base 1.0 Q8_0 (preset `sdxl-base`), 1024x1024, a windmill above a village:
+
+| Settings | Sampling | VAE decode | Request |
+|---|---|---|---|
+| euler_a, 25 steps, CFG 6 (the preset up to 0.9.1) | 61.7 s | 5.7 s | 68.1 s |
+| dpm++2m, `ays`, 10 steps, CFG 6 | 24.6 s | 5.7 s | 31.6 s |
+| DMD2 LoRA, `lcm`, 4 steps, CFG 1 | 6.4 s | 5.7 s | 13.3 s |
+| DMD2 LoRA, `lcm`, 6 steps, CFG 1 | 9.6 s | 5.7 s | 16.3 s |
+| SDXL-Lightning 8-step LoRA, euler, `sgm_uniform`, 8 steps, CFG 1 | 12.9 s | 5.7 s | 20.4 s |
+
+- All five images are clean. `ays` at 10 steps is as detailed as euler_a at 25, with another layout of
+  the same scene.
+- A step takes 2.46 s at CFG 6 and 1.6 s at CFG 1, where the pass for the negative prompt is left out.
+
+Illustrious finetunes, the prompt in tags (`no humans, scenery, stone lighthouse on a cliff, sea,
+sunset, ...`):
+
+| Model, size | Settings | Request |
+|---|---|---|
+| Raehoshi IllustXL 1.1, 1024x1024 | euler_a, 28 steps, CFG 6 (its preset) | 75.3 s |
+| | dpm++2m, `ays`, 10 steps, CFG 6 | 31.6 s |
+| | DMD2, `lcm`, 4 steps, CFG 1 | 12.2 s, grey and flat |
+| | DMD2, `lcm`, 8 steps, CFG 1.5 | 26.5 s |
+| iLustMix v11.1, 832x1216 | dpm++2m, `ays`, 10 steps, CFG 6 (its preset) | 30.6 s |
+| | DMD2, `lcm`, 4 steps, CFG 1 | 10.2 s |
+| | DMD2, `lcm`, 6 steps, CFG 1 | 13.3 s |
+
+- iLustMix with DMD2 is clean at 4 steps.
+- IllustXL with DMD2 at CFG 1 comes out grey and flat, with a fine pattern: with `lcm` and with
+  `sgm_uniform`, at 4 and 6 steps, at a strength of 1 and of 0.8, and with euler. At CFG 1.5 and 8 steps
+  it is clean, but then each step computes the negative prompt again: 26.5 s (sampling 19.6 s), against
+  31.6 s for `ays` at 10 steps without the LoRA.
+
+The VAE decode, with DMD2 at 4 steps (IllustXL; iLustMix for 832x1216):
+
+| Size | 512 px tiles | 640 px tiles |
+|---|---|---|
+| 1024x1024 | 5.7 s (3x3 tiles) | 3.6 s (2x2) |
+| 1536x1536 | 10.1 s | 8.0 s |
+| 2048x2048 | 15.9 s | 14.2 s |
+| 832x1216 | 3.9 s | 3.7 s |
+
+- The images with 640 px tiles differ from the ones with 512 px by 0.5 to 0.7 of 255 on average, with no
+  seams.
+- No 640 px run fell back to smaller tiles (`app.log` has no "Reducing VAE decode tiles from 640x640").
+- Whole (no tiles), 1024x640 and 1024x768 tiles at 1024x1024 ran out of memory, and sd.cpp retried with
+  tiles of half the size. 1024x512 tiles took 4.3 s (3 tiles), 768 px tiles 5.3 s; at 832x1216 576 px
+  took 4.4 s, and 448x640 2.6 s, but that suits only a portrait image.
+- An overlap of 0.25 in the request changed nothing at 1536 and 2048 px: the image and the time were
+  those of a request without `vae_tiling_params`. An overlap of 0.5 in the request made 1536x1536 slower
+  (16.2 s instead of 10.4 s, 5x5 tiles instead of 4x4). So an image request without tiling settings is
+  decoded as at 0.25, not at the 0.5 that `/sdcpp/v1/capabilities` lists; the reason is not found. Videos
+  are decoded at 0.5 (see "Faster video decoding").
+- At 1024 px the overlap cannot matter: sd.cpp's plan (`src/runtime/tiling.cpp`) needs neighbouring tiles
+  to overlap and no point covered by three, which leaves 3 tiles of 512 px on a 1024 px side at any
+  overlap. For the same reason 0 and 0.25 gave the same image at 1536 px.
+
+`--eager-load` loads the weights when the model starts instead of at the first image.
+`POST /sdapi/v1/txt2img` at the preset's defaults, right after switching to the preset:
+
+| Preset | Switch | First image | Second image |
+|---|---|---|---|
+| `sdxl-base` up to 0.9.1 (euler_a, 25 steps, 512 px tiles) | 3.1 s | 77.3 s | 68.0 s |
+| `ays`, 10 steps, 640 px tiles, `--eager-load` | 11.6 s | 29.3 s | 28.8 s |
+
+- The same in a second round (12.1 s, 29.3 s, 28.8 s).
+
+On a build with these changes (before 0.9.2), after the title had updated the presets that 0.9.1 wrote (`app.log`: "preset sdxl-full
+updated to the catalog's current settings", the same for `sdxl-base`):
+
+| Preset | Switch | First image | Second image |
+|---|---|---|---|
+| `sdxl-full` (the f16 checkpoint, converted to Q8_0 while it loads) | 17.7 s | 29.1 s | 28.7 s |
+| `sdxl-base` | 8.6 s | 29.2 s | 28.8 s |
+| `sdxl-base`, DMD2, `lcm`, 4 steps, CFG 1 | | 12.2 s | 11.2 s (decode 3.5 s) |
+
+- 4.7 GiB of the pool free after the DMD2 images, no allocation failed.
+- The catalog's `sdxl-base` and `sdxl-full` have these settings since 0.9.2, and the title gives the
+  presets that 0.9.1 wrote the new text when it starts, unless they were changed. Adding DMD2, Lightning,
+  CausVid or LCM-LoRA on the Create tab sets their sampler, steps and CFG.
+
+## The console's readings (2026-10-22)
+
+A build with the 0.9.3 changes, FW 13.00, `GET /ps5sd/v1/app/console` and the TV.
+
+- A title cannot read the temperature, the power or the fan: the sensor calls answer `0x80020002`.
+  ps5-exporter 0.2.0, a payload, can, and serves them on `127.0.0.1:9100/metrics`. Its metrics are in
+  `ps5/app/tests/fixtures/ps5-exporter-0.2.0.txt`: 17 temperatures (`cpu`, `soc0` to `soc15`), the SoC's
+  power as a raw value whose low 32 bits are milliwatts, the fan's duty from 0 to 1, and the CPU clock.
+  There is no GPU reading and no fan speed.
+- `std::thread::hardware_concurrency()` in the title is 16; PS5SD's CPU share is its `getrusage` time
+  over 16 CPUs.
+
+| | Idle, the model loaded | FLUX.2 Klein 4B, 1024x1024, 10 steps |
+|---|---|---|
+| SoC, hottest sensor | 44 °C | 68 °C after 20 s, 79 °C after 60 s |
+| Power | 19.2–20.1 W | 94–109 W once it computes |
+| Fan duty | 23.1% | 23.1% |
+| PS5SD's CPU | 0–0.4% | up to 5% |
+
+- The fan's duty did not move in that minute at 79 °C.
+- "GPU busy" is the share of a second in which a job runs, not a reading of the GPU: it is 100% from
+  the request to the image. For the first 20 s of that request it was 100% while the power stayed at
+  20 W, the idle value, before the steps began.
+- After a restart of the console (the exporter not running), PS5SD logged `ps5-exporter does not answer
+  on 9100; sent the bundled copy to the ELF loader` at its first look, and the readings were there
+  within seconds (0.9.3 with the 0.9.4 changes, 2026-10-22).
+
+## Image to video: Wan 2.2 TI2V 5B (2026-10-23)
+
+QuantStack's Q8_0 of Wan 2.2 TI2V 5B (5.40 GB), umt5-xxl Q4_K_M and the Wan 2.2 VAE (1.41 GB, f16), each test
+right after a start of the title, with `--vae-tiling --vae-tile-size 256 --vae-tile-overlap 0.25`:
+
+- sd.cpp counts 9977 MB of weights (text encoder 3480, model 5153, VAE 1344); they load as each part runs.
+- From a picture (`init_image`), 1280x704 with 33 frames: 36 s a step, 196 s to decode, 2.48 GiB free in
+  one block afterwards. 832x480 with 33 frames from a prompt: 11.7 s a step, 88 s to decode, 1.98 GiB left.
+  512x288 with 9 frames: about 60 s at 6 steps.
+- From a prompt alone, only 1280x704 came out right (9 frames, 20 steps, 222 s). At 832x480 and 512x288 the
+  frames were washed out, almost white, with the shapes of the scene in them, at 6, 10 and 20 steps, at
+  CFG 5 and 6 and flow shift 3 and 5, and with the VAE's tiling on or off. From a picture the same sizes
+  were clean: the first frame is the picture and the last a little changed, so the VAE decodes right. The
+  model is trained at 1280x704 (and 704x1280).
+- `--tensor-type-rules "^vae\.=f32"` did not change the VAE's type (still f16, 1344 MB), and the VAE on
+  the CPU (`--vae-on-cpu`) does not fit: the title has about 2 GB of CPU memory.

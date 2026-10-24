@@ -41,11 +41,11 @@ with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as z:
             full = os.path.join(base, name)
             z.write(full, os.path.join(tid, os.path.relpath(full, title)).replace(os.sep, "/"))
 sha = hashlib.sha256(open(path, "rb").read()).hexdigest()
-description = "Machete PS5SD: Local Image and Video AI generation (Wan 2.2, LTX, SDXL, FLUX) on PS5 GPU with Web UI and TV QR dashboard."
+description = "Machete AI Studio: Local Video and Image generation (Wan 2.2, LTX-Video, SDXL, FLUX) on PS5 GPU with Web UI and TV QR dashboard."
 assert len(description) <= 200, len(description)
 record = {
     "titleid": tid,
-    "name": "Machete PS5SD",
+    "name": "Machete AI Studio",
     "kind": "app",
     "category": "ai",
     "description": description,

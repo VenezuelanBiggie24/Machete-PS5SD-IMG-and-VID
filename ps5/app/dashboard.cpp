@@ -43,13 +43,14 @@ constexpr float kMuted = 0.62f;  // alpha of secondary text
 constexpr float kFaint = 0.38f;  // alpha of tertiary text and empty states
 
 // The grid, inside the safe area: a wide column of server, activity and recent
-// images; a narrow one of the picture, the memory and the log.
+// images; a narrow one of the picture, the memory with the console's readings,
+// and the log.
 constexpr Rect kServer{ 96, 152, 1164, 160 };
 constexpr Rect kActivity{ 96, 332, 1164, 396 };
 constexpr Rect kRecent{ 96, 748, 1164, 236 };
 constexpr Rect kImage{ 1284, 152, 540, 576 };
-constexpr Rect kMemory{ 1284, 748, 540, 92 };
-constexpr Rect kLogTile{ 1284, 860, 540, 124 };
+constexpr Rect kMemory{ 1284, 748, 540, 124 };
+constexpr Rect kLogTile{ 1284, 892, 540, 92 };
 constexpr float kRadius = 28.0f;
 constexpr float kPad    = 32.0f;
 constexpr int   kThumbs = 6;
@@ -59,6 +60,16 @@ constexpr const char * kDot = "\xC2\xB7";  // middle dot
 Color with_a(Color c, float a) {
     c.a = a;
     return c;
+}
+
+// A reading for the console line, or a dash while it is not read.
+std::string reading(double v, const char * format, double scale = 1.0) {
+    if (std::isnan(v)) {
+        return "\xE2\x80\x93";  // en dash
+    }
+    char text[24];
+    std::snprintf(text, sizeof(text), format, v * scale);
+    return text;
 }
 
 std::string seconds_text(double s) {
@@ -378,6 +389,7 @@ void Dashboard::update(const AppStatus::Snapshot & s, float dt) {
     accent_.update(dt, 6.0f);
     sync_preview(snap_);
     sync_pictures(snap_);
+    sync_qr();
 
     std::string key = "none";
     if (s.state == State::generating && preview_.id != 0) {
@@ -596,71 +608,95 @@ void Dashboard::draw_server(DrawList & list, const Rect & r) const {
     x += hui::ui::text(list, fonts_.display, ":", x, r.y + 106, 58, with_a(kInk, 0.42f));
     hui::ui::text(list, fonts_.display, std::to_string(snap_.port), x, r.y + 106, 58, kCyan);
 
-    // QR code on the right side of the server panel for quick smartphone scanning
-    const float qr_box_max = 132.0f;
-    const float qr_reserved = qr_box_max + 24.0f;
-
-    if (!snap_.address.empty()) {
-        std::string url = "http://" + snap_.address + ":" + std::to_string(snap_.port);
-        if (!snap_.api_key.empty()) {
-            url += "#key=" + snap_.api_key;
-        }
-
-        try {
-            using namespace qrcodegen;
-            const QrCode qr = QrCode::encodeText(url.c_str(), QrCode::Ecc::MEDIUM);
-            const int mod_count = qr.getSize();
-            const int border = 2; // quiet zone in modules
-            const int total_cells = mod_count + border * 2;
-            const float cell_size = std::floor((qr_box_max - 8.0f) / static_cast<float>(total_cells));
-            const float actual_size = cell_size * static_cast<float>(total_cells) + 8.0f;
-            const float qbx = r.x + r.w - actual_size - 16.0f;
-            const float qby = r.y + (r.h - actual_size) * 0.5f;
-
-            // Clean white card background with cyan accent border
-            list.rounded_rect({ qbx, qby, actual_size, actual_size }, 10.0f, Color::rgb(0xffffff));
-            list.bordered_rect({ qbx, qby, actual_size, actual_size }, 10.0f, kClear, 1.5f, Color::rgb(0x4fe0ff, 0.4f));
-
-            const float start_x = qbx + 4.0f + static_cast<float>(border) * cell_size;
-            const float start_y = qby + 4.0f + static_cast<float>(border) * cell_size;
-            const Color dark_mod = Color::rgb(0x0a0f1d);
-
-            for (int y = 0; y < mod_count; ++y) {
-                int run_start = -1;
-                for (int x = 0; x < mod_count; ++x) {
-                    if (qr.getModule(x, y)) {
-                        if (run_start < 0) run_start = x;
-                    } else {
-                        if (run_start >= 0) {
-                            const float rx = start_x + static_cast<float>(run_start) * cell_size;
-                            const float ry = start_y + static_cast<float>(y) * cell_size;
-                            const float rw = static_cast<float>(x - run_start) * cell_size;
-                            list.rounded_rect({ rx, ry, rw, cell_size }, 0.5f, dark_mod);
-                            run_start = -1;
-                        }
-                    }
-                }
-                if (run_start >= 0) {
-                    const float rx = start_x + static_cast<float>(run_start) * cell_size;
-                    const float ry = start_y + static_cast<float>(y) * cell_size;
-                    const float rw = static_cast<float>(mod_count - run_start) * cell_size;
-                    list.rounded_rect({ rx, ry, rw, cell_size }, 0.5f, dark_mod);
-                }
-            }
-        } catch (...) {
-        }
-    }
+    // The QR code on the right: a phone's camera opens the web UI from it.
+    const float qr   = draw_qr(list, r.x + r.w - 14, r.y + r.h * 0.5f);
+    const float room = r.w - 2 * kPad - (qr > 0 ? qr + 24 : 0);
 
     if (!snap_.api_key.empty()) {
         // The key the web UI and API clients need, in groups of four to read off.
-        const float w = caps(list, "API key", r.x + kPad, r.y + 140, 15, with_a(kInk, 0.5f));
-        hui::ui::text(list, fonts_.mono, fonts_.mono.font->fit(snap_.api_key, 24, r.w - 2 * kPad - w - 18 - qr_reserved),
-                      r.x + kPad + w + 18, r.y + 140, 24, kCyan);
+        // Smaller rather than cut off: the whole key is needed.
+        const float w    = caps(list, "API key", r.x + kPad, r.y + 140, 15, with_a(kInk, 0.5f));
+        const float full = fonts_.mono.font->measure(snap_.api_key, 24);
+        const float size = full > room - w - 18 ? std::max(16.0f, 24 * (room - w - 18) / full) : 24.0f;
+        hui::ui::text(list, fonts_.mono, fonts_.mono.font->fit(snap_.api_key, size, room - w - 18),
+                      r.x + kPad + w + 18, r.y + 140, size, kCyan);
         return;
     }
-    const std::string hint = "From a phone or a PC on your network. Scan the QR code or type the address.";
-    hui::ui::text(list, fonts_.regular, fonts_.regular.font->fit(hint, 22, r.w - 2 * kPad - qr_reserved), r.x + kPad, r.y + 140, 22,
+    const std::string hint = qr > 0 ? "From a phone or a PC on your network; a phone can scan the code."
+                                    : "From a phone or a PC on your network. The web UI and the OpenAI and A1111 APIs share it.";
+    hui::ui::text(list, fonts_.regular, fonts_.regular.font->fit(hint, 22, room), r.x + kPad, r.y + 140, 22,
                   with_a(kInk, kMuted));
+}
+
+// The web UI's address, with the API key when the TV shows it anyway (the
+// page signs in with a "#key=" in its address). After Machete PS5SD's QR code
+// (github.com/VenezuelanBiggie24/Machete-PS5SD-IMG-and-VID).
+void Dashboard::sync_qr() {
+    std::string text;
+    if (!snap_.address.empty()) {
+        text = "http://" + snap_.address + ":" + std::to_string(snap_.port) + "/";
+        std::string key;
+        for (const char c : snap_.api_key) {
+            if (c != ' ') {
+                key += c;  // the TV shows it in groups of four
+            }
+        }
+        if (!key.empty()) {
+            text += "#key=" + key;
+        }
+    }
+    if (text == qr_text_) {
+        return;
+    }
+    qr_text_ = text;
+    qr_size_ = 0;
+    qr_.clear();
+    if (text.empty()) {
+        return;
+    }
+    try {
+        const qrcodegen::QrCode code = qrcodegen::QrCode::encodeText(text.c_str(), qrcodegen::QrCode::Ecc::LOW);
+        qr_size_ = code.getSize();
+        qr_.resize((std::size_t) qr_size_ * (std::size_t) qr_size_);
+        for (int y = 0; y < qr_size_; y++) {
+            for (int x = 0; x < qr_size_; x++) {
+                qr_[(std::size_t) y * (std::size_t) qr_size_ + (std::size_t) x] = code.getModule(x, y) ? 1 : 0;
+            }
+        }
+    } catch (const std::exception &) {
+        qr_size_ = 0;
+        qr_.clear();
+    }
+}
+
+float Dashboard::draw_qr(DrawList & list, float right, float cy) const {
+    if (qr_size_ <= 0) {
+        return 0;
+    }
+    // Whole pixels a module, with a quiet zone of two modules on white.
+    const int   quiet = 2;
+    const int   cells = qr_size_ + 2 * quiet;
+    const float cell  = std::max(2.0f, std::floor(132.0f / (float) cells));
+    const float side  = cell * (float) cells;
+    const float x0    = std::floor(right - side);
+    const float y0    = std::floor(cy - side * 0.5f);
+    list.rounded_rect({ x0, y0, side, side }, 8, Color::rgb(0xffffff));
+    const Color dark = Color::rgb(0x0a0f1d);
+    for (int y = 0; y < qr_size_; y++) {
+        int run = -1;  // runs of dark modules along a row, one rectangle each
+        for (int x = 0; x <= qr_size_; x++) {
+            const bool on = x < qr_size_ && qr_[(std::size_t) y * (std::size_t) qr_size_ + (std::size_t) x] != 0;
+            if (on && run < 0) {
+                run = x;
+            } else if (!on && run >= 0) {
+                list.rounded_rect({ x0 + (float) (quiet + run) * cell, y0 + (float) (quiet + y) * cell,
+                                    (float) (x - run) * cell, cell },
+                                  0, dark);
+                run = -1;
+            }
+        }
+    }
+    return side;
 }
 
 void Dashboard::draw_stat(DrawList & list, const char * name, const std::string & value, float x,
@@ -880,13 +916,34 @@ void Dashboard::draw_memory(DrawList & list, const Rect & r) const {
     hui::ui::text(list, fonts_.mono, text, r.x + r.w - 24, r.y + 36, 20, kInk, Align::right);
     hui::ui::Canvas c = canvas(list);
     memory_.draw(c);
+
+    // The console under the bar (console_stats.hpp): the SoC's temperature and power and the fan
+    // from ps5-exporter, PS5SD's CPU use, and the share of the time a job runs on the GPU.
+    const AppStatus::Console & k = s.console;
+    const std::pair<const char *, std::string> items[] = {
+        { "SoC", reading(k.soc_c, "%.0f\xC2\xB0" "C") }, { "Power", reading(k.watts, "%.0f W") },
+        { "Fan", reading(k.fan, "%.0f%%", 100) },          { "CPU", reading(k.cpu, "%.0f%%", 100) },
+        { "GPU", reading(k.job, "%.0f%%", 100) },
+    };
+    // spread over the tile's width, so "100%" and three-digit watts still fit
+    float used = 0;
+    for (const auto & item : items) {
+        used += fonts_.semibold.font->measure(hui::ui::upper(item.first), 14, 3.0f) + 6 +
+                fonts_.mono.font->measure(item.second, 18);
+    }
+    const float gap = std::max(6.0f, (r.w - 48 - used) / 4);
+    float       x   = r.x + 24;
+    for (const auto & item : items) {
+        x += caps(list, item.first, x, r.y + 106, 14, with_a(kInk, 0.5f)) + 6;
+        x += hui::ui::text(list, fonts_.mono, item.second, x, r.y + 106, 18, kInk) + gap;
+    }
 }
 
 void Dashboard::draw_log_tile(DrawList & list, const Rect & r) const {
     const AppStatus::Snapshot & s = snap_;
     draw_panel(list, r, 24, kSteel, 0.0f);
     caps(list, "Log", r.x + 24, r.y + 36, 17, kSteel);
-    const std::size_t shown = std::min<std::size_t>(s.lines.size(), 3);
+    const std::size_t shown = std::min<std::size_t>(s.lines.size(), 2);
     float             y     = r.y + 62;
     for (std::size_t i = s.lines.size() - shown; i < s.lines.size(); i++) {
         const std::string text = log_text(s.lines[i]);

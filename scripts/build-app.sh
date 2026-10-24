@@ -21,6 +21,7 @@
 #   PS5SD_DISPLAY=0               no screen: main.cpp with PS5SD_NO_DISPLAY,
 #                                 status in app.log, klog and notifications;
 #                                 no ps5-opengl, no ps5-homebrew-ui, no font
+#   PS5SD_WEBM=ON (default)       videos as WebM (libwebp, libwebm); OFF: AVI
 #
 #   scripts/build-app.sh            patch, configure, build, link and package
 set -euo pipefail
@@ -51,9 +52,13 @@ expected=$(echo "$version" | awk -F. '{ printf "%02d.%03d.%03d", $1 + 1, $2, $3 
     exit 2
 }
 
-[ -f "$sd/CMakeLists.txt" ] && [ -f "$ggml/CMakeLists.txt" ] && [ -d "$kit/src" ] && [ -f "$ftpsrv/Makefile.ps5" ] || {
+webm=${PS5SD_WEBM:-ON}
+case $webm in ON|OFF) ;; *) echo "build-app: PS5SD_WEBM is ON or OFF, not '$webm'" >&2; exit 2 ;; esac
+[ -f "$sd/CMakeLists.txt" ] && [ -f "$ggml/CMakeLists.txt" ] && [ -d "$kit/src" ] && [ -f "$ftpsrv/Makefile.ps5" ] &&
+    { [ "$webm" = OFF ] || { [ -f "$sd/thirdparty/libwebp/CMakeLists.txt" ] && [ -f "$sd/thirdparty/libwebm/CMakeLists.txt" ]; }; } || {
     echo "build-app: submodules missing; run: git submodule update --init third_party/stable-diffusion.cpp" \
-        "third_party/ps5-homebrew-ui third_party/ftpsrv && git -C third_party/stable-diffusion.cpp submodule update --init ggml" >&2
+        "third_party/ps5-homebrew-ui third_party/ftpsrv && git -C third_party/stable-diffusion.cpp submodule update --init" \
+        "ggml thirdparty/libwebp thirdparty/libwebm" >&2
     exit 2
 }
 # ps5-opengl: PS5_OPENGL_SDK (scripts/setup-deps.sh sets one up in
@@ -180,12 +185,15 @@ flags="-I$headers/include"
 cxxflags="$flags -fexceptions -fcxx-exceptions -frtti"
 # Zen 2: AVX2, FMA, F16C and BMI2, no AVX-512. One static image: no backend
 # modules (GGML_BACKEND_DL), no OpenMP (ggml's own thread pool), no libm (the
-# math functions are in Sony's libc), no WebP/WebM (thirdparty submodules).
+# math functions are in Sony's libc). WebP and WebM (thirdparty/libwebp and
+# libwebm) for the videos of vid_gen; with PS5SD_WEBM=OFF a video is an MJPEG
+# AVI, which browsers do not play.
 # The HTTP server as the library sd-server-lib (patches/sdcpp/0050, main.cpp
-# calls sd_server()), serving ps5/webui/index.html at / instead of the pnpm
-# frontend.
+# calls sd_server()), serving the web UI at / instead of the pnpm frontend: the
+# parts in ps5/webui/src put together into one page (scripts/bundle-webui.sh).
 index_h="$out/index_html.h"
-sh "$root/scripts/embed-file.sh" "$root/ps5/webui/index.html" sd_server_index_html "$index_h.new"
+sh "$root/scripts/bundle-webui.sh" "$out/index.html"
+sh "$root/scripts/embed-file.sh" "$out/index.html" sd_server_index_html "$index_h.new"
 cmp -s "$index_h.new" "$index_h" 2> /dev/null && rm -f "$index_h.new" || mv -f "$index_h.new" "$index_h"
 cmake -S "$sd" -B "$out/sd" -G Ninja \
     -DCMAKE_TOOLCHAIN_FILE="$app_src/toolchain.cmake" \
@@ -193,7 +201,7 @@ cmake -S "$sd" -B "$out/sd" -G Ninja \
     -DCMAKE_C_FLAGS="$flags" -DCMAKE_CXX_FLAGS="$cxxflags" \
     -DBUILD_SHARED_LIBS=OFF -DSD_BUILD_SHARED_LIBS=OFF -DSD_BUILD_EXAMPLES=ON \
     -DSD_SERVER_LIBRARY=ON -DSD_SERVER_BUILD_FRONTEND=OFF -DSD_SERVER_EMBED_INDEX="$index_h" \
-    -DSD_VULKAN=ON -DSD_WEBP=OFF -DSD_WEBM=OFF \
+    -DSD_VULKAN=ON -DSD_WEBP="$webm" -DSD_WEBM="$webm" \
     -DGGML_BACKEND_DL=OFF -DGGML_NATIVE=OFF -DGGML_CPU_ALL_VARIANTS=OFF \
     -DGGML_AVX=ON -DGGML_AVX2=ON -DGGML_FMA=ON -DGGML_F16C=ON -DGGML_BMI2=ON -DGGML_AVX512=OFF \
     -DGGML_OPENMP=OFF -DGGML_CCACHE=OFF \
@@ -220,9 +228,14 @@ cxx "${eh[@]}" -I "$headers/include" "${sdinc[@]}" "${kitinc[@]}" -I "$app_src" 
     -c "$app_src/main.cpp" -o "$obj/main.o"
 cxx "${eh[@]}" "${sdinc[@]}" -c "$app_src/gen_args.cpp" -o "$obj/gen_args.o"
 cxx "${eh[@]}" -c "$app_src/app_status.cpp" -o "$obj/app_status.o"
+cxx -std=c++17 "${eh[@]}" -I "$sd/thirdparty" -c "$app_src/console_stats.cpp" -o "$obj/console_stats.o"
 # The model library (presets, checkpoints) and its JSON, with sd.cpp's nlohmann json; C++17,
 # where path::u8string() is a std::string (C++20 makes it std::u8string).
 cxx -std=c++17 "${eh[@]}" -I "$sd/thirdparty" -c "$app_src/models.cpp" -o "$obj/models.o"
+cxx -std=c++17 "${eh[@]}" -I "$sd/thirdparty" -c "$app_src/net_family.cpp" -o "$obj/net_family.o"
+cxx -std=c++17 "${eh[@]}" -I "$sd/thirdparty" -c "$app_src/mem_fit.cpp" -o "$obj/mem_fit.o"
+cxx -std=c++17 "${eh[@]}" -I "$sd/thirdparty" -c "$app_src/gallery_labels.cpp" -o "$obj/gallery_labels.o"
+cxx -std=c++17 "${eh[@]}" -I "$sd/thirdparty" -c "$app_src/prompt_tags.cpp" -o "$obj/prompt_tags.o"
 # The model downloader (downloader.hpp): its pure part, the queue and routes, and the HTTPS
 # client over mbedTLS with the Mozilla CA list (ps5/app/cacert.pem) built in.
 ca_h="$out/cacert_pem.h"
@@ -248,9 +261,9 @@ rm -f "$obj/libps5app_compat.a"
 "$sdk/bin/llvm-ar" rcs "$obj/libps5app_compat.a" "$obj/compat_app.o"
 cxx -fno-exceptions -fno-rtti -c "$vk/tooling/native/app_crt.cpp" -o "$obj/app_crt.o"
 cxx -fexceptions -fcxx-exceptions -c "$app_src/cpp_runtime.cpp" -o "$obj/app_cpp_runtime.o"
-app_objects=("$obj/app_crt.o" "$obj/app_cpp_runtime.o" "$obj/main.o" "$obj/gen_args.o" "$obj/app_status.o"
-    "$obj/models.o" "$obj/download_core.o" "$obj/downloader.o" "$obj/https_client.o" "$obj/ftp_writer.o" "$obj/upload.o")
-[ "$display" = 1 ] && app_objects+=("$obj/display.o" "$obj/dashboard.o" "$obj/image_file.o" "$obj/qrcodegen.o")
+app_objects=("$obj/app_crt.o" "$obj/app_cpp_runtime.o" "$obj/main.o" "$obj/gen_args.o" "$obj/app_status.o" "$obj/console_stats.o"
+    "$obj/models.o" "$obj/net_family.o" "$obj/mem_fit.o" "$obj/gallery_labels.o" "$obj/prompt_tags.o" "$obj/download_core.o" "$obj/downloader.o" "$obj/https_client.o" "$obj/ftp_writer.o" "$obj/upload.o")
+[ "$display" = 1 ] && app_objects+=("$obj/display.o" "$obj/dashboard.o" "$obj/qrcodegen.o" "$obj/image_file.o")
 
 # ---- the screen (display builds only) --------------------------------------------
 gl=
@@ -469,5 +482,27 @@ printf '%s\n' "ftpsrv by John Törnblom and drakmor, GPL-3.0-or-later." \
     "Source: https://github.com/drakmor/ftpsrv at $(git -C "$ftpsrv" rev-parse HEAD) (1.16-ng-stable)," \
     "with PS5SD's patches/ftpsrv (https://github.com/Darkatek7/PS5SD): 127.0.0.1:2122 only." \
     > "$app/ftpsrv/SOURCE.txt"
+# ps5-exporter (Marice, GPL-3.0): a title may not read the temperature, fan or SoC power, a
+# payload may (console_stats.hpp). The app sends it to the ELF loader when it does not answer.
+# Pinned by version and hash, downloaded once into .deps (the same file PS5LM carries).
+exporter="$root/.deps/ps5-exporter-0.2.0.elf"
+exporter_sha=0d19f7a293eeb30178ba562a3712abfdc50f6b6ebbe180ceaad92dc557948ba8
+if [ ! -f "$exporter" ]; then
+    curl -sSfL -o "$exporter.part" https://github.com/Marice/ps5-exporter/releases/download/v0.2.0/ps5-exporter.elf
+    mv "$exporter.part" "$exporter"
+fi
+echo "$exporter_sha  $exporter" | sha256sum -c --quiet || { echo "build-app: ps5-exporter hash mismatch" >&2; exit 1; }
+mkdir -p "$app/payloads"
+cp "$exporter" "$app/payloads/ps5-exporter.elf"
+printf '%s\n' "ps5-exporter v0.2.0 by Marice, GPL-3.0-or-later: https://github.com/Marice/ps5-exporter" \
+    "Source: https://github.com/Marice/ps5-exporter/tree/v0.2.0" > "$app/payloads/ps5-exporter-NOTICE.txt"
+# libwebp and libwebm (BSD-3-Clause), linked for the WebM videos: their licences go with the binary.
+rm -rf "$app/licenses"
+if [ "$webm" = ON ]; then
+    mkdir -p "$app/licenses"
+    cp "$sd/thirdparty/libwebp/COPYING" "$app/licenses/libwebp-COPYING.txt"
+    cp "$sd/thirdparty/libwebp/PATENTS" "$app/licenses/libwebp-PATENTS.txt"
+    cp "$sd/thirdparty/libwebm/LICENSE.TXT" "$app/licenses/libwebm-LICENSE.txt"
+fi
 "$tool" self --inspect --file "$app/eboot.bin" > /dev/null
 echo "build-app: $app ($(stat -c %s "$app/eboot.bin") bytes, $([ "$display" = 1 ] && echo "with" || echo "without") a display)"
