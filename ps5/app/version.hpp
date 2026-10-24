@@ -8,7 +8,7 @@
 // the way PS5LM's release check expects (major+1, minor, patch: 0.0.0 is
 // 01.000.000); bump both together.
 #ifndef PS5SD_VERSION
-#define PS5SD_VERSION "0.9.8"
+#define PS5SD_VERSION "0.9.9"
 #endif
 
 #ifndef PS5SD_BUILD

@@ -13,8 +13,8 @@ namespace ps5sd {
 struct CompanionParams {
     int   steps  = 20;
     float cfg    = 7.0f;
-    int   width  = 512;
-    int   height = 512;
+    int   width  = 1024;
+    int   height = 1024;
     int   frames = 33;
 };
 
@@ -22,6 +22,7 @@ enum class BotState {
     IDLE,
     AWAITING_PROMPT_IMG,
     AWAITING_PROMPT_VID,
+    SETTINGS_MENU,
     AWAITING_STEPS,
     AWAITING_CFG,
     AWAITING_SIZE,
@@ -37,11 +38,13 @@ public:
     using StatusCallback   = std::function<std::string()>;
     using ModelsCallback   = std::function<std::string()>;
     using SwitchCallback   = std::function<bool(const std::string & model_id, std::string & error)>;
+    using ModelIdsCallback = std::function<std::vector<std::string>()>;
 
     // Configures and starts the background Telegram companion bot thread.
     void start(const std::string & token, const std::string & allowed_chat_id,
                GenerateCallback gen_fn, StatusCallback status_fn,
-               ModelsCallback models_fn = nullptr, SwitchCallback switch_fn = nullptr);
+               ModelsCallback models_fn = nullptr, SwitchCallback switch_fn = nullptr,
+               ModelIdsCallback ids_fn = nullptr);
 
     // Stops the bot thread.
     void stop();
@@ -63,10 +66,10 @@ private:
     StatusCallback   status_fn_;
     ModelsCallback   models_fn_;
     SwitchCallback   switch_fn_;
+    ModelIdsCallback ids_fn_;
 
     CompanionParams params_;
     BotState        state_{ BotState::IDLE };
-    std::vector<std::string> known_model_ids_;
 
     std::atomic<bool> running_{ false };
     std::thread       worker_;

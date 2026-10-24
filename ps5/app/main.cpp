@@ -1457,23 +1457,27 @@ bool set_api_key(bool on, std::string & error) {
 std::string get_companion_status_text() {
     auto snap = g_status.snapshot();
     std::ostringstream ss;
-    ss << "Machete PS5SD Status:\n"
-       << "Phase: " << snap.phase << (snap.detail.empty() ? "" : ": " + snap.detail) << "\n"
-       << "Model: " << (snap.model.empty() ? "(none / standby)" : snap.model) << "\n";
+    ss << "<b>PlayStation 5 • Telemetria y Estado</b>\n"
+       << "━━━━━━━━━━━━━━━━━━━━━━\n"
+       << "<b>Fase del Sistema:</b> <code>" << snap.phase << (snap.detail.empty() ? "" : ": " + snap.detail) << "</code>\n"
+       << "<b>Modelo en Memoria:</b> <code>" << (snap.model.empty() ? "(en espera / ninguno)" : snap.model) << "</code>\n";
     if (!std::isnan(snap.console.soc_c)) {
-        ss << "SoC Temp: " << static_cast<int>(std::round(snap.console.soc_c)) << " C\n";
-    }
-    if (!std::isnan(snap.console.watts)) {
-        ss << "Power: " << static_cast<int>(std::round(snap.console.watts)) << " W\n";
+        ss << "<b>Temperatura APU/SoC:</b> <code>" << static_cast<int>(std::round(snap.console.soc_c)) << " °C</code>"
+           << (snap.console.soc_c >= 80.0f ? " (ALERTA TERMICA)" : " (Segura)") << "\n";
     }
     if (!std::isnan(snap.console.fan)) {
-        ss << "Fan: " << static_cast<int>(std::round(snap.console.fan * 100.0)) << " %\n";
+        ss << "<b>Velocidad Ventilador:</b> <code>" << static_cast<int>(std::round(snap.console.fan * 100.0)) << " %</code>\n";
+    }
+    if (!std::isnan(snap.console.watts)) {
+        ss << "<b>Consumo Electrico:</b> <code>" << static_cast<int>(std::round(snap.console.watts)) << " W</code>\n";
     }
     if (snap.free_gib >= 0) {
         char buf[64];
-        std::snprintf(buf, sizeof(buf), "Direct Memory: %.1f GiB free", snap.free_gib);
-        ss << buf << "\n";
+        std::snprintf(buf, sizeof(buf), "<b>Memoria Libre:</b> <code>%.1f GiB</code>\n", snap.free_gib);
+        ss << buf;
     }
+    ss << "━━━━━━━━━━━━━━━━━━━━━━\n"
+       << "<i>Guardian Termico activo. Generador listo.</i>";
     return ss.str();
 }
 
@@ -1490,19 +1494,31 @@ static std::string get_companion_output() {
     return g_companion_output_path;
 }
 
+std::vector<std::string> get_companion_model_ids() {
+    auto entries = g_library.list();
+    std::vector<std::string> ids;
+    ids.reserve(entries.size());
+    for (const auto & e : entries) {
+        ids.push_back(e.id);
+    }
+    return ids;
+}
+
 std::string get_companion_models_text() {
     std::string active = loaded_id();
     auto entries = g_library.list();
     std::ostringstream ss;
-    ss << "PS5 Models (" << entries.size() << " available):\n"
-       << "Active: " << (active.empty() ? "(standby / none)" : active) << "\n\n";
+    ss << "<b>Modelos Instalados en tu PS5</b> (" << entries.size() << " disponibles)\n"
+       << "━━━━━━━━━━━━━━━━━━━━━━\n"
+       << "<b>Modelo activo actual:</b> <code>" << (active.empty() ? "(en espera / ninguno)" : active) << "</code>\n\n";
     int idx = 1;
     for (const auto & e : entries) {
         bool is_video = e.id.find("wan") != std::string::npos || e.id.find("video") != std::string::npos || e.id.find("ltx") != std::string::npos;
-        ss << idx++ << ". " << e.id << " [" << (is_video ? "VID" : "IMG") << "]"
-           << (e.id == active ? " (ACTIVE)" : "") << "\n";
+        ss << "  <b>" << idx++ << ".</b> <code>" << e.id << "</code> [" << (is_video ? "VIDEO" : "IMAGEN") << "]"
+           << (e.id == active ? " <b>(ACTIVO)</b>" : "") << "\n";
     }
-    ss << "\nTo switch, reply with the model number (e.g. 1) or /model <id>";
+    ss << "━━━━━━━━━━━━━━━━━━━━━━\n"
+       << "<b>Para cambiar de modelo:</b>\nToca uno de los botones abajo o escribe el numero:";
     return ss.str();
 }
 
@@ -1510,10 +1526,10 @@ bool switch_companion_model(const std::string & input_id, std::string & error) {
     auto entries = g_library.list();
     std::string target_id = input_id;
 
-    // Check if input is a 1-based index (e.g. "1", "2")
+    // Check if input starts with a 1-based number (e.g. "1", "1. SDXL Base")
     char * end = nullptr;
     long num = std::strtol(input_id.c_str(), &end, 10);
-    if (end != input_id.c_str() && *end == '\0' && num >= 1 && num <= static_cast<long>(entries.size())) {
+    if (end != input_id.c_str() && num >= 1 && num <= static_cast<long>(entries.size())) {
         target_id = entries[static_cast<size_t>(num - 1)].id;
     } else {
         // Case-insensitive lookup and substring matching
@@ -1522,7 +1538,6 @@ bool switch_companion_model(const std::string & input_id, std::string & error) {
             return static_cast<char>(std::tolower(c));
         });
         bool matched = false;
-        // First try exact case-insensitive match
         for (const auto & e : entries) {
             std::string lower_e = e.id;
             std::transform(lower_e.begin(), lower_e.end(), lower_e.begin(), [](unsigned char c) {
@@ -1534,14 +1549,13 @@ bool switch_companion_model(const std::string & input_id, std::string & error) {
                 break;
             }
         }
-        // If not matched, try substring match
         if (!matched) {
             for (const auto & e : entries) {
                 std::string lower_e = e.id;
                 std::transform(lower_e.begin(), lower_e.end(), lower_e.begin(), [](unsigned char c) {
                     return static_cast<char>(std::tolower(c));
                 });
-                if (lower_e.find(lower_in) != std::string::npos) {
+                if (lower_e.find(lower_in) != std::string::npos || lower_in.find(lower_e) != std::string::npos) {
                     target_id = e.id;
                     matched = true;
                     break;
@@ -1737,7 +1751,8 @@ void start_companion_bot() {
             companion_generate,
             get_companion_status_text,
             get_companion_models_text,
-            switch_companion_model
+            switch_companion_model,
+            get_companion_model_ids
         );
     }
 }

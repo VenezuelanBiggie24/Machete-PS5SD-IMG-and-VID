@@ -35,6 +35,41 @@ static std::string to_lower_str(std::string s) {
     return s;
 }
 
+static std::string html_escape(const std::string & s) {
+    std::string out;
+    out.reserve(s.size() + 16);
+    for (char c : s) {
+        if (c == '<') {
+            out += "&lt;";
+        } else if (c == '>') {
+            out += "&gt;";
+        } else if (c == '&') {
+            out += "&amp;";
+        } else {
+            out += c;
+        }
+    }
+    return out;
+}
+
+static std::string friendly_model_label(int idx, const std::string & id) {
+    std::string name = id;
+    if (name.find("sdxl") != std::string::npos) {
+        name = "SDXL Base";
+    } else if (name.find("flux") != std::string::npos) {
+        name = "FLUX Klein";
+    } else if (name.find("photon") != std::string::npos) {
+        name = "Photon v1";
+    } else if (name.find("wan") != std::string::npos) {
+        name = "Wan Video";
+    } else if (name.find("ltx") != std::string::npos) {
+        name = "LTX Video";
+    } else if (name.size() > 14) {
+        name = name.substr(0, 14);
+    }
+    return std::to_string(idx) + ". " + name;
+}
+
 }  // namespace
 
 CompanionBot & CompanionBot::instance() {
@@ -44,7 +79,8 @@ CompanionBot & CompanionBot::instance() {
 
 void CompanionBot::start(const std::string & token, const std::string & allowed_chat_id,
                          GenerateCallback gen_fn, StatusCallback status_fn,
-                         ModelsCallback models_fn, SwitchCallback switch_fn) {
+                         ModelsCallback models_fn, SwitchCallback switch_fn,
+                         ModelIdsCallback ids_fn) {
     if (running_) {
         stop();
     }
@@ -54,6 +90,7 @@ void CompanionBot::start(const std::string & token, const std::string & allowed_
     status_fn_       = std::move(status_fn);
     models_fn_       = std::move(models_fn);
     switch_fn_       = std::move(switch_fn);
+    ids_fn_          = std::move(ids_fn);
     state_           = BotState::IDLE;
 
     if (token_.empty()) {
@@ -79,27 +116,49 @@ std::string CompanionBot::build_menu_markup() const {
     nlohmann::json reply_markup;
     nlohmann::json keyboard = nlohmann::json::array();
 
-    if (state_ == BotState::AWAITING_PROMPT_IMG || state_ == BotState::AWAITING_PROMPT_VID || state_ == BotState::AWAITING_MODEL) {
-        keyboard.push_back(nlohmann::json::array({ "Cancel" }));
+    if (state_ == BotState::AWAITING_PROMPT_IMG || state_ == BotState::AWAITING_PROMPT_VID) {
+        keyboard.push_back(nlohmann::json::array({ "Cancelar" }));
+    } else if (state_ == BotState::AWAITING_MODEL) {
+        std::vector<std::string> ids;
+        if (ids_fn_) {
+            ids = ids_fn_();
+        }
+        if (!ids.empty()) {
+            for (size_t i = 0; i < ids.size(); i += 2) {
+                nlohmann::json row = nlohmann::json::array();
+                row.push_back(friendly_model_label(static_cast<int>(i + 1), ids[i]));
+                if (i + 1 < ids.size()) {
+                    row.push_back(friendly_model_label(static_cast<int>(i + 2), ids[i + 1]));
+                }
+                keyboard.push_back(row);
+            }
+        }
+        keyboard.push_back(nlohmann::json::array({ "Volver al Menu" }));
+    } else if (state_ == BotState::SETTINGS_MENU) {
+        keyboard.push_back(nlohmann::json::array({ "Resolucion", "Pasos (Steps)" }));
+        keyboard.push_back(nlohmann::json::array({ "Escala CFG", "Fotogramas Video" }));
+        keyboard.push_back(nlohmann::json::array({ "Volver al Menu" }));
     } else if (state_ == BotState::AWAITING_STEPS) {
-        keyboard.push_back(nlohmann::json::array({ "10", "20", "30", "50" }));
-        keyboard.push_back(nlohmann::json::array({ "Cancel" }));
+        keyboard.push_back(nlohmann::json::array({ "10 pasos (Rapido)", "20 pasos (Normal)" }));
+        keyboard.push_back(nlohmann::json::array({ "30 pasos (Detallado)", "50 pasos (Ultra)" }));
+        keyboard.push_back(nlohmann::json::array({ "Cancelar" }));
     } else if (state_ == BotState::AWAITING_CFG) {
-        keyboard.push_back(nlohmann::json::array({ "1.0", "3.5", "7.0", "12.0" }));
-        keyboard.push_back(nlohmann::json::array({ "Cancel" }));
+        keyboard.push_back(nlohmann::json::array({ "1.0 (Flux)", "3.5 (Suave)" }));
+        keyboard.push_back(nlohmann::json::array({ "7.0 (Recomendado)", "12.0 (Fuerte)" }));
+        keyboard.push_back(nlohmann::json::array({ "Cancelar" }));
     } else if (state_ == BotState::AWAITING_SIZE) {
-        keyboard.push_back(nlohmann::json::array({ "512x512", "768x768" }));
-        keyboard.push_back(nlohmann::json::array({ "1024x1024", "1280x720" }));
-        keyboard.push_back(nlohmann::json::array({ "832x480" }));
-        keyboard.push_back(nlohmann::json::array({ "Cancel" }));
+        keyboard.push_back(nlohmann::json::array({ "1024x1024 (Cuadrada)", "768x1024 (Retrato)" }));
+        keyboard.push_back(nlohmann::json::array({ "1280x720 (Paisaje)", "832x480 (Video)" }));
+        keyboard.push_back(nlohmann::json::array({ "512x512 (Rapida)", "Cancelar" }));
     } else if (state_ == BotState::AWAITING_FRAMES) {
-        keyboard.push_back(nlohmann::json::array({ "17", "33", "49", "65", "81" }));
-        keyboard.push_back(nlohmann::json::array({ "Cancel" }));
+        keyboard.push_back(nlohmann::json::array({ "17 cuadros (~1s)", "33 cuadros (~2s)" }));
+        keyboard.push_back(nlohmann::json::array({ "49 cuadros (~3s)", "81 cuadros (~5s)" }));
+        keyboard.push_back(nlohmann::json::array({ "Cancelar" }));
     } else {
         // Main menu
-        keyboard.push_back(nlohmann::json::array({ "Generate Image", "Generate Video" }));
-        keyboard.push_back(nlohmann::json::array({ "Models", "Parameters", "Status" }));
-        keyboard.push_back(nlohmann::json::array({ "Help" }));
+        keyboard.push_back(nlohmann::json::array({ "Crear Imagen", "Crear Video" }));
+        keyboard.push_back(nlohmann::json::array({ "Modelos", "Ajustes", "Estado Consola" }));
+        keyboard.push_back(nlohmann::json::array({ "Ayuda" }));
     }
 
     reply_markup["keyboard"]          = keyboard;
@@ -114,8 +173,9 @@ bool CompanionBot::send_message(const std::string & chat_id, const std::string &
     }
 
     nlohmann::json payload;
-    payload["chat_id"] = chat_id;
-    payload["text"]    = text;
+    payload["chat_id"]    = chat_id;
+    payload["text"]       = text;
+    payload["parse_mode"] = "HTML";
 
     if (with_menu) {
         payload["reply_markup"] = nlohmann::json::parse(build_menu_markup(), nullptr, false);
@@ -142,7 +202,7 @@ bool CompanionBot::send_photo(const std::string & chat_id, const std::string & p
     std::ifstream file(photo_path, std::ios::binary);
     if (!file.is_open()) {
         std::printf("ps5sd: companion_bot: could not open %s for upload\n", photo_path.c_str());
-        send_message(chat_id, "Generation finished! Saved to console at: " + photo_path);
+        send_message(chat_id, "<b>Generacion completada:</b> Guardado en la consola en:\n<code>" + html_escape(photo_path) + "</code>");
         return false;
     }
 
@@ -150,7 +210,7 @@ bool CompanionBot::send_photo(const std::string & chat_id, const std::string & p
     file.close();
 
     if (file_data.empty()) {
-        send_message(chat_id, "Generation finished! Saved to console at: " + photo_path);
+        send_message(chat_id, "<b>Generacion completada:</b> Guardado en la consola en:\n<code>" + html_escape(photo_path) + "</code>");
         return false;
     }
 
@@ -165,7 +225,7 @@ bool CompanionBot::send_photo(const std::string & chat_id, const std::string & p
     body += chat_id + "\r\n";
 
     if (!caption.empty()) {
-        std::string safe_caption = caption;
+        std::string safe_caption = "Machete AI Studio (PS5)\nPrompt: " + caption;
         if (safe_caption.size() > 900) {
             safe_caption = safe_caption.substr(0, 900) + "...";
         }
@@ -199,8 +259,8 @@ bool CompanionBot::send_photo(const std::string & chat_id, const std::string & p
     bool ok = http_post_bytes(client, url, "multipart/form-data; boundary=" + boundary, body, resp, status, error);
     if (!ok || status != 200) {
         std::printf("ps5sd: companion_bot: photo upload failed (status %d): %s\n", status, error.c_str());
-        send_message(chat_id, "Generation finished! Saved to console at:\n" + photo_path +
-                              "\n(Telegram upload failed: " + (error.empty() ? std::to_string(status) : error) + ")");
+        send_message(chat_id, "<b>Generacion completada:</b> Guardado en consola:\n<code>" + html_escape(photo_path) +
+                              "</code>\n<i>(No se pudo subir a Telegram: " + html_escape(error.empty() ? std::to_string(status) : error) + ")</i>");
         return false;
     }
     return true;
@@ -239,60 +299,64 @@ void CompanionBot::poll_loop() {
                             continue;
                         }
 
+                        std::string lower = to_lower_str(text);
+
                         // Enforce single-owner chat authorization if configured
                         if (!allowed_chat_id_.empty() && chat_id != allowed_chat_id_) {
-                            send_message(chat_id, "Unauthorized. Machete PS5SD companion is locked to its owner.", false);
+                            send_message(chat_id, "<b>No autorizado.</b> Este bot acompanante esta emparejado con la consola de su dueno.", false);
                             continue;
                         }
 
                         // Universal cancel
-                        if (text == "/cancel" || text == "Cancel") {
+                        if (lower == "cancelar" || lower == "cancel" || lower == "/cancel" || lower == "volver al menu") {
                             state_ = BotState::IDLE;
-                            send_message(chat_id, "Action cancelled. Main menu restored.");
+                            send_message(chat_id, "<b>Operacion cancelada.</b> Has vuelto al menu principal.");
                             continue;
                         }
 
                         // Start / Help / Info
-                        if (text == "/start" || text == "/help" || text == "Help") {
+                        if (lower == "/start" || lower == "/help" || lower == "ayuda" || lower == "help") {
                             state_ = BotState::IDLE;
                             send_message(chat_id,
-                                         "Machete PS5SD Studio Companion\n\n"
-                                         "Hardware & Models:\n"
-                                         "- Tap 'Status' to monitor console temperature, fan & power\n"
-                                         "- Tap 'Models' to view and switch models by number\n"
-                                         "- Tap 'Parameters' to adjust steps, CFG, size and frames\n\n"
-                                         "Quick Generation:\n"
-                                         "- Tap 'Generate Image' and enter a prompt\n"
-                                         "- Tap 'Generate Video' and enter a video prompt\n"
-                                         "- Or send: /gen <prompt> or /video <prompt>\n\n"
-                                         "Tap any button below to begin:");
+                                         "<b>Machete AI Studio • PS5 Companion</b>\n"
+                                         "━━━━━━━━━━━━━━━━━━━━━━\n"
+                                         "¡Bienvenido a tu estudio de Inteligencia Artificial para PlayStation 5!\n"
+                                         "Genera imagenes y videos con la GPU de tu consola directamente desde tu celular.\n\n"
+                                         "<b>Funciones Principales:</b>\n"
+                                         "• Toca <b>Crear Imagen</b> y escribe lo que imaginas.\n"
+                                         "• Toca <b>Crear Video</b> para animaciones con modelos Wan.\n"
+                                         "• Toca <b>Modelos</b> para cambiar facilmente entre modelos instalados.\n"
+                                         "• Toca <b>Ajustes</b> para cambiar resolucion o pasos.\n"
+                                         "• Toca <b>Estado Consola</b> para ver temperatura y ventilador.\n\n"
+                                         "━━━━━━━━━━━━━━━━━━━━━━\n"
+                                         "Toca una opcion abajo para comenzar:");
                             continue;
                         }
 
                         // Hardware status
-                        if (text == "/status" || text == "Status") {
-                            std::string st = status_fn_ ? status_fn_() : "Status: Online";
+                        if (lower == "/status" || lower == "estado consola" || lower == "status" || lower == "estado") {
+                            std::string st = status_fn_ ? status_fn_() : "<b>Estado:</b> En linea";
                             send_message(chat_id, st);
                             continue;
                         }
 
                         // Model listing and switching
-                        if (text == "/models" || text == "Models") {
+                        if (lower == "/models" || lower == "modelos" || lower == "models") {
                             state_ = BotState::AWAITING_MODEL;
-                            std::string m = models_fn_ ? models_fn_() : "No models found.";
+                            std::string m = models_fn_ ? models_fn_() : "No se encontraron modelos instalados.";
                             send_message(chat_id, m);
                             continue;
                         }
 
                         if (state_ == BotState::AWAITING_MODEL) {
                             state_ = BotState::IDLE;
-                            send_message(chat_id, "Switching model to \"" + text + "\"...\nPlease wait while PS5 loads weights.");
+                            send_message(chat_id, "<b>Cambiando modelo...</b>\nPor favor espera mientras la PS5 carga los pesos en la memoria.");
                             if (switch_fn_) {
                                 std::string err;
                                 if (switch_fn_(text, err)) {
-                                    send_message(chat_id, "Model switched successfully: " + (err.empty() ? text : err));
+                                    send_message(chat_id, "<b>¡Modelo cambiado con exito!</b>\nModelo activo: <code>" + html_escape(err.empty() ? text : err) + "</code>");
                                 } else {
-                                    send_message(chat_id, "Failed to switch model: " + err);
+                                    send_message(chat_id, "<b>No se pudo cambiar el modelo:</b> " + html_escape(err));
                                 }
                             }
                             continue;
@@ -302,39 +366,41 @@ void CompanionBot::poll_loop() {
                             std::string id = trim_str(text.substr(6));
                             if (id.empty()) {
                                 state_ = BotState::AWAITING_MODEL;
-                                std::string m = models_fn_ ? models_fn_() : "No models found.";
+                                std::string m = models_fn_ ? models_fn_() : "No se encontraron modelos.";
                                 send_message(chat_id, m);
                                 continue;
                             }
-                            send_message(chat_id, "Switching model to \"" + id + "\"...\nPlease wait while PS5 loads weights.");
+                            send_message(chat_id, "<b>Cambiando modelo...</b>\nPor favor espera mientras la PS5 carga los pesos en la memoria.");
                             if (switch_fn_) {
                                 std::string err;
                                 if (switch_fn_(id, err)) {
-                                    send_message(chat_id, "Model switched successfully: " + (err.empty() ? id : err));
+                                    send_message(chat_id, "<b>¡Modelo cambiado con exito!</b>\nModelo activo: <code>" + html_escape(err.empty() ? id : err) + "</code>");
                                 } else {
-                                    send_message(chat_id, "Failed to switch model: " + err);
+                                    send_message(chat_id, "<b>No se pudo cambiar el modelo:</b> " + html_escape(err));
                                 }
                             }
                             continue;
                         }
 
-                        // Parameters menu
-                        if (text == "/params" || text == "Parameters") {
-                            state_ = BotState::IDLE;
+                        // Settings menu
+                        if (lower == "/params" || lower == "ajustes" || lower == "parametros" || lower == "parameters") {
+                            state_ = BotState::SETTINGS_MENU;
                             send_message(chat_id,
-                                         "Current Parameters:\n"
-                                         "- Steps: " + std::to_string(params_.steps) + "\n"
-                                         "- CFG Scale: " + std::to_string(params_.cfg) + "\n"
-                                         "- Resolution: " + std::to_string(params_.width) + "x" + std::to_string(params_.height) + "\n"
-                                         "- Video Frames: " + std::to_string(params_.frames) + "\n\n"
-                                         "To modify, send /steps, /cfg, /size, or /frames.");
+                                         "<b>Ajustes y Parametros de Generacion</b>\n"
+                                         "━━━━━━━━━━━━━━━━━━━━━━\n"
+                                         "• <b>Resolucion:</b> <code>" + std::to_string(params_.width) + "x" + std::to_string(params_.height) + "</code>\n"
+                                         "• <b>Pasos de muestreo (Steps):</b> <code>" + std::to_string(params_.steps) + "</code>\n"
+                                         "• <b>Escala de guia (CFG):</b> <code>" + std::to_string(params_.cfg) + "</code>\n"
+                                         "• <b>Fotogramas de video:</b> <code>" + std::to_string(params_.frames) + "</code>\n"
+                                         "━━━━━━━━━━━━━━━━━━━━━━\n"
+                                         "Toca el ajuste que deseas modificar:");
                             continue;
                         }
 
                         // Steps setting
-                        if (text == "Set Steps") {
+                        if (lower == "pasos (steps)" || lower == "pasos" || lower == "steps" || lower == "set steps") {
                             state_ = BotState::AWAITING_STEPS;
-                            send_message(chat_id, "Enter sampling steps (1-150) or select a preset:");
+                            send_message(chat_id, "<b>Selecciona los pasos de muestreo (Steps):</b>\n<i>Mas pasos = mayor nitidez y detalle, pero toma mas tiempo.</i>");
                             continue;
                         }
                         if (state_ == BotState::AWAITING_STEPS || text.rfind("/steps", 0) == 0) {
@@ -343,17 +409,17 @@ void CompanionBot::poll_loop() {
                             int s = std::atoi(val.c_str());
                             if (s >= 1 && s <= 150) {
                                 params_.steps = s;
-                                send_message(chat_id, "Sampling steps set to " + std::to_string(s) + ".");
+                                send_message(chat_id, "<b>Pasos actualizados a:</b> <code>" + std::to_string(s) + "</code>");
                             } else {
-                                send_message(chat_id, "Invalid steps. Please specify a number between 1 and 150.");
+                                send_message(chat_id, "<b>Valor invalido.</b> Por favor especifica un numero entre 1 y 150.");
                             }
                             continue;
                         }
 
                         // CFG setting
-                        if (text == "Set CFG") {
+                        if (lower == "escala cfg" || lower == "cfg" || lower == "set cfg") {
                             state_ = BotState::AWAITING_CFG;
-                            send_message(chat_id, "Enter CFG scale (0.5 - 30.0) or select a preset:");
+                            send_message(chat_id, "<b>Selecciona la escala de guia (CFG):</b>\n<i>Controla que tan estrictamente la imagen sigue el texto.</i>");
                             continue;
                         }
                         if (state_ == BotState::AWAITING_CFG || text.rfind("/cfg", 0) == 0) {
@@ -362,17 +428,19 @@ void CompanionBot::poll_loop() {
                             float c = std::atof(val.c_str());
                             if (c >= 0.5f && c <= 30.0f) {
                                 params_.cfg = c;
-                                send_message(chat_id, "CFG scale set to " + val + ".");
+                                char buf[32];
+                                std::snprintf(buf, sizeof(buf), "%.1f", c);
+                                send_message(chat_id, "<b>Escala CFG actualizada a:</b> <code>" + std::string(buf) + "</code>");
                             } else {
-                                send_message(chat_id, "Invalid CFG. Please specify a value between 0.5 and 30.0.");
+                                send_message(chat_id, "<b>Valor invalido.</b> Por favor especifica un numero entre 0.5 y 30.0.");
                             }
                             continue;
                         }
 
                         // Size / Resolution setting
-                        if (text == "Set Resolution" || text == "Set Size") {
+                        if (lower == "resolucion" || lower == "size" || lower == "set resolution" || lower == "set size") {
                             state_ = BotState::AWAITING_SIZE;
-                            send_message(chat_id, "Select or enter resolution as <width>x<height> (e.g. 1024x1024, 832x480):");
+                            send_message(chat_id, "<b>Selecciona la resolucion deseada:</b>\nO escribe ancho x alto (ej: <code>1024x1024</code> o <code>1280x720</code>):");
                             continue;
                         }
                         if (state_ == BotState::AWAITING_SIZE || text.rfind("/size", 0) == 0) {
@@ -386,20 +454,20 @@ void CompanionBot::poll_loop() {
                                 if (w >= 64 && w <= 2048 && h >= 64 && h <= 2048) {
                                     params_.width  = w;
                                     params_.height = h;
-                                    send_message(chat_id, "Resolution set to " + std::to_string(w) + "x" + std::to_string(h) + ".");
+                                    send_message(chat_id, "<b>Resolucion configurada a:</b> <code>" + std::to_string(w) + "x" + std::to_string(h) + "</code>");
                                 } else {
-                                    send_message(chat_id, "Resolution must be between 64 and 2048.");
+                                    send_message(chat_id, "<b>Resolucion fuera de rango.</b> Debe estar entre 64 y 2048.");
                                 }
                             } else {
-                                send_message(chat_id, "Usage: <width>x<height> (e.g. 1024x1024 or 832x480)");
+                                send_message(chat_id, "<b>Formato invalido.</b> Usa <ancho>x<alto> (ej: <code>1024x1024</code> o <code>1280x720</code>).");
                             }
                             continue;
                         }
 
                         // Video frames setting
-                        if (text == "Set Video Frames") {
+                        if (lower == "fotogramas video" || lower == "frames" || lower == "set video frames") {
                             state_ = BotState::AWAITING_FRAMES;
-                            send_message(chat_id, "Select or enter video frame count (5-161, e.g. 33 or 81):");
+                            send_message(chat_id, "<b>Selecciona la duracion del video (fotogramas):</b>");
                             continue;
                         }
                         if (state_ == BotState::AWAITING_FRAMES || text.rfind("/frames", 0) == 0) {
@@ -408,36 +476,46 @@ void CompanionBot::poll_loop() {
                             int f = std::atoi(val.c_str());
                             if (f >= 5 && f <= 161) {
                                 params_.frames = f;
-                                send_message(chat_id, "Video frames set to " + std::to_string(f) + ".");
+                                send_message(chat_id, "<b>Fotogramas de video configurados a:</b> <code>" + std::to_string(f) + "</code>");
                             } else {
-                                send_message(chat_id, "Video frames must be between 5 and 161.");
+                                send_message(chat_id, "<b>Cantidad invalida.</b> Debe estar entre 5 y 161.");
                             }
                             continue;
                         }
 
                         // Interactive Generation Triggers
-                        if (text == "Generate Image") {
+                        if (lower == "crear imagen" || lower == "generate image") {
                             state_ = BotState::AWAITING_PROMPT_IMG;
-                            send_message(chat_id, "Mode: Image Generation\n"
-                                                  "Settings: " + std::to_string(params_.width) + "x" + std::to_string(params_.height) +
-                                                  ", " + std::to_string(params_.steps) + " steps, CFG " + std::to_string(params_.cfg) +
-                                                  "\n\nPlease send your image prompt:\n(or tap Cancel)");
+                            send_message(chat_id,
+                                         "<b>Modo: Crear Imagen</b>\n"
+                                         "━━━━━━━━━━━━━━━━━━━━━━\n"
+                                         "<b>Ajustes:</b> " + std::to_string(params_.width) + "x" + std::to_string(params_.height) +
+                                         " • " + std::to_string(params_.steps) + " pasos • CFG " + std::to_string(params_.cfg) + "\n\n"
+                                         "Escribe en el chat lo que quieres que dibuje tu PS5:\n"
+                                         "<i>(Ejemplo: \"un astronauta en un bosque bioluminiscente de noche\")</i>\n\n"
+                                         "━━━━━━━━━━━━━━━━━━━━━━\n"
+                                         "<i>(O toca <b>Cancelar</b> para volver al menu)</i>");
                             continue;
                         }
 
-                        if (text == "Generate Video") {
+                        if (lower == "crear video" || lower == "generate video") {
                             state_ = BotState::AWAITING_PROMPT_VID;
-                            send_message(chat_id, "Mode: Video Generation\n"
-                                                  "Settings: " + std::to_string(params_.width) + "x" + std::to_string(params_.height) +
-                                                  ", " + std::to_string(params_.frames) + " frames, " + std::to_string(params_.steps) + " steps"
-                                                  "\n\nPlease send your video prompt:\n(or tap Cancel)");
+                            send_message(chat_id,
+                                         "<b>Modo: Crear Video</b>\n"
+                                         "━━━━━━━━━━━━━━━━━━━━━━\n"
+                                         "<b>Ajustes:</b> " + std::to_string(params_.width) + "x" + std::to_string(params_.height) +
+                                         " • " + std::to_string(params_.frames) + " cuadros • " + std::to_string(params_.steps) + " pasos\n\n"
+                                         "Escribe en el chat la escena que quieres animar en video:\n"
+                                         "<i>(Ejemplo: \"un cometa cruzando el cielo estrellado con estela luminosa\")</i>\n\n"
+                                         "━━━━━━━━━━━━━━━━━━━━━━\n"
+                                         "<i>(O toca <b>Cancelar</b> para volver al menu)</i>");
                             continue;
                         }
 
                         // Prompt execution (either in awaiting state, slash command, or long plain text)
                         bool is_video_cmd = (state_ == BotState::AWAITING_PROMPT_VID || text.rfind("/video", 0) == 0);
                         bool is_img_cmd   = (state_ == BotState::AWAITING_PROMPT_IMG || text.rfind("/gen", 0) == 0);
-                        bool is_direct_prompt = (state_ == BotState::IDLE && text.size() >= 12 && text[0] != '/');
+                        bool is_direct_prompt = (state_ == BotState::IDLE && text.size() >= 10 && text[0] != '/');
 
                         if (is_video_cmd || is_img_cmd || is_direct_prompt) {
                             std::string prompt;
@@ -452,39 +530,47 @@ void CompanionBot::poll_loop() {
                             state_ = BotState::IDLE;
 
                             if (prompt.empty()) {
-                                send_message(chat_id, "Prompt cannot be empty. Tap 'Generate Image' or 'Generate Video' to enter a prompt.");
+                                send_message(chat_id, "<b>El prompt no puede estar vacio.</b> Toca <b>Crear Imagen</b> para intentarlo de nuevo.");
                                 continue;
                             }
 
                             CompanionParams call_params = params_;
-                            if (is_video_cmd && call_params.width == 512 && call_params.height == 512) {
+                            if (is_video_cmd && call_params.width == 1024 && call_params.height == 1024) {
                                 call_params.width  = 832;
                                 call_params.height = 480;
                             }
 
-                            send_message(chat_id, "Starting " + std::string(is_video_cmd ? "video" : "image") +
-                                                  " generation on PS5 GPU (" + std::to_string(call_params.width) + "x" +
-                                                  std::to_string(call_params.height) + ", " + std::to_string(call_params.steps) + " steps):\n\"" +
-                                                  prompt + "\"\n\nPlease wait...");
+                            send_message(chat_id,
+                                         "<b>Generando en tu PlayStation 5...</b>\n"
+                                         "━━━━━━━━━━━━━━━━━━━━━━\n"
+                                         "<b>Prompt:</b> <i>\"" + html_escape(prompt) + "\"</i>\n"
+                                         "<b>Resolucion:</b> " + std::to_string(call_params.width) + "x" + std::to_string(call_params.height) +
+                                         " | <b>Pasos:</b> " + std::to_string(call_params.steps) + "\n\n"
+                                         "La GPU de tu consola esta procesando la solicitud. En breve recibiras el resultado directamente aqui...");
 
                             if (gen_fn_) {
                                 std::string gen_err;
                                 std::string out_path = gen_fn_(prompt, call_params, gen_err);
                                 if (!gen_err.empty()) {
-                                    send_message(chat_id, "Generation failed: " + gen_err);
+                                    send_message(chat_id, "<b>Error en la generacion:</b> " + html_escape(gen_err));
                                 } else {
                                     send_photo(chat_id, out_path, prompt);
-                                    send_message(chat_id, "Generation finished! Deliverable uploaded to your phone.");
+                                    send_message(chat_id, "<b>¡Generacion completada y entregada con exito!</b>");
                                 }
                             } else {
-                                send_message(chat_id, "Generation service unavailable.");
+                                send_message(chat_id, "<b>Servicio de generacion no disponible en este momento.</b>");
                             }
                             continue;
                         }
 
-                        // Default catch-all for unrecognized input
+                        // Default friendly catch-all
                         state_ = BotState::IDLE;
-                        send_message(chat_id, "Unrecognized command or input. Tap 'Generate Image' or 'Help' in the menu below.");
+                        send_message(chat_id,
+                                     "<b>¡Hola!</b> Bienvenido a Machete AI Studio en tu PS5.\n\n"
+                                     "¿Que deseas hacer?\n"
+                                     "• Toca <b>Crear Imagen</b> y escribe lo que imaginas.\n"
+                                     "• Toca <b>Modelos</b> para ver los modelos instalados.\n"
+                                     "• Toca <b>Ajustes</b> para cambiar resolucion o pasos.");
                     }
                 }
             } catch (...) {
