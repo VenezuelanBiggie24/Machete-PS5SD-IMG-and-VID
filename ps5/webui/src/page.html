@@ -49,11 +49,12 @@
 <header class="top">
   <div class="brandbox">
     <span class="logo"></span>
-    <span class="brand">Machete PS5SD</span>
+    <span class="brand">Machete Studio</span>
+    <span class="pro-tag">PRO</span>
     <span class="ver" id="ver"></span>
   </div>
-  <button type="button" class="model" id="model" title="Change the model">connecting&hellip;</button>
-  <button type="button" class="cchip" id="cchip" title="The console: temperature and power (Settings)" style="display:none"><span id="cchip-t"></span><span class="cw" id="cchip-w"></span></button>
+  <button type="button" class="model" id="model" title="Change the active model">connecting&hellip;</button>
+  <button type="button" class="cchip" id="cchip" title="PS5 Telemetry: APU & Fan (Settings)" style="display:none"><span id="cchip-t"></span><span class="cw" id="cchip-w"></span></button>
   <span class="pill off" id="pill"><span class="dot"></span><span id="pilltext">offline</span></span>
 </header>
 <nav class="tabs" aria-label="Tabs">
@@ -94,11 +95,22 @@
       </div>
     </div>
 
+    <div class="style-chips-row" id="style-chips-row">
+      <span class="style-label">Style:</span>
+      <button type="button" class="style-chip" data-style="cinematic">Cinematic 8K</button>
+      <button type="button" class="style-chip" data-style="photo">Photorealistic</button>
+      <button type="button" class="style-chip" data-style="cyberpunk">Cyberpunk Neon</button>
+      <button type="button" class="style-chip" data-style="anime">Anime Aesthetic</button>
+      <button type="button" class="style-chip" data-style="product">Studio Product</button>
+      <button type="button" class="style-chip" data-style="fantasy">Dark Fantasy</button>
+    </div>
+
     <label for="prompt">Prompt</label>
     <p class="hint starter" id="starter" style="display:none"></p>
-    <textarea id="prompt" class="big" rows="4" placeholder="What should it draw?"></textarea>
+    <textarea id="prompt" class="big" rows="4" placeholder="Describe the masterpiece you want to create..."></textarea>
     <div class="tagbox" id="tagbox" role="listbox" aria-label="Tags" style="display:none"></div>
     <div class="linkrow">
+      <button type="button" class="linkbtn magic-btn" id="magic-polish">✨ Magic Polish</button>
       <button type="button" class="linkbtn" id="neg-toggle" aria-expanded="false" aria-controls="neg-box">+ Negative prompt</button>
       <span class="fill"></span>
       <button type="button" class="linkbtn" id="prompt-copy">Copy</button>
@@ -112,6 +124,17 @@
         <span class="fill"></span>
         <button type="button" class="linkbtn" id="neg-copy">Copy</button>
         <button type="button" class="linkbtn" id="neg-paste" style="display:none">Paste</button>
+      </div>
+    </div>
+
+    <div class="aspect-ratio-row" id="aspect-ratio-row">
+      <span class="lbl">Aspect Ratio:</span>
+      <div class="aspect-grid">
+        <button type="button" class="aspect-btn on" data-w="1024" data-h="1024"><span class="aspect-glyph r-1-1"></span> 1:1 Square</button>
+        <button type="button" class="aspect-btn" data-w="1280" data-h="720"><span class="aspect-glyph r-16-9"></span> 16:9 Wide</button>
+        <button type="button" class="aspect-btn" data-w="720" data-h="1280"><span class="aspect-glyph r-9-16"></span> 9:16 Story</button>
+        <button type="button" class="aspect-btn" data-w="1024" data-h="768"><span class="aspect-glyph r-4-3"></span> 4:3 Classic</button>
+        <button type="button" class="aspect-btn" data-w="1344" data-h="576"><span class="aspect-glyph r-21-9"></span> 21:9 Cinema</button>
       </div>
     </div>
 
@@ -137,6 +160,16 @@
             </div>
             <input type="file" id="face-file-input" accept="image/*" style="display:none">
             <div class="hint face-method-hint" id="face-method-hint"></div>
+          </div>
+        </div>
+        <div class="face-scenario-row" id="face-scenario-row" style="margin-top:0.8rem">
+          <span class="hint" style="margin-bottom:0.3rem">Instant 1-Click Scenarios:</span>
+          <div class="face-presets-grid">
+            <button type="button" class="face-preset-chip" data-prompt="as a corporate executive in a luxury modern office, tailored suit, studio lighting, photorealistic 8k">💼 Executive</button>
+            <button type="button" class="face-preset-chip" data-prompt="as a cyberpunk samurai warrior, glowing neon katana, rain-slicked Tokyo street, volumetric fog, octane render">🦾 Cyberpunk</button>
+            <button type="button" class="face-preset-chip" data-prompt="on a tropical golden hour beach, ocean breeze, warm sunset glow, relaxed portrait, 8k photography">🏖️ Golden Beach</button>
+            <button type="button" class="face-preset-chip" data-prompt="as a medieval royal monarch, velvet cape with ornate gold embroidery, ancient castle hall, dramatic cinematic portrait">🛡️ Royalty</button>
+            <button type="button" class="face-preset-chip" data-prompt="as an astronaut floating in deep space, Earth reflecting in the helmet visor, cosmic nebula, hyper-detailed 8k">🚀 Astronaut</button>
           </div>
         </div>
       </div>
@@ -728,6 +761,7 @@
 @@include js/09d-tag-complete.js
 @@include js/10-controls.js
 @@include js/10b-create-layout.js
+@@include js/10c-studio-dock.js
 @@include js/11-help.js
 @@include js/12-gallery.js
 @@include js/12b-gallery-info.js

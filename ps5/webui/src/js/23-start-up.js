@@ -41,6 +41,7 @@
     loadVersion();
     loadAuth();
     buildPresets();
+    initStudioDock();
     initSignal();
     loadTvOption();
     $('opt-tv').onchange = setTvOption;

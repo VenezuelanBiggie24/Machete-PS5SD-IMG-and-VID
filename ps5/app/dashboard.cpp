@@ -26,33 +26,33 @@ using State = AppStatus::State;
 
 // ---- the design language (after the kit's Pulse dashboard) --------------------
 
-const Color kInk       = Color::rgb(0xe9eefc);
+const Color kInk       = Color::rgb(0xf2f5fc);
 const Color kClear     = Color::rgb(0x000000, 0.0f);
 const Color kBlack     = Color::rgb(0x000000);
-const Color kPanelTop  = Color::rgb(0x171f33);
-const Color kPanelBot  = Color::rgb(0x0e1424);
-const Color kWell      = Color::rgb(0x070b16);
-const Color kCyan      = Color::rgb(0x4fe0ff);
-const Color kLime      = Color::rgb(0xb8f26b);
-const Color kAmber     = Color::rgb(0xffc24a);
-const Color kRose      = Color::rgb(0xff6f9c);
-const Color kViolet    = Color::rgb(0xb48cff);
-const Color kSteel     = Color::rgb(0x8d9ab8);
+const Color kPanelTop  = Color::rgb(0x111728);
+const Color kPanelBot  = Color::rgb(0x090d18);
+const Color kWell      = Color::rgb(0x050710);
+const Color kCyan      = Color::rgb(0x00f0ff);
+const Color kLime      = Color::rgb(0x00ff9d);
+const Color kAmber     = Color::rgb(0xffb703);
+const Color kRose      = Color::rgb(0xff3366);
+const Color kViolet    = Color::rgb(0x9d4edd);
+const Color kSteel     = Color::rgb(0x718096);
 
-constexpr float kMuted = 0.62f;  // alpha of secondary text
-constexpr float kFaint = 0.38f;  // alpha of tertiary text and empty states
+constexpr float kMuted = 0.65f;  // alpha of secondary text
+constexpr float kFaint = 0.40f;  // alpha of tertiary text and empty states
 
-// The grid, inside the safe area: a wide column of server, activity and recent
-// images; a narrow one of the picture, the memory with the console's readings,
-// and the log.
-constexpr Rect kServer{ 96, 152, 1164, 160 };
-constexpr Rect kActivity{ 96, 332, 1164, 396 };
-constexpr Rect kRecent{ 96, 748, 1164, 236 };
-constexpr Rect kImage{ 1284, 152, 540, 576 };
-constexpr Rect kMemory{ 1284, 748, 540, 124 };
-constexpr Rect kLogTile{ 1284, 892, 540, 92 };
-constexpr float kRadius = 28.0f;
-constexpr float kPad    = 32.0f;
+// Modern Cinema Studio layout: Left column (640px) for Connect, Engine Status,
+// and Hardware Telemetry; Right column (1064px) for Hero Artwork Canvas and
+// Recent Creations filmstrip.
+constexpr Rect kServer{ 96, 148, 640, 232 };
+constexpr Rect kActivity{ 96, 400, 640, 336 };
+constexpr Rect kMemory{ 96, 756, 640, 236 };
+constexpr Rect kImage{ 760, 148, 1064, 600 };
+constexpr Rect kRecent{ 760, 768, 1064, 224 };
+constexpr Rect kLogTile{ 0, 0, 0, 0 };
+constexpr float kRadius = 24.0f;
+constexpr float kPad    = 28.0f;
 constexpr int   kThumbs = 6;
 
 constexpr const char * kDot = "\xC2\xB7";  // middle dot
@@ -111,24 +111,24 @@ Rect contain(const Rect & area, int w, int h) {
 
 hui::ui::Theme make_theme() {
     hui::ui::Theme t = hui::ui::default_theme();
-    t.id             = "ps5sd";
-    t.name           = "PS5SD";
-    t.family         = "Night tiles";
-    t.summary        = "The kit's Pulse dashboard language";
-    t.page           = Color::rgb(0x0a0e1a);
-    t.surface        = Color::rgb(0x131a2c);
-    t.surface_high   = Color::rgb(0x202a45);
+    t.id             = "machete_studio";
+    t.name           = "Machete Studio Pro";
+    t.family         = "Obsidian Glass";
+    t.summary        = "Next-Gen Commercial AI Studio UI";
+    t.page           = Color::rgb(0x070913);
+    t.surface        = Color::rgb(0x101626);
+    t.surface_high   = Color::rgb(0x1d273e);
     t.text           = kInk;
     t.text_muted     = with_a(kInk, kMuted);
     t.primary        = kCyan;
-    t.on_primary     = Color::rgb(0x0a0e1a);
+    t.on_primary     = Color::rgb(0x070913);
     t.secondary      = t.surface_high;
     t.on_secondary   = kInk;
     t.accent         = kCyan;
-    t.outline        = with_a(kInk, 0.12f);
+    t.outline        = with_a(kCyan, 0.20f);
     t.focus          = kCyan;
-    t.shadow         = with_a(kBlack, 0.5f);
-    t.light          = with_a(kInk, 0.2f);
+    t.shadow         = with_a(kBlack, 0.6f);
+    t.light          = with_a(kCyan, 0.25f);
     t.danger         = kRose;
     t.success        = kLime;
     t.warning        = kAmber;
@@ -192,9 +192,9 @@ bool Dashboard::load(hui::gfx::Renderer & renderer, const std::string & font_pat
 
     theme_ = make_theme();
     backdrop_.mode      = hui::gfx::BackdropMode::dots;
-    backdrop_.colors[0] = Color::rgb(0x05070f);
-    backdrop_.colors[1] = Color::rgb(0x0b1122);
-    backdrop_.colors[2] = Color::rgb(0x2b3d66);
+    backdrop_.colors[0] = Color::rgb(0x04060d);
+    backdrop_.colors[1] = Color::rgb(0x080d1c);
+    backdrop_.colors[2] = Color::rgb(0x18243c);
 
     state_chip_.style.theme       = theme_;
     state_chip_.style.leading_dot = true;
@@ -221,10 +221,10 @@ bool Dashboard::load(hui::gfx::Renderer & renderer, const std::string & font_pat
     spinner_.style.kind  = hui::ui::SpinnerKind::arc;
 
     empty_.style.theme          = theme_;
-    empty_.style.icon_size      = 88;
-    empty_.style.title_size     = 30;
-    empty_.style.body_size      = 21;
-    empty_.style.max_text_width = 380;
+    empty_.style.icon_size      = 96;
+    empty_.style.title_size     = 32;
+    empty_.style.body_size      = 22;
+    empty_.style.max_text_width = 560;
     empty_.style.max_lines      = 3;
     empty_.style.panel          = false;
     empty_.icon = [this](hui::ui::Canvas & canvas, const Rect & area) {
@@ -238,16 +238,13 @@ bool Dashboard::load(hui::gfx::Renderer & renderer, const std::string & font_pat
             spinner.draw(canvas);
             return;
         }
-        // A picture frame with a sun and two hills, from shapes: not every
-        // face has an icon glyph.
         DrawList & list   = canvas.list;
-        const Color line  = with_a(kInk, 0.34f);
-        const Rect  frame = area.inset(area.w * 0.1f);
-        list.bordered_rect(frame, 16, kClear, 4.0f, line);
-        list.circle(frame.x + frame.w * 0.72f, frame.y + frame.h * 0.3f, frame.w * 0.075f, line);
-        list.triangle({ frame.x + frame.w * 0.08f, frame.y + frame.h * 0.5f, frame.w * 0.42f, frame.h * 0.4f },
-                      with_a(kInk, 0.22f));
-        list.triangle({ frame.x + frame.w * 0.4f, frame.y + frame.h * 0.58f, frame.w * 0.5f, frame.h * 0.32f },
+        const Color line  = with_a(kCyan, 0.45f);
+        const Rect  frame = area.inset(area.w * 0.12f);
+        list.bordered_rect(frame, 20, kClear, 3.0f, line);
+        list.circle(frame.cx(), frame.cy(), frame.w * 0.22f, with_a(kViolet, 0.6f));
+        list.circle(frame.cx(), frame.cy(), frame.w * 0.10f, with_a(kCyan, 0.9f));
+    };
                       with_a(kInk, 0.16f));
     };
 
@@ -448,7 +445,7 @@ void Dashboard::sync_components(float dt) {
     progress_.style.color = with_a(accent, 1.0f);
     if (show) {
         const Rect tile = kActivity;
-        progress_.set_bounds({ tile.x + kPad, tile.y + tile.h - 126, tile.w - 2 * kPad, 62 });
+        progress_.set_bounds({ tile.x + kPad, tile.y + 204, tile.w - 2 * kPad, 52 });
         char label[64];
         if (sampling) {
             if (s.steps > 0 && s.step <= 0) {
@@ -480,7 +477,7 @@ void Dashboard::sync_components(float dt) {
     progress_.update(dt);
 
     // Memory: a bar of what is free, turning amber and then red as it runs out.
-    memory_.set_bounds({ kMemory.x + 24, kMemory.y + 46, kMemory.w - 48, 28 });
+    memory_.set_bounds({ kMemory.x + 24, kMemory.y + 70, kMemory.w - 48, 14 });
     if (s.free_gib >= 0 && s.pool_gib > 0) {
         const float free = (float) std::clamp(s.free_gib / s.pool_gib, 0.0, 1.0);
         memory_.set_value(free);
@@ -496,32 +493,32 @@ void Dashboard::sync_components(float dt) {
     switch (s.tv_images ? s.state : State::stopped) {
         case State::starting:
         case State::loading:
-            empty_.title = "Getting ready";
-            empty_.body  = "The model is loading. Your images will show up here.";
+            empty_.title = "Initializing Studio Engine";
+            empty_.body  = "Loading model weights into APU memory. Your renders appear here.";
             break;
         case State::generating:
-            empty_.title = "Generating";
-            empty_.body  = "This request has no live preview. The image appears here when it is done.";
+            empty_.title = "Generating Masterpiece";
+            empty_.body  = "This request is processing on the GPU. The render will display here.";
             break;
         case State::error:
-            empty_.title = "Something went wrong";
-            empty_.body  = "The log below and /data/PS5SD/app.log say what.";
+            empty_.title = "Engine Alert";
+            empty_.body  = "Check system logs or /data/PS5SD/app.log for details.";
             break;
         case State::stopped:
             if (!s.tv_images) {
-                empty_.title = "Images are hidden";
-                empty_.body  = "This screen shows no images and no prompts. The web UI's Settings show them again.";
+                empty_.title = "Studio Privacy Mode";
+                empty_.body  = "Renders are hidden on TV. Toggle in Web UI Settings to show.";
                 break;
             }
-            empty_.title = "Server stopped";
+            empty_.title = "Studio Standby";
             empty_.body.clear();
             break;
         default:
-            empty_.title = "No images yet";
-            empty_.body  = "Send a prompt from the web UI and the picture shows up here.";
+            empty_.title = "Machete Cinema Studio";
+            empty_.body  = "Scan the QR code or open Machete Web UI to begin generating on PS5 GPU.";
             break;
     }
-    empty_.set_bounds({ kImage.x + 20, kImage.y + 58, kImage.w - 40, kImage.w - 40 });
+    empty_.set_bounds({ kImage.x + 20, kImage.y + 54, kImage.w - 40, kImage.h - 74 });
     empty_.update(dt);
 }
 
@@ -537,13 +534,14 @@ float Dashboard::caps(DrawList & list, const std::string & text, float x, float 
 }
 
 void Dashboard::draw_panel(DrawList & list, const Rect & r, float radius, Color accent, float lit) const {
+    if (r.w <= 0 || r.h <= 0) return;
+    list.shadow({ r.x, r.y + 10, r.w, r.h }, radius, 32, with_a(kBlack, 0.55f));
     if (lit > 0.01f) {
-        list.shadow({ r.x, r.y + 14, r.w, r.h }, radius, 36, with_a(kBlack, 0.45f * lit));
-        list.glow(r, radius, 24, with_a(accent, 0.13f * lit));
+        list.glow(r, radius, 28, with_a(accent, 0.22f * lit));
     }
-    list.gradient_rect(r, radius, hui::gfx::mix(kPanelTop, accent, 0.05f * (0.3f + lit)).with_alpha(0.92f),
-                       hui::gfx::mix(kPanelBot, accent, 0.02f * (0.3f + lit)).with_alpha(0.94f));
-    list.bordered_rect(r, radius, kClear, 1.5f, hui::gfx::mix(with_a(kInk, 0.09f), with_a(accent, 0.55f), lit));
+    list.gradient_rect(r, radius, hui::gfx::mix(kPanelTop, accent, 0.06f * (0.3f + lit)).with_alpha(0.92f),
+                       hui::gfx::mix(kPanelBot, accent, 0.03f * (0.3f + lit)).with_alpha(0.95f));
+    list.bordered_rect(r, radius, kClear, 1.5f, hui::gfx::mix(with_a(kInk, 0.12f), with_a(accent, 0.65f), lit));
 }
 
 void Dashboard::compose(hui::gfx::Renderer & renderer, const char * version, const char * build) {
@@ -594,65 +592,63 @@ void Dashboard::draw(DrawList & list, const char * version, const char * build) 
     draw_activity(list, kActivity);
     end();
     begin();
+    draw_memory(list, kMemory);
+    end();
+    begin();
     draw_image(list, kImage);
     end();
     begin();
     draw_recent(list, kRecent);
     end();
-    begin();
-    draw_memory(list, kMemory);
-    draw_log_tile(list, kLogTile);
-    end();
 }
 
 void Dashboard::draw_header(DrawList & list, const char * version, const char * build) const {
-    const float w = hui::ui::text(list, fonts_.display, "MACHETE PS5SD", 96, 112, 58, kInk);
+    const float w = hui::ui::text(list, fonts_.display, "MACHETE AI STUDIO PRO", 96, 112, 54, kInk);
     char sub[256];
     if (build != nullptr && build[0] != '\0') {
-        std::snprintf(sub, sizeof(sub), "v%s (%s)  %s  Image & Video  %s  stable-diffusion.cpp on GPU",
+        std::snprintf(sub, sizeof(sub), "v%s (%s)  %s  GPU DIRECT ACCELERATION  %s  NEXT-GEN LOCAL INFERENCE",
                       version, build, kDot, kDot);
     } else {
-        std::snprintf(sub, sizeof(sub), "v%s  %s  Image & Video  %s  stable-diffusion.cpp on GPU",
+        std::snprintf(sub, sizeof(sub), "v%s  %s  GPU DIRECT ACCELERATION  %s  NEXT-GEN LOCAL INFERENCE",
                       version, kDot, kDot);
     }
-    hui::ui::text(list, fonts_.regular, sub, 96 + w + 28, 112, 24, with_a(kInk, kMuted));
+    hui::ui::text(list, fonts_.semibold, sub, 96 + w + 28, 112, 20, with_a(kCyan, 0.75f));
     hui::ui::Canvas c = canvas(list);
     state_chip_.draw(c);
 }
 
 void Dashboard::draw_server(DrawList & list, const Rect & r) const {
     draw_panel(list, r, kRadius, kCyan, 0.0f);
-    caps(list, "Open in a browser", r.x + kPad, r.y + 42, 17, kCyan);
-
-    // http://<address>:<port>, the port in the accent: it is the part to read out.
-    float x = r.x + kPad;
-    x += hui::ui::text(list, fonts_.display, "http://", x, r.y + 106, 58, with_a(kInk, 0.42f));
-    if (snap_.address.empty()) {
-        x += hui::ui::text(list, fonts_.display, "<console ip>", x, r.y + 106, 58, with_a(kInk, 0.7f));
-    } else {
-        x += hui::ui::text(list, fonts_.display, snap_.address, x, r.y + 106, 58, kInk);
-    }
-    x += hui::ui::text(list, fonts_.display, ":", x, r.y + 106, 58, with_a(kInk, 0.42f));
-    hui::ui::text(list, fonts_.display, std::to_string(snap_.port), x, r.y + 106, 58, kCyan);
+    caps(list, "Studio Wireless Connect", r.x + kPad, r.y + 36, 15, kCyan);
 
     // The QR code on the right: a phone's camera opens the web UI from it.
-    const float qr   = draw_qr(list, r.x + r.w - 14, r.y + r.h * 0.5f);
+    const float qr   = draw_qr(list, r.x + r.w - 18, r.y + r.h * 0.5f);
     const float room = r.w - 2 * kPad - (qr > 0 ? qr + 24 : 0);
 
-    if (!snap_.api_key.empty()) {
-        // The key the web UI and API clients need, in groups of four to read off.
-        // Smaller rather than cut off: the whole key is needed.
-        const float w    = caps(list, "API key", r.x + kPad, r.y + 140, 15, with_a(kInk, 0.5f));
-        const float full = fonts_.mono.font->measure(snap_.api_key, 24);
-        const float size = full > room - w - 18 ? std::max(16.0f, 24 * (room - w - 18) / full) : 24.0f;
-        hui::ui::text(list, fonts_.mono, fonts_.mono.font->fit(snap_.api_key, size, room - w - 18),
-                      r.x + kPad + w + 18, r.y + 140, size, kCyan);
-        return;
+    // http://<address>:<port>
+    float x = r.x + kPad;
+    x += hui::ui::text(list, fonts_.semibold, "http://", x, r.y + 92, 36, with_a(kInk, 0.5f));
+    if (snap_.address.empty()) {
+        x += hui::ui::text(list, fonts_.semibold, "console-ip", x, r.y + 92, 36, with_a(kInk, 0.8f));
+    } else {
+        x += hui::ui::text(list, fonts_.semibold, snap_.address, x, r.y + 92, 36, kInk);
     }
-    const std::string hint = qr > 0 ? "From a phone or a PC on your network; a phone can scan the code."
-                                    : "From a phone or a PC on your network. The web UI and the OpenAI and A1111 APIs share it.";
-    hui::ui::text(list, fonts_.regular, fonts_.regular.font->fit(hint, 22, room), r.x + kPad, r.y + 140, 22,
-                  with_a(kInk, kMuted));
+    x += hui::ui::text(list, fonts_.semibold, ":", x, r.y + 92, 36, with_a(kInk, 0.5f));
+    hui::ui::text(list, fonts_.semibold, std::to_string(snap_.port), x, r.y + 92, 36, kCyan);
+
+    if (!snap_.api_key.empty()) {
+        const float w    = caps(list, "API key", r.x + kPad, r.y + 138, 14, with_a(kInk, 0.5f));
+        const float full = fonts_.mono.font->measure(snap_.api_key, 20);
+        const float size = full > room - w - 16 ? std::max(15.0f, 20 * (room - w - 16) / full) : 20.0f;
+        hui::ui::text(list, fonts_.mono, fonts_.mono.font->fit(snap_.api_key, size, room - w - 16),
+                      r.x + kPad + w + 16, r.y + 138, size, kCyan);
+    } else {
+        const std::string hint = qr > 0 ? "Scan with your phone to open Machete Studio."
+                                        : "Open in your phone or PC browser.";
+        hui::ui::text(list, fonts_.regular, fonts_.regular.font->fit(hint, 20, room), r.x + kPad, r.y + 138, 20,
+                      with_a(kInk, kMuted));
+    }
+    caps(list, "LOCAL WI-FI / ETHERNET", r.x + kPad, r.y + 184, 12, with_a(kCyan, 0.6f));
 }
 
 // The web UI's address, with the API key when the TV shows it anyway (the
@@ -728,8 +724,8 @@ float Dashboard::draw_qr(DrawList & list, float right, float cy) const {
 
 void Dashboard::draw_stat(DrawList & list, const char * name, const std::string & value, float x,
                           float baseline) const {
-    const float w = caps(list, name, x, baseline, 16, with_a(kInk, 0.5f));
-    hui::ui::text(list, fonts_.mono, value, x + w + 14, baseline, 28, kInk);
+    const float w = caps(list, name, x, baseline, 15, with_a(kInk, 0.5f));
+    hui::ui::text(list, fonts_.mono, value, x + w + 12, baseline, 24, kInk);
 }
 
 void Dashboard::draw_activity(DrawList & list, const Rect & r) const {
@@ -738,10 +734,15 @@ void Dashboard::draw_activity(DrawList & list, const Rect & r) const {
     const bool  generating        = s.state == State::generating;
     const bool  busy              = generating || s.state == State::loading || s.state == State::starting;
     draw_panel(list, r, kRadius, accent, generating ? 1.0f : (s.state == State::error ? 0.6f : 0.25f));
-    caps(list, "Status", r.x + kPad, r.y + 42, 17, accent);
+    caps(list, "Studio Engine & Job", r.x + kPad, r.y + 36, 15, accent);
 
-    // The mark, then the state in words.
-    const Rect mark{ r.x + kPad, r.y + 66, 52, 52 };
+    // Active Model Name
+    const std::string model = s.model.empty() ? "No Model Loaded" : s.model;
+    hui::ui::text(list, fonts_.semibold, fonts_.semibold.font->fit(model, 26, r.w - 2 * kPad), r.x + kPad, r.y + 76, 26,
+                  s.model.empty() ? with_a(kInk, kFaint) : kInk);
+
+    // The mark / spinner, then state in words
+    const Rect mark{ r.x + kPad, r.y + 98, 38, 38 };
     if (busy) {
         hui::ui::Spinner spinner = spinner_;
         spinner.style.color      = with_a(accent, 1.0f);
@@ -749,58 +750,36 @@ void Dashboard::draw_activity(DrawList & list, const Rect & r) const {
         hui::ui::Canvas c = canvas(list);
         spinner.draw(c);
     } else {
-        list.glow({ mark.cx() - 13, mark.cy() - 13, 26, 26 }, 13, 14, with_a(accent, 0.35f));
-        list.circle(mark.cx(), mark.cy(), 13, accent);
+        list.glow({ mark.cx() - 10, mark.cy() - 10, 20, 20 }, 10, 12, with_a(accent, 0.40f));
+        list.circle(mark.cx(), mark.cy(), 10, accent);
     }
     const char * title = "Starting up";
     switch (s.state) {
-        case State::loading:    title = "Loading the model"; break;
+        case State::loading:    title = "Loading model tensors"; break;
         case State::ready:      title = "Ready for prompts"; break;
-        case State::generating: title = "Generating"; break;
-        case State::error:      title = s.phase.empty() ? "Something went wrong" : s.phase.c_str(); break;
+        case State::generating: title = "Generating artwork..."; break;
+        case State::error:      title = s.phase.empty() ? "Engine error" : s.phase.c_str(); break;
         case State::stopped:    title = "Server stopped"; break;
         default:                break;
     }
-    const float tx = r.x + kPad + 76;
-    hui::ui::text(list, fonts_.semibold, fonts_.semibold.font->fit(title, 46, 560), tx, r.y + 108, 46, kInk);
+    const float tx = r.x + kPad + 52;
+    hui::ui::text(list, fonts_.semibold, fonts_.semibold.font->fit(title, 28, r.w - 2 * kPad - 52), tx, r.y + 128, 28, kInk);
 
-    // One line under it.
+    // Prompt or detail line
     std::string line;
-    if (s.state == State::ready) {
-        line = s.images > 0 ? "Last image saved as " + AppStatus::display_name(s.result) + ".png"
-                            : "Waiting for a prompt from the web UI or an API client";
+    if (generating && !s.prompt.empty()) {
+        line = s.prompt;
+    } else if (s.state == State::ready) {
+        line = s.images > 0 ? "Last output: " + AppStatus::display_name(s.result) + ".png"
+                            : "Waiting for prompt from phone or web UI.";
     } else if (s.state == State::loading || s.state == State::starting) {
-        line = s.detail.empty() ? "This takes a moment" : s.detail;
+        line = s.detail.empty() ? "Preparing model weights on unified APU VRAM..." : s.detail;
+    } else if (s.state == State::error && !s.detail.empty()) {
+        line = s.detail;
     }
     if (!line.empty()) {
-        hui::ui::text(list, fonts_.regular, fonts_.regular.font->fit(line, 24, r.w - 2 * kPad - 76), tx, r.y + 146, 24,
+        hui::ui::text(list, fonts_.regular, fonts_.regular.font->fit(line, 20, r.w - 2 * kPad), r.x + kPad, r.y + 168, 20,
                       with_a(kInk, kMuted));
-    }
-
-    // The model, at the right.
-    const float rx = r.x + r.w - kPad;
-    caps(list, "Model", rx, r.y + 42, 17, with_a(kInk, 0.5f), Align::right);
-    const std::string model = s.model.empty() ? "not known yet" : s.model;
-    hui::ui::text(list, fonts_.semibold, fonts_.semibold.font->fit(model, 30, 430), rx, r.y + 84, 30,
-                  s.model.empty() ? with_a(kInk, kFaint) : kInk, Align::right);
-
-    // The prompt of this job, the last one, or what went wrong.
-    std::string label, body;
-    if (!s.tv_images && s.state != State::error) {
-        // hidden with the images
-    } else if (generating && !s.prompt.empty()) {
-        label = "Prompt";
-        body  = s.prompt;
-    } else if (s.state == State::error && !s.detail.empty()) {
-        label = "What happened";
-        body  = s.detail;
-    } else if ((s.state == State::ready || s.state == State::stopped) && !s.prompt.empty() && s.images > 0) {
-        label = "Last prompt";
-        body  = s.prompt;
-    }
-    if (!body.empty()) {
-        caps(list, label, r.x + kPad, r.y + 184, 15, with_a(kInk, 0.5f));
-        hui::ui::paragraph(list, fonts_.regular, body, r.x + kPad, r.y + 222, 30, r.w - 2 * kPad, 38, kInk, 2);
     }
 
     if (progress_shown_) {
@@ -808,23 +787,23 @@ void Dashboard::draw_activity(DrawList & list, const Rect & r) const {
         progress_.draw(c);
     }
 
-    // The figures along the bottom.
-    const float base = r.y + r.h - 32;
+    // Figures along the bottom
+    const float base = r.y + r.h - 26;
     const float x    = r.x + kPad;
     if (generating && s.steps > 0 && s.step > 0) {
         draw_stat(list, "Speed", [&] { char t[32]; std::snprintf(t, sizeof(t), "%.2f s/it", s.step_s); return std::string(t); }(), x, base);
-        draw_stat(list, "Elapsed", seconds_text(s.job_s), x + 360, base);
+        draw_stat(list, "Elapsed", seconds_text(s.job_s), x + 210, base);
         const double left = s.step_s > 0 ? (double) (s.steps - s.step) * s.step_s : -1;
-        draw_stat(list, "Left", left >= 0 ? "~" + seconds_text(left) : "-", x + 720, base);
+        draw_stat(list, "Left", left >= 0 ? "~" + seconds_text(left) : "-", x + 410, base);
     } else if (generating) {
         draw_stat(list, "Elapsed", seconds_text(s.job_s), x, base);
     } else if (s.state == State::ready || s.state == State::stopped) {
         float at = x;
         if (s.last_job_s >= 0) {
-            draw_stat(list, "Last image took", seconds_text(s.last_job_s), at, base);
-            at += 560;
+            draw_stat(list, "Last render", seconds_text(s.last_job_s), at, base);
+            at += 320;
         }
-        draw_stat(list, "Images", std::to_string(s.images), at, base);
+        draw_stat(list, "Creations", std::to_string(s.images), at, base);
     }
 }
 
@@ -833,46 +812,45 @@ void Dashboard::draw_image(DrawList & list, const Rect & r) const {
     const bool  generating        = s.state == State::generating;
     const bool  live              = generating && preview_.id != 0;
     const Picture * newest        = !pictures_.empty() && pictures_[0].large.id != 0 ? &pictures_[0] : nullptr;
-    draw_panel(list, r, kRadius, kViolet, live ? 0.6f : 0.0f);
+    draw_panel(list, r, kRadius, kViolet, live ? 0.7f : 0.15f);
 
-    std::string name = "Image";
+    std::string name = "Cinema Studio Canvas";
     if (live) {
-        name = "Live preview";
+        name = "Live Generation Preview";
     } else if (newest != nullptr && !generating) {
-        name = "Last image";
+        name = "Latest Masterpiece";
     }
-    caps(list, name, r.x + 28, r.y + 40, 17, kViolet);
+    caps(list, name, r.x + 28, r.y + 36, 16, kViolet);
     const Texture * tex = live ? &preview_ : (newest != nullptr ? &newest->large : nullptr);
     if (tex != nullptr) {
-        char size[32];
-        std::snprintf(size, sizeof(size), "%d x %d", tex->width, tex->height);
-        hui::ui::text(list, fonts_.mono, size, r.x + r.w - 28, r.y + 40, 20, with_a(kInk, kMuted), Align::right);
+        char size[48];
+        std::snprintf(size, sizeof(size), "%d x %d  %s  Native HDR", tex->width, tex->height, kDot);
+        hui::ui::text(list, fonts_.mono, size, r.x + r.w - 28, r.y + 36, 18, with_a(kInk, kMuted), Align::right);
     }
 
-    const Rect area{ r.x + 20, r.y + 58, r.w - 40, r.w - 40 };
-    list.rounded_rect(area, 18, with_a(kWell, 0.85f));
+    const Rect area{ r.x + 20, r.y + 54, r.w - 40, r.h - 74 };
+    list.rounded_rect(area, 18, with_a(kWell, 0.88f));
     if (tex != nullptr) {
         const float fade = live ? 1.0f : reveal_.value;
-        // While a job without a preview runs, the old picture stays but steps back.
-        const float dim = generating && !live ? 0.14f : 1.0f;
+        const float dim = generating && !live ? 0.18f : 1.0f;
         list.image(tex->id, contain(area, tex->width, tex->height), hui::gfx::kFullUv,
                    Color{ 1, 1, 1, fade * dim }, 14);
     }
-    list.bordered_rect(area, 18, kClear, 1.5f, with_a(kInk, 0.08f));
+    list.bordered_rect(area, 18, kClear, 1.5f, with_a(kViolet, 0.25f));
     if (live) {
-        // A bar along the picture's foot: how far the sampling is.
+        // Step progress along the bottom of the picture
         if (s.steps > 0) {
             const float frac = std::clamp((float) s.step / (float) s.steps, 0.0f, 1.0f);
-            const Rect  track{ area.x + 18, area.y + area.h - 26, area.w - 36, 8 };
-            list.rounded_rect(track, 4, with_a(kBlack, 0.45f));
+            const Rect  track{ area.x + 24, area.y + area.h - 22, area.w - 48, 8 };
+            list.rounded_rect(track, 4, with_a(kBlack, 0.6f));
             list.rounded_rect({ track.x, track.y, std::max(track.h, track.w * frac), track.h }, 4, kCyan);
         }
-        // LIVE, with a dot that breathes.
-        const Rect pill{ area.x + 18, area.y + 18, 86, 34 };
-        list.rounded_rect(pill, 17, with_a(kBlack, 0.55f));
+        // LIVE badge with animated breathing indicator
+        const Rect pill{ area.x + 20, area.y + 20, 96, 36 };
+        list.rounded_rect(pill, 18, with_a(kBlack, 0.65f));
         const float breath = hui::ui::breathe(clock_);
-        list.circle(pill.x + 20, pill.cy(), 6 + 1.5f * breath, kCyan);
-        hui::ui::text(list, fonts_.semibold, "LIVE", pill.x + 36, pill.cy() + 6, 17, kInk, Align::left, 2.0f);
+        list.circle(pill.x + 22, pill.cy(), 6 + 1.5f * breath, kCyan);
+        hui::ui::text(list, fonts_.semibold, "LIVE", pill.x + 40, pill.cy() + 6, 18, kInk, Align::left, 2.0f);
     }
     if (tex == nullptr || (generating && !live)) {
         hui::ui::Canvas c = canvas(list);
@@ -883,11 +861,11 @@ void Dashboard::draw_image(DrawList & list, const Rect & r) const {
 void Dashboard::draw_recent(DrawList & list, const Rect & r) const {
     const AppStatus::Snapshot & s = snap_;
     draw_panel(list, r, kRadius, kLime, 0.0f);
-    caps(list, log_open_ ? "Log" : "Recent images", r.x + kPad, r.y + 40, 17, log_open_ ? kSteel : kLime);
+    caps(list, log_open_ ? "Console Engine Log" : "Recent Creations Filmstrip", r.x + kPad, r.y + 32, 15, log_open_ ? kSteel : kLime);
 
     if (log_open_) {
-        const std::size_t shown = std::min<std::size_t>(s.lines.size(), 7);
-        float baseline          = r.y + 78;
+        const std::size_t shown = std::min<std::size_t>(s.lines.size(), 6);
+        float baseline          = r.y + 68;
         for (std::size_t i = s.lines.size() - shown; i < s.lines.size(); i++) {
             const std::string text = log_text(s.lines[i]);
             hui::ui::text(list, fonts_.mono, fonts_.mono.font->fit(text, 18, r.w - 2 * kPad), r.x + kPad, baseline, 18,
@@ -899,24 +877,25 @@ void Dashboard::draw_recent(DrawList & list, const Rect & r) const {
 
     char count[48];
     if (s.images > 0) {
-        std::snprintf(count, sizeof(count), "%d this session", s.images);
+        std::snprintf(count, sizeof(count), "%d creations this session", s.images);
     } else {
         std::snprintf(count, sizeof(count), "none yet");
     }
-    hui::ui::text(list, fonts_.mono, count, r.x + r.w - kPad, r.y + 40, 20, with_a(kInk, kMuted), Align::right);
+    hui::ui::text(list, fonts_.mono, count, r.x + r.w - kPad, r.y + 32, 18, with_a(kInk, kMuted), Align::right);
 
-    const float size = 160, gap = (r.w - 2 * kPad - kThumbs * size) / (kThumbs - 1);
+    const float size = 140.0f;
+    const float gap  = (r.w - 2.0f * kPad - (float) kThumbs * size) / (float) (kThumbs - 1);
     if (pictures_.empty()) {
-        const Rect well{ r.x + kPad, r.y + 58, r.w - 2 * kPad, size };
-        list.rounded_rect(well, 16, with_a(kWell, 0.45f));
-        list.bordered_rect(well, 16, kClear, 1.5f, with_a(kInk, 0.06f));
-        hui::ui::text(list, fonts_.regular, s.tv_images ? "Finished images collect here" : "Hidden on this screen",
-                      well.cx(), well.cy() + 8, 24,
+        const Rect well{ r.x + kPad, r.y + 50, r.w - 2 * kPad, size };
+        list.rounded_rect(well, 16, with_a(kWell, 0.50f));
+        list.bordered_rect(well, 16, kClear, 1.5f, with_a(kInk, 0.08f));
+        hui::ui::text(list, fonts_.regular, s.tv_images ? "Finished creations and videos collect here" : "Hidden on this screen",
+                      well.cx(), well.cy() + 8, 22,
                       with_a(kInk, kFaint), Align::center);
         return;
     }
     for (int i = 0; i < kThumbs; i++) {
-        const Rect slot{ r.x + kPad + (size + gap) * (float) i, r.y + 58, size, size };
+        const Rect slot{ r.x + kPad + (size + gap) * (float) i, r.y + 50, size, size };
         const bool have = (std::size_t) i < pictures_.size();
         list.rounded_rect(slot, 16, with_a(kWell, have ? 0.85f : 0.45f));
         if (have && pictures_[(std::size_t) i].thumb.id != 0) {
@@ -926,50 +905,74 @@ void Dashboard::draw_recent(DrawList & list, const Rect & r) const {
             hui::ui::text(list, fonts_.semibold, "?", slot.cx(), slot.cy() + 12, 36, with_a(kInk, kFaint), Align::center);
         }
         list.bordered_rect(slot, 16, kClear, i == 0 && have ? 2.5f : 1.5f,
-                           i == 0 && have ? with_a(kLime, 0.8f) : with_a(kInk, have ? 0.1f : 0.06f));
+                           i == 0 && have ? with_a(kLime, 0.85f) : with_a(kInk, have ? 0.15f : 0.06f));
     }
 }
 
 void Dashboard::draw_memory(DrawList & list, const Rect & r) const {
     const AppStatus::Snapshot & s = snap_;
-    draw_panel(list, r, 24, kRose, 0.0f);
-    caps(list, "Memory", r.x + 24, r.y + 36, 17, kRose);
-    if (!std::isnan(s.console.soc_c) && s.console.soc_c >= 80.0) {
-        caps(list, "ALERT: SoC >= 80C", r.x + 130, r.y + 36, 15, kRose);
+    draw_panel(list, r, kRadius, kRose, 0.0f);
+    caps(list, "Console Hardware Telemetry", r.x + 24, r.y + 32, 15, kRose);
+
+    const bool hot = !std::isnan(s.console.soc_c) && s.console.soc_c >= 80.0;
+    if (hot) {
+        caps(list, "ALERT: SoC >= 80C", r.x + r.w - 24, r.y + 32, 14, kRose, Align::right);
+    } else {
+        caps(list, "THERMAL GUARDIAN: ACTIVE", r.x + r.w - 24, r.y + 32, 13, kLime, Align::right);
     }
+
+    // VRAM readout & bar
     char text[64];
     if (s.free_gib >= 0 && s.pool_gib > 0) {
-        std::snprintf(text, sizeof(text), "%.1f of %.1f GiB free", s.free_gib, s.pool_gib);
+        std::snprintf(text, sizeof(text), "%.1f / %.1f GiB Free (APU Unified)", s.free_gib, s.pool_gib);
     } else {
-        std::snprintf(text, sizeof(text), "not read yet");
+        std::snprintf(text, sizeof(text), "Unified Memory Initializing");
     }
-    hui::ui::text(list, fonts_.mono, text, r.x + r.w - 24, r.y + 36, 20, kInk, Align::right);
+    hui::ui::text(list, fonts_.mono, text, r.x + 24, r.y + 60, 16, with_a(kInk, 0.85f));
+
     hui::ui::Canvas c = canvas(list);
     memory_.draw(c);
 
-    // The console under the bar (console_stats.hpp): the SoC's temperature and power and the fan
-    // from ps5-exporter, PS5SD's CPU use, and the share of the time a job runs on the GPU.
+    // 4 Digital HUD Telemetry Cards below the bar
     const AppStatus::Console & k = s.console;
-    const std::pair<const char *, std::string> items[] = {
-        { "SoC", reading(k.soc_c, "%.0f\xC2\xB0" "C") }, { "Power", reading(k.watts, "%.0f W") },
-        { "Fan", reading(k.fan, "%.0f%%", 100) },          { "CPU", reading(k.cpu, "%.0f%%", 100) },
-        { "GPU", reading(k.job, "%.0f%%", 100) },
+    const float card_y = r.y + 98;
+    const float card_h = 112;
+    const float gap    = 10.0f;
+    const float card_w = (r.w - 48 - 3 * gap) / 4.0f;
+
+    struct Gauge {
+        const char * label;
+        std::string  val;
+        Color        accent;
+        const char * sub;
     };
-    // spread over the tile's width, so "100%" and three-digit watts still fit
-    float used = 0;
-    for (const auto & item : items) {
-        used += fonts_.semibold.font->measure(hui::ui::upper(item.first), 14, 3.0f) + 6 +
-                fonts_.mono.font->measure(item.second, 18);
+
+    Color soc_color = kLime;
+    const char * soc_sub = "NOMINAL";
+    if (!std::isnan(k.soc_c)) {
+        if (k.soc_c >= 80.0) { soc_color = kRose; soc_sub = "CRITICAL"; }
+        else if (k.soc_c >= 70.0) { soc_color = kAmber; soc_sub = "ELEVATED"; }
     }
-    const float gap = std::max(6.0f, (r.w - 48 - used) / 4);
-    float       x   = r.x + 24;
-    for (const auto & item : items) {
-        x += caps(list, item.first, x, r.y + 106, 14, with_a(kInk, 0.5f)) + 6;
-        x += hui::ui::text(list, fonts_.mono, item.second, x, r.y + 106, 18, kInk) + gap;
+
+    const Gauge gauges[4] = {
+        { "APU TEMP", reading(k.soc_c, "%.0f\xC2\xB0" "C"), soc_color, soc_sub },
+        { "FAN SPEED", reading(k.fan, "%.0f%%", 100), kCyan, "ACTIVE" },
+        { "POWER", reading(k.watts, "%.0f W"), kAmber, "DRAW" },
+        { "GPU LOAD", reading(k.job, "%.0f%%", 100), kViolet, "RENDER" },
+    };
+
+    for (int i = 0; i < 4; i++) {
+        const Rect box{ r.x + 24 + i * (card_w + gap), card_y, card_w, card_h };
+        list.rounded_rect(box, 12, with_a(kWell, 0.70f));
+        list.bordered_rect(box, 12, kClear, 1.0f, with_a(gauges[i].accent, 0.35f));
+        caps(list, gauges[i].label, box.cx(), box.y + 24, 12, with_a(kInk, 0.6f), Align::center);
+        hui::ui::text(list, fonts_.mono, gauges[i].val, box.cx(), box.y + 64, 26, gauges[i].accent, Align::center);
+        caps(list, gauges[i].sub, box.cx(), box.y + 92, 10, with_a(gauges[i].accent, 0.8f), Align::center);
     }
 }
 
 void Dashboard::draw_log_tile(DrawList & list, const Rect & r) const {
+    if (r.w <= 0 || r.h <= 0) return;
     const AppStatus::Snapshot & s = snap_;
     draw_panel(list, r, 24, kSteel, 0.0f);
     caps(list, "Log", r.x + 24, r.y + 36, 17, kSteel);
