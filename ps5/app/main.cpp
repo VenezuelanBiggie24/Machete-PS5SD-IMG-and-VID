@@ -1478,7 +1478,7 @@ std::string get_companion_status_text() {
 
 std::string get_companion_models_text() {
     std::string active = loaded_id();
-    auto entries = g_library.entries();
+    auto entries = g_library.list();
     std::ostringstream ss;
     ss << "PS5 Models (" << entries.size() << " available):\n"
        << "Active: " << (active.empty() ? "(standby / none)" : active) << "\n\n";
