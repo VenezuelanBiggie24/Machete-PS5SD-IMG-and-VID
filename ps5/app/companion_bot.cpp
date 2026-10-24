@@ -70,6 +70,101 @@ static std::string friendly_model_label(int idx, const std::string & id) {
     return std::to_string(idx) + ". " + name;
 }
 
+static bool parse_resolution(const std::string & text, int & w, int & h) {
+    for (size_t i = 1; i < text.size(); ++i) {
+        if (text[i] == 'x' || text[i] == 'X') {
+            size_t w_end = i;
+            while (w_end > 0 && (text[w_end - 1] == ' ' || text[w_end - 1] == '\t')) {
+                w_end--;
+            }
+            if (w_end == 0 || (std::isdigit(static_cast<unsigned char>(text[w_end - 1])) == 0)) {
+                continue;
+            }
+            size_t w_start = w_end - 1;
+            while (w_start > 0 && (std::isdigit(static_cast<unsigned char>(text[w_start - 1])) != 0)) {
+                w_start--;
+            }
+            size_t h_start = i + 1;
+            while (h_start < text.size() && (text[h_start] == ' ' || text[h_start] == '\t')) {
+                h_start++;
+            }
+            if (h_start >= text.size() || (std::isdigit(static_cast<unsigned char>(text[h_start])) == 0)) {
+                continue;
+            }
+            size_t h_end = h_start;
+            while (h_end < text.size() && (std::isdigit(static_cast<unsigned char>(text[h_end])) != 0)) {
+                h_end++;
+            }
+            int tw = std::atoi(text.substr(w_start, w_end - w_start).c_str());
+            int th = std::atoi(text.substr(h_start, h_end - h_start).c_str());
+            if (tw >= 64 && tw <= 2048 && th >= 64 && th <= 2048) {
+                w = tw;
+                h = th;
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+static bool parse_steps(const std::string & text, int & steps) {
+    for (size_t i = 0; i < text.size(); ++i) {
+        if (std::isdigit(static_cast<unsigned char>(text[i])) != 0) {
+            size_t end = i;
+            while (end < text.size() && (std::isdigit(static_cast<unsigned char>(text[end])) != 0)) {
+                end++;
+            }
+            int s = std::atoi(text.substr(i, end - i).c_str());
+            if (s >= 1 && s <= 150) {
+                steps = s;
+                return true;
+            }
+            i = end;
+        }
+    }
+    return false;
+}
+
+static bool parse_cfg(const std::string & text, float & cfg) {
+    for (size_t i = 0; i < text.size(); ++i) {
+        if (std::isdigit(static_cast<unsigned char>(text[i])) != 0) {
+            size_t end = i;
+            bool has_dot = false;
+            while (end < text.size() && ((std::isdigit(static_cast<unsigned char>(text[end])) != 0) || (text[end] == '.' && !has_dot))) {
+                if (text[end] == '.') {
+                    has_dot = true;
+                }
+                end++;
+            }
+            float c = static_cast<float>(std::atof(text.substr(i, end - i).c_str()));
+            if (c >= 0.5f && c <= 30.0f) {
+                cfg = c;
+                return true;
+            }
+            i = end;
+        }
+    }
+    return false;
+}
+
+static bool parse_frames(const std::string & text, int & frames) {
+    for (size_t i = 0; i < text.size(); ++i) {
+        if (std::isdigit(static_cast<unsigned char>(text[i])) != 0) {
+            size_t end = i;
+            while (end < text.size() && (std::isdigit(static_cast<unsigned char>(text[end])) != 0)) {
+                end++;
+            }
+            int f = std::atoi(text.substr(i, end - i).c_str());
+            if (f >= 5 && f <= 161) {
+                frames = f;
+                return true;
+            }
+            i = end;
+        }
+    }
+    return false;
+}
+
 }  // namespace
 
 CompanionBot & CompanionBot::instance() {
@@ -400,18 +495,34 @@ void CompanionBot::poll_loop() {
                         // Steps setting
                         if (lower == "pasos (steps)" || lower == "pasos" || lower == "steps" || lower == "set steps") {
                             state_ = BotState::AWAITING_STEPS;
-                            send_message(chat_id, "<b>Selecciona los pasos de muestreo (Steps):</b>\n<i>Mas pasos = mayor nitidez y detalle, pero toma mas tiempo.</i>");
+                            send_message(chat_id, "<b>Selecciona los pasos de muestreo (Steps):</b>\n<i>Mas pasos = mayor nitidez y detalle, pero toma mas tiempo.</i>\n\nToca una opcion abajo o escribe un numero (1 a 150):");
                             continue;
                         }
-                        if (state_ == BotState::AWAITING_STEPS || text.rfind("/steps", 0) == 0) {
-                            std::string val = (state_ == BotState::AWAITING_STEPS) ? text : trim_str(text.substr(6));
-                            state_ = BotState::IDLE;
-                            int s = std::atoi(val.c_str());
-                            if (s >= 1 && s <= 150) {
+                        if (text.rfind("/steps", 0) == 0) {
+                            std::string val = trim_str(text.substr(6));
+                            if (val.empty()) {
+                                state_ = BotState::AWAITING_STEPS;
+                                send_message(chat_id, "<b>Selecciona los pasos de muestreo (Steps):</b>\n<i>Mas pasos = mayor nitidez y detalle.</i>\n\nToca una opcion abajo o escribe un numero (1 a 150):");
+                                continue;
+                            }
+                            int s = 0;
+                            if (parse_steps(val, s)) {
                                 params_.steps = s;
-                                send_message(chat_id, "<b>Pasos actualizados a:</b> <code>" + std::to_string(s) + "</code>");
+                                state_ = BotState::IDLE;
+                                send_message(chat_id, "<b>Pasos de muestreo actualizados a:</b> <code>" + std::to_string(s) + "</code>");
                             } else {
                                 send_message(chat_id, "<b>Valor invalido.</b> Por favor especifica un numero entre 1 y 150.");
+                            }
+                            continue;
+                        }
+                        if (state_ == BotState::AWAITING_STEPS) {
+                            int s = 0;
+                            if (parse_steps(text, s)) {
+                                params_.steps = s;
+                                state_ = BotState::IDLE;
+                                send_message(chat_id, "<b>Pasos de muestreo actualizados a:</b> <code>" + std::to_string(s) + "</code>");
+                            } else {
+                                send_message(chat_id, "<b>Valor invalido.</b> Por favor toca una opcion o escribe un numero entre 1 y 150.");
                             }
                             continue;
                         }
@@ -419,15 +530,20 @@ void CompanionBot::poll_loop() {
                         // CFG setting
                         if (lower == "escala cfg" || lower == "cfg" || lower == "set cfg") {
                             state_ = BotState::AWAITING_CFG;
-                            send_message(chat_id, "<b>Selecciona la escala de guia (CFG):</b>\n<i>Controla que tan estrictamente la imagen sigue el texto.</i>");
+                            send_message(chat_id, "<b>Selecciona la escala de guia (CFG):</b>\n<i>Controla que tan estrictamente la imagen sigue el texto.</i>\n\nToca una opcion abajo o escribe un valor (0.5 a 30.0):");
                             continue;
                         }
-                        if (state_ == BotState::AWAITING_CFG || text.rfind("/cfg", 0) == 0) {
-                            std::string val = (state_ == BotState::AWAITING_CFG) ? text : trim_str(text.substr(4));
-                            state_ = BotState::IDLE;
-                            float c = std::atof(val.c_str());
-                            if (c >= 0.5f && c <= 30.0f) {
+                        if (text.rfind("/cfg", 0) == 0) {
+                            std::string val = trim_str(text.substr(4));
+                            if (val.empty()) {
+                                state_ = BotState::AWAITING_CFG;
+                                send_message(chat_id, "<b>Selecciona la escala de guia (CFG):</b>\n<i>Controla que tan estrictamente la imagen sigue el texto.</i>\n\nToca una opcion abajo o escribe un valor (0.5 a 30.0):");
+                                continue;
+                            }
+                            float c = 0.0f;
+                            if (parse_cfg(val, c)) {
                                 params_.cfg = c;
+                                state_ = BotState::IDLE;
                                 char buf[32];
                                 std::snprintf(buf, sizeof(buf), "%.1f", c);
                                 send_message(chat_id, "<b>Escala CFG actualizada a:</b> <code>" + std::string(buf) + "</code>");
@@ -436,30 +552,53 @@ void CompanionBot::poll_loop() {
                             }
                             continue;
                         }
+                        if (state_ == BotState::AWAITING_CFG) {
+                            float c = 0.0f;
+                            if (parse_cfg(text, c)) {
+                                params_.cfg = c;
+                                state_ = BotState::IDLE;
+                                char buf[32];
+                                std::snprintf(buf, sizeof(buf), "%.1f", c);
+                                send_message(chat_id, "<b>Escala CFG actualizada a:</b> <code>" + std::string(buf) + "</code>");
+                            } else {
+                                send_message(chat_id, "<b>Valor invalido.</b> Por favor toca una opcion o escribe un valor entre 0.5 y 30.0.");
+                            }
+                            continue;
+                        }
 
                         // Size / Resolution setting
                         if (lower == "resolucion" || lower == "size" || lower == "set resolution" || lower == "set size") {
                             state_ = BotState::AWAITING_SIZE;
-                            send_message(chat_id, "<b>Selecciona la resolucion deseada:</b>\nO escribe ancho x alto (ej: <code>1024x1024</code> o <code>1280x720</code>):");
+                            send_message(chat_id, "<b>Selecciona la resolucion deseada:</b>\nToca una de las opciones abajo o escribe <ancho>x<alto> (ej: <code>1024x1024</code> o <code>1280x720</code>):");
                             continue;
                         }
-                        if (state_ == BotState::AWAITING_SIZE || text.rfind("/size", 0) == 0) {
-                            std::string val = (state_ == BotState::AWAITING_SIZE) ? text : trim_str(text.substr(5));
-                            state_ = BotState::IDLE;
-                            size_t x = val.find('x');
-                            if (x == std::string::npos) x = val.find('X');
-                            if (x != std::string::npos) {
-                                int w = std::atoi(val.substr(0, x).c_str());
-                                int h = std::atoi(val.substr(x + 1).c_str());
-                                if (w >= 64 && w <= 2048 && h >= 64 && h <= 2048) {
-                                    params_.width  = w;
-                                    params_.height = h;
-                                    send_message(chat_id, "<b>Resolucion configurada a:</b> <code>" + std::to_string(w) + "x" + std::to_string(h) + "</code>");
-                                } else {
-                                    send_message(chat_id, "<b>Resolucion fuera de rango.</b> Debe estar entre 64 y 2048.");
-                                }
+                        if (text.rfind("/size", 0) == 0) {
+                            std::string val = trim_str(text.substr(5));
+                            if (val.empty()) {
+                                state_ = BotState::AWAITING_SIZE;
+                                send_message(chat_id, "<b>Selecciona la resolucion deseada:</b>\nToca una de las opciones abajo o escribe <ancho>x<alto> (ej: <code>1024x1024</code> o <code>1280x720</code>):");
+                                continue;
+                            }
+                            int w = 0, h = 0;
+                            if (parse_resolution(val, w, h)) {
+                                params_.width  = w;
+                                params_.height = h;
+                                state_ = BotState::IDLE;
+                                send_message(chat_id, "<b>Resolucion configurada a:</b> <code>" + std::to_string(w) + "x" + std::to_string(h) + "</code>");
                             } else {
                                 send_message(chat_id, "<b>Formato invalido.</b> Usa <ancho>x<alto> (ej: <code>1024x1024</code> o <code>1280x720</code>).");
+                            }
+                            continue;
+                        }
+                        if (state_ == BotState::AWAITING_SIZE) {
+                            int w = 0, h = 0;
+                            if (parse_resolution(text, w, h)) {
+                                params_.width  = w;
+                                params_.height = h;
+                                state_ = BotState::IDLE;
+                                send_message(chat_id, "<b>Resolucion configurada a:</b> <code>" + std::to_string(w) + "x" + std::to_string(h) + "</code>");
+                            } else {
+                                send_message(chat_id, "<b>Resolucion no valida.</b> Selecciona una de las opciones abajo o escribe <ancho>x<alto> (ej: <code>1024x1024</code> o <code>1280x720</code>). O toca <b>Cancelar</b>.");
                             }
                             continue;
                         }
@@ -467,24 +606,50 @@ void CompanionBot::poll_loop() {
                         // Video frames setting
                         if (lower == "fotogramas video" || lower == "frames" || lower == "set video frames") {
                             state_ = BotState::AWAITING_FRAMES;
-                            send_message(chat_id, "<b>Selecciona la duracion del video (fotogramas):</b>");
+                            send_message(chat_id, "<b>Selecciona la duracion del video (fotogramas):</b>\n\nToca una opcion abajo o escribe un numero (5 a 161):");
                             continue;
                         }
-                        if (state_ == BotState::AWAITING_FRAMES || text.rfind("/frames", 0) == 0) {
-                            std::string val = (state_ == BotState::AWAITING_FRAMES) ? text : trim_str(text.substr(7));
-                            state_ = BotState::IDLE;
-                            int f = std::atoi(val.c_str());
-                            if (f >= 5 && f <= 161) {
+                        if (text.rfind("/frames", 0) == 0) {
+                            std::string val = trim_str(text.substr(7));
+                            if (val.empty()) {
+                                state_ = BotState::AWAITING_FRAMES;
+                                send_message(chat_id, "<b>Selecciona la duracion del video (fotogramas):</b>\n\nToca una opcion abajo o escribe un numero (5 a 161):");
+                                continue;
+                            }
+                            int f = 0;
+                            if (parse_frames(val, f)) {
                                 params_.frames = f;
+                                state_ = BotState::IDLE;
                                 send_message(chat_id, "<b>Fotogramas de video configurados a:</b> <code>" + std::to_string(f) + "</code>");
                             } else {
                                 send_message(chat_id, "<b>Cantidad invalida.</b> Debe estar entre 5 y 161.");
                             }
                             continue;
                         }
+                        if (state_ == BotState::AWAITING_FRAMES) {
+                            int f = 0;
+                            if (parse_frames(text, f)) {
+                                params_.frames = f;
+                                state_ = BotState::IDLE;
+                                send_message(chat_id, "<b>Fotogramas de video configurados a:</b> <code>" + std::to_string(f) + "</code>");
+                            } else {
+                                send_message(chat_id, "<b>Cantidad invalida.</b> Por favor toca una opcion o escribe un numero entre 5 y 161.");
+                            }
+                            continue;
+                        }
+
+                        // Universal Resolution Match: if any input contains a valid resolution (e.g. "1024x1024", "1280x720"), apply it!
+                        int any_w = 0, any_h = 0;
+                        if (parse_resolution(text, any_w, any_h)) {
+                            params_.width  = any_w;
+                            params_.height = any_h;
+                            state_         = BotState::IDLE;
+                            send_message(chat_id, "<b>Resolucion configurada a:</b> <code>" + std::to_string(any_w) + "x" + std::to_string(any_h) + "</code>");
+                            continue;
+                        }
 
                         // Interactive Generation Triggers
-                        if (lower == "crear imagen" || lower == "generate image") {
+                        if (lower == "crear imagen" || lower == "generate image" || lower == "/image" || lower == "/imagen") {
                             state_ = BotState::AWAITING_PROMPT_IMG;
                             send_message(chat_id,
                                          "<b>Modo: Crear Imagen</b>\n"
@@ -512,10 +677,12 @@ void CompanionBot::poll_loop() {
                             continue;
                         }
 
-                        // Prompt execution (either in awaiting state, slash command, or long plain text)
+                        // Prompt execution (either in awaiting state, slash command, or direct text prompt)
                         bool is_video_cmd = (state_ == BotState::AWAITING_PROMPT_VID || text.rfind("/video", 0) == 0);
                         bool is_img_cmd   = (state_ == BotState::AWAITING_PROMPT_IMG || text.rfind("/gen", 0) == 0);
-                        bool is_direct_prompt = (state_ == BotState::IDLE && text.size() >= 10 && text[0] != '/');
+                        bool is_nav_phrase = (lower == "menu" || lower == "inicio" || lower == "ajustes" || lower == "configuracion" ||
+                                              lower == "modelos" || lower == "estado consola" || lower == "ayuda");
+                        bool is_direct_prompt = (state_ == BotState::IDLE && text.size() >= 2 && text[0] != '/' && !is_nav_phrase);
 
                         if (is_video_cmd || is_img_cmd || is_direct_prompt) {
                             std::string prompt;
@@ -527,12 +694,18 @@ void CompanionBot::poll_loop() {
                                 prompt = text;
                             }
 
-                            state_ = BotState::IDLE;
-
                             if (prompt.empty()) {
-                                send_message(chat_id, "<b>El prompt no puede estar vacio.</b> Toca <b>Crear Imagen</b> para intentarlo de nuevo.");
+                                if (text.rfind("/video", 0) == 0) {
+                                    state_ = BotState::AWAITING_PROMPT_VID;
+                                    send_message(chat_id, "<b>Modo: Crear Video</b>\nPor favor escribe la escena que deseas animar:");
+                                } else {
+                                    state_ = BotState::AWAITING_PROMPT_IMG;
+                                    send_message(chat_id, "<b>Modo: Crear Imagen</b>\nPor favor escribe la descripcion de la imagen que deseas generar:");
+                                }
                                 continue;
                             }
+
+                            state_ = BotState::IDLE;
 
                             CompanionParams call_params = params_;
                             if (is_video_cmd && call_params.width == 1024 && call_params.height == 1024) {

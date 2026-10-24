@@ -245,8 +245,6 @@ bool Dashboard::load(hui::gfx::Renderer & renderer, const std::string & font_pat
         list.circle(frame.cx(), frame.cy(), frame.w * 0.22f, with_a(kViolet, 0.6f));
         list.circle(frame.cx(), frame.cy(), frame.w * 0.10f, with_a(kCyan, 0.9f));
     };
-                      with_a(kInk, 0.16f));
-    };
 
     accent_.snap(state_color(State::starting));
     accent_set_ = true;

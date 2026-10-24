@@ -1735,6 +1735,29 @@ std::string companion_generate(const std::string & prompt, const CompanionParams
         if (out.empty()) {
             out = g_status.snapshot().result;
         }
+        if (out.empty() && !resp_body.empty()) {
+            try {
+                auto j = nlohmann::json::parse(resp_body, nullptr, false);
+                if (j.is_object() && j.contains("images") && j["images"].is_array() && !j["images"].empty()) {
+                    std::string in = j["images"][0].get<std::string>();
+                    std::string png, png_err;
+                    nlohmann::json tmp;
+                    tmp["image"] = in;
+                    if (png_from_json(tmp.dump(), png, png_err) && !png.empty()) {
+                        mkdir(kOutputs.c_str(), 0777);
+                        std::string fb_path = output_path();
+                        std::ofstream f(fb_path, std::ios::binary | std::ios::trunc);
+                        if (f.is_open()) {
+                            f.write(png.data(), static_cast<std::streamsize>(png.size()));
+                            f.close();
+                            out = fb_path;
+                            set_companion_output(out);
+                            g_status.set_result(out);
+                        }
+                    }
+                }
+            } catch (...) {}
+        }
         if (out.empty()) {
             error = "Generation completed but output image path was not captured.";
             return "";

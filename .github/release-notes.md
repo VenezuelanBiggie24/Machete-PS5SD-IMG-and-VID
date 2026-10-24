@@ -9,6 +9,7 @@ Machete AI Studio 1.0.0 (Commercial AI Studio & Cinema HUD Overhaul) brings a co
 - **Magic Prompt Polish**: AI prompt enhancer button that injects lighting, texture, and compositional depth into any prompt.
 - **1-Click Face Studio Presets**: Dedicated identity preservation workflow with instant scene presets (Executive Headshot, Cyberpunk Samurai, Golden Hour Beach, Medieval Royalty, Deep Space Astronaut).
 - **Zero-Clutter TV Layout**: Elimination of raw terminal monospace log blocks from the main screen in favor of a clean, cinematic presentation.
+- **Robust Companion Bot Parameter Parser**: Universal resolution matching for any format (e.g. 1024x1024, 1280x720, with or without spaces/labels), interactive touch keyboard states for /size, /steps, /cfg, and /frames, base64 direct decode fallback for generation deliveries, and support for short direct chat prompts.
 
 ## Install
 
@@ -29,6 +30,7 @@ Machete AI Studio 1.0.0 (Estudio de IA Comercial y Rediseno Cinema HUD) presenta
 - **Boton Magic Polish**: Pulidor de texto con descriptores de iluminacion, textura y profundidad de composicion.
 - **Face Studio en 1 Clic**: Flujo directo de preservacion de identidad con presets inmediatos (Foto Ejecutiva, Samurai Cyberpunk, Playa al Atardecer, Realeza Medieval, Astronauta en el Espacio).
 - **Pantalla de TV Despejada**: Eliminacion de registros tecnicos sin formato de la pantalla principal para una presentacion limpia y profesional.
+- **Analizador Robusto de Parametros en Bot Acompanante**: Reconocimiento universal de resoluciones en cualquier formato (ej. 1024x1024, 1280x720, con o sin espacios/etiquetas), estados con teclado tactil para /size, /steps, /cfg y /frames, decodificacion directa en base64 de respaldo para entregas y soporte para prompts cortos directos en el chat.
 
 ## Instalacion
 
