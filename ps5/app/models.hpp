@@ -48,6 +48,7 @@
 #pragma once
 
 #include <cstdint>
+#include <map>
 #include <string>
 #include <utility>
 #include <vector>
@@ -170,6 +171,11 @@ std::string loras_json(const std::string & dir);
 // The network an entry runs (net_family.hpp): that of its diffusion model, else of its checkpoint.
 std::string model_family(const ModelEntry & e);
 
+// The file name (no folder) of an entry's main model file: its diffusion
+// model, else its checkpoint. The web UI groups the presets of one model by
+// it; a variant has its base's (create_preset copies the model arguments).
+std::string model_file(const ModelEntry & e);
+
 // For a single file that is only a part of a model (net_part: "diffusion
 // model", "text encoder" or "VAE"), why it cannot be loaded on its own and what
 // to do; "" for a preset and for a file that can run alone.
@@ -253,6 +259,10 @@ struct AppSettings {
     std::string telegram_chat_id      = "";       // Telegram Chat ID restriction
     int         thermal_warn_temp     = 80;       // APU temperature threshold for thermal warning
     bool        face_studio_enabled   = false;    // PhotoMaker / Face identity preservation
+    // The preset the web UI loads for a model (model_file -> preset id), set
+    // with its "Make default". Only the web UI reads it; the APIs switch to the
+    // id they name.
+    std::map<std::string, std::string> default_presets;
 };
 
 // {"tv_images": true, "tv_api_key": true}.

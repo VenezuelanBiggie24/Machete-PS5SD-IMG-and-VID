@@ -687,6 +687,17 @@ std::string model_family(const ModelEntry & e) {
     return "";
 }
 
+std::string model_file(const ModelEntry & e) {
+    for (const char * opt : { "--diffusion-model", "-m", "--model" }) {
+        for (size_t i = 0; i + 1 < e.args.size(); i++) {
+            if (e.args[i] == opt) {
+                return fs::u8path(e.args[i + 1]).filename().u8string();
+            }
+        }
+    }
+    return e.files.empty() ? "" : fs::u8path(e.files[0]).filename().u8string();
+}
+
 std::string part_reason(const ModelEntry & e) {
     if (e.kind != "file" || e.files.empty()) {
         return "";
@@ -735,6 +746,7 @@ std::string models_json(const ModelLibrary & library, const std::string & active
                          { "base", e.base },
                          { "control_net", control_net_name(e) },
                          { "family", model_family(e) },
+                         { "model_file", model_file(e) },
                          { "part", e.kind == "file" && !e.files.empty() ? net_part(e.files[0]) : "" },
                          { "prompt", e.prompt_starter },
                          { "negative", e.negative_starter },
@@ -1128,8 +1140,9 @@ std::string settings_json(const AppSettings & settings) {
         { "telegram_token", settings.telegram_token },
         { "telegram_chat_id", settings.telegram_chat_id },
         { "thermal_warn_temp", settings.thermal_warn_temp },
-        { "face_studio_enabled", settings.face_studio_enabled }
-    }.dump();
+        { "face_studio_enabled", settings.face_studio_enabled },
+        { "default_presets", settings.default_presets }
+    }.dump(-1, ' ', false, nlohmann::json::error_handler_t::replace);
 }
 
 bool apply_settings(const std::string & body, AppSettings & settings, std::string & error) {
@@ -1195,6 +1208,23 @@ bool apply_settings(const std::string & body, AppSettings & settings, std::strin
     }
     if (j.contains("face_studio_enabled") && j["face_studio_enabled"].is_boolean()) {
         next.face_studio_enabled = j["face_studio_enabled"].get<bool>();
+    }
+    if (j.contains("default_presets")) {
+        const auto & d = j["default_presets"];
+        if (!d.is_object()) {
+            error = "default_presets must be an object, like {\"model.gguf\": \"preset-id\"}";
+            return false;
+        }
+        for (const auto & kv : d.items()) {
+            if (kv.value().is_null() || (kv.value().is_string() && kv.value().get<std::string>().empty())) {
+                next.default_presets.erase(kv.key());
+            } else if (kv.value().is_string() && !kv.key().empty()) {
+                next.default_presets[kv.key()] = kv.value().get<std::string>();
+            } else {
+                error = "each default_presets value must be a preset id, \"\" or null";
+                return false;
+            }
+        }
     }
     settings = next;
     return true;

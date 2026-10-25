@@ -5060,6 +5060,7 @@
     var s = j.sampling || {}, g = s.guidance || {}, bits = [];
     if (j.ps5sd && j.ps5sd.preset) bits.push('preset ' + j.ps5sd.preset);
     if (infoModel(j)) bits.push(infoModel(j));
+    if (j.ps5sd && j.ps5sd.seconds > 0) bits.push(took(j.ps5sd.seconds));
     bits.push(j.width + '×' + j.height);
     bits.push(s.steps + (s.steps === 1 ? ' step' : ' steps'), 'CFG ' + round2(g.txt_cfg));
     if (s.method) bits.push(s.method + (s.scheduler ? ' ' + s.scheduler : ''));
@@ -5070,6 +5071,14 @@
     if (j.hires && j.hires.enabled) bits.push('hires ×' + round2(j.hires.scale));
     if (j.video) bits.push(j.video.frame_count + ' frames, ' + j.video.fps + ' fps');
     return bits.join(' · ');
+  }
+
+  // How long the generation took (patches/sdcpp/0074): "took 52.3 s", "took 2 min 5 s".
+  function took(secs) {
+    secs = Number(secs);
+    if (secs < 60) return 'took ' + (Math.round(secs * 10) / 10) + ' s';
+    var s = Math.round(secs);
+    return 'took ' + Math.floor(s / 60) + ' min' + (s % 60 ? ' ' + (s % 60) + ' s' : '');
   }
 
   function drawLbInfo(it) {
