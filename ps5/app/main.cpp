@@ -1951,6 +1951,25 @@ extern "C" int sd_app_request(const char * method, const char * path, const char
     } else if (m == "GET" && p == "info") {
         out    = info_json(get_app_version(), sd_version(), sd_commit(), get_app_build());
         status = 200;
+    } else if (m == "GET" && (p == "app/icon" || p == "app/icon.png")) {
+        for (const char * icon_path : { "/app0/sce_sys/icon0.png", "sce_sys/icon0.png", "ps5/app/sce_sys/icon0.png" }) {
+            std::ifstream file(icon_path, std::ios::binary);
+            if (file.is_open()) {
+                std::string data((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+                file.close();
+                if (!data.empty()) {
+                    *out_body = static_cast<char *>(std::malloc(data.size()));
+                    if (*out_body != nullptr) {
+                        std::memcpy(*out_body, data.data(), data.size());
+                        *out_len = data.size();
+                    }
+                    *content_type = "image/png";
+                    return 200;
+                }
+            }
+        }
+        out    = error_json("icon not found");
+        status = 404;
     } else if (m == "GET" && p == "storage/devices") {
         auto devs = StorageManager::instance().list_devices();
         nlohmann::json arr = nlohmann::json::array();
@@ -2622,6 +2641,36 @@ int main(int, char **) {
                 if (pressed & (hui::pad_bits::kR1 | hui::pad_bits::kRight)) {
                     view.cycle_picture(1);
                     pad.rumble(0.25f, 0.08f);
+                }
+                if (pressed & hui::pad_bits::kCross) {
+                    const auto cur_snap = g_status.snapshot();
+                    if (cur_snap.state != AppStatus::State::generating) {
+                        pad.rumble(0.6f, 0.2f);
+                        std::string p = view.current_picture_prompt();
+                        if (p.empty()) {
+                            p = "A cinematic masterpiece, highly detailed digital art";
+                        }
+                        std::thread([p]() {
+                            CompanionParams cp;
+                            std::string err;
+                            companion_generate(p, cp, err);
+                        }).detach();
+                    } else {
+                        pad.rumble(0.2f, 0.08f);
+                    }
+                }
+                if (pressed & hui::pad_bits::kTriangle) {
+                    std::string pic_path = view.current_picture_path();
+                    if (!pic_path.empty()) {
+                        pad.rumble(0.5f, 0.15f);
+                        std::string fname = pic_path;
+                        const size_t slash = fname.find_last_of("/\\");
+                        if (slash != std::string::npos) fname = fname.substr(slash + 1);
+                        GalleryLabel cur_label;
+                        std::string err;
+                        g_labels.set(fname, "", { "favorite" }, cur_label, err);
+                        notify_outcome(("PS5SD: marked " + fname + " as favorite").c_str());
+                    }
                 }
             }
             const auto snap = g_status.snapshot();

@@ -73,6 +73,22 @@ class Dashboard {
     }
     int selected_picture() const { return selected_picture_index_; }
 
+    std::string current_picture_path() const {
+        if (pictures_.empty() || selected_picture_index_ < 0 ||
+            selected_picture_index_ >= static_cast<int>(pictures_.size())) {
+            return "";
+        }
+        return pictures_[selected_picture_index_].path;
+    }
+
+    std::string current_picture_prompt() const {
+        if (pictures_.empty() || selected_picture_index_ < 0 ||
+            selected_picture_index_ >= static_cast<int>(pictures_.size())) {
+            return "";
+        }
+        return pictures_[selected_picture_index_].prompt;
+    }
+
     // Skips the entrance animation and the springs' travel (the PC preview
     // calls it before a picture; the console never does).
     void settle();

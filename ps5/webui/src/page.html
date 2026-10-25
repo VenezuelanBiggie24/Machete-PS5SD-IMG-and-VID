@@ -54,6 +54,7 @@
     } catch (e) {}
   })();
 </script>
+<link rel="icon" type="image/png" href="/ps5sd/v1/app/icon">
 <style>
 @@include app.css
 </style>
@@ -61,7 +62,7 @@
 <body class="v-create">
 <header class="top">
   <div class="brandbox">
-    <span class="logo"></span>
+    <img class="logo-img" src="/ps5sd/v1/app/icon" alt="Machete Studio" width="28" height="28" onerror="this.onerror=null;this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 32 32\' fill=\'none\'><rect width=\'32\' height=\'32\' rx=\'8\' fill=\'url(%23g)\'/><defs><linearGradient id=\'g\' x1=\'0\' y1=\'0\' x2=\'32\' y2=\'32\'><stop stop-color=\'%2306b6d4\'/><stop offset=\'1\' stop-color=\'%238b5cf6\'/></linearGradient></defs><path d=\'M9 16l5 5 9-10\' stroke=\'%23fff\' stroke-width=\'3\' stroke-linecap=\'round\' stroke-linejoin=\'round\'/></svg>'">
     <span class="brand">Machete Studio</span>
     <span class="pro-tag">PRO</span>
     <span class="ver" id="ver"></span>
@@ -402,6 +403,9 @@
             <div></div>
           </div>
           <p class="hint">Auto is the preset's: 3 for Wan 2.1, 5 for Wan 2.2 TI2V. Higher spends more of the steps on the large shapes and the motion, lower on the details.</p>
+          <div class="vid-tip" style="margin-top:0.6rem; padding:0.5rem 0.75rem; background:rgba(6,182,212,0.1); border:1px solid rgba(6,182,212,0.3); border-radius:8px; font-size:0.8rem; color:var(--text);">
+            <strong>Speed Tip:</strong> Wan 2.1 video takes <strong>~2 min</strong> with the CausVid LoRA (4 to 8 steps, CFG 1). Without it, 20 steps takes ~14 min. Get CausVid under Models &rarr; Get more.
+          </div>
           <div class="director-cam-box" style="margin-top:0.8rem; padding-top:0.6rem; border-top:1px solid var(--border, rgba(255,255,255,0.08));">
             <div class="lbl" style="font-weight:600; font-size:12px; margin-bottom:0.4rem; color:var(--text);">Director Camera Controls (Motion Guidance)</div>
             <div style="display:flex; gap:0.4rem; flex-wrap:wrap;">
@@ -718,6 +722,7 @@
     <span id="gsel-n"></span>
     <button type="button" id="gsel-all">All</button>
     <button type="button" id="gsel-dl">Download</button>
+    <button type="button" id="gsel-telegram" title="Send selected file to Telegram companion bot">Telegram</button>
     <button type="button" class="danger" id="gsel-del">Delete</button>
   </div>
   <div class="thumbs" id="thumbs"></div>
@@ -733,6 +738,7 @@
     <div class="lb-acts">
       <a id="lb-dl" href="#">Download</a>
       <a id="lb-open" href="#" target="_blank">Full size</a>
+      <button type="button" id="lb-telegram" title="Send directly to Telegram companion bot">Telegram</button>
       <button type="button" id="lb-up" style="display:none">Upscale</button>
       <button type="button" id="lb-edit" title="Use as the start image on the Create tab">Edit</button>
       <button type="button" id="lb-guide" title="Use as the guide image (ControlNet) on the Create tab">Guide</button>
@@ -758,7 +764,6 @@
         <button type="button" id="lb-cp">Copy prompt</button>
         <button type="button" id="lb-cn" style="display:none">Copy negative</button>
         <button type="button" id="lb-ca" title="The prompt and the settings as text, as other tools paste them">Copy all</button>
-        <button type="button" id="lb-telegram" title="Send directly to Telegram companion bot">Send to Telegram</button>
       </div>
     </div>
     <button type="button" id="lb-use" title="Put the prompt and the settings of this image into the Create tab">Use these settings</button>

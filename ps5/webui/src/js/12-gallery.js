@@ -247,7 +247,28 @@
     var n = selNames().length;
     text($('gsel-n'), n ? n + ' selected' : 'Press the images to select them.');
     $('gsel-dl').disabled = !n;
+    if ($('gsel-telegram')) $('gsel-telegram').disabled = !n;
     $('gsel-del').disabled = !n;
+  }
+
+  // Sends selected images or videos to the companion bot sequentially.
+  function sendSelectedToTelegram() {
+    var list = selNames(), k = 0, sent = 0;
+    if (!list.length) return;
+    toast('Sending ' + list.length + (list.length === 1 ? ' file' : ' files') + ' to Telegram...');
+    (function next() {
+      if (k >= list.length) {
+        toast('Sent ' + sent + (sent === 1 ? ' file' : ' files') + ' to Telegram companion bot.');
+        return;
+      }
+      var it = list[k];
+      var caption = it.title || it.prompt || it.name;
+      req('POST', '/ps5sd/v1/app/companion/send', JSON.stringify({ file: it.name, caption: caption }), function (code, data) {
+        if (code === 200 && data && data.ok) sent++;
+        k++;
+        setTimeout(next, 500);
+      });
+    })();
   }
 
   // One download after the other: a browser takes several clicks at once badly.

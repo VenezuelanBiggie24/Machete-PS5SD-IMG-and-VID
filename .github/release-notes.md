@@ -1,21 +1,28 @@
-Machete AI Studio 1.2.2 resolves model catalog download failures (HTTP 401 and HTTP 404) by updating model repository endpoints to verified un-gated public mirrors and introducing runtime URL canonicalization for download retries.
+Machete AI Studio 1.2.3 brings critical layout, color contrast, and scroll fixes to the Web Studio, introduces native app icon serving, enables direct Telegram sharing for all media formats (images and videos), wires DualSense Cross and Triangle controls on the TV dashboard, and provides in-app speed guidance for video generation.
 
 ## Fixes & Enhancements
 
-- **Model Download Mirrors & HTTP 401/404 Resolution**:
-  - Corrected repository name casing for SD 3.5 Medium Q8_0 (`city96/stable-diffusion-3.5-medium-gguf`), fixing the HTTP 401 Unauthorized error when downloading without Hugging Face credentials.
-  - Mirrored SD 3.5 VAE (`PS5SD_SD35_VAE`) to un-gated mirror (`Shio-Koube/SD-3.5-vae`), eliminating gated agreement blocks.
-  - Switched Kokoro 82M audio model endpoint to `prince-canuma/Kokoro-82M` (`kokoro-v1_0.safetensors`), resolving the HTTP 404 Not Found error caused by upstream repository restructuring.
-  - Restored PhotoMaker v1 safetensors endpoint via `bssrdf/PhotoMaker` (`photomaker-v1.safetensors`), preventing 404 errors during face lock weight downloads.
-  - Replaced gated Gemma 2 LLM weights with public un-gated quant (`bartowski/gemma-2-2b-it-GGUF`).
-  - Updated Sana 1.6B and 0.6B to official diffusers safetensors endpoints (`Efficient-Large-Model/Sana_1600M_1024px_diffusers` and `Sana_600M_512px_diffusers`).
-- **Automatic Runtime URL Canonicalizer**:
-  - Implemented `canonicalize_model_url()` in `download_core.cpp` and `downloader.cpp`.
-  - Automatically redirects legacy or failed download URLs stored in the queue to verified working endpoints, enabling seamless one-click Retry from the Web UI without needing to wipe downloads or provide API keys.
-- **Web UI & Architecture (Preserved)**:
-  - Startup lifecycle hardening and WebKit compatibility from v1.2.1.
-  - GFX1030 Packed FP16 dual-issue compute shaders (~20.6 TFLOPS arithmetic throughput).
-  - DualSense controller TV navigation, Director camera controls, and active hardware fan control.
+- **Web Studio Layout, Contrast & Scroll Polishing**:
+  - Restored complete desktop modal styling and z-index layering for the Lightbox viewer (`.lb`), eliminating rendering glitches and element overlapping.
+  - Resolved theme color clashes in light mode by replacing hardcoded dark backgrounds with dynamic CSS variables (`--sel-bg`, `--raised`, `--hover-weak`), ensuring high-contrast readability.
+  - Fixed mobile generation dock (`.gorow`) margin collisions and sticky positioning to prevent overlapping underlying parameter controls.
+  - Corrected sidebar collapse breakpoint so medium tablet viewports maintain full horizontal tab navigation.
+  - Upgraded scrollbars to 8px width with accessible contrast thumbs across dark and light themes.
+
+- **App Brand Icon & Favicon Integration**:
+  - Implemented `/ps5sd/v1/app/icon` endpoint serving the official `icon0.png` asset with PNG headers and inline SVG fallback.
+  - Added official high-resolution application branding to the studio header bar and browser tab favicon.
+
+- **Telegram Companion Sharing for All Media**:
+  - Moved the Telegram send action directly to the primary Lightbox toolbar (`.lb-acts`), making it available and functional for both videos and images regardless of metadata presence.
+  - Added a one-click Telegram send button to the Gallery multi-selection bar (`#gselbar`).
+
+- **TV Dashboard DualSense Controller Inputs**:
+  - Wired `Cross` button input: triggers immediate asynchronous image/video generation with DualSense haptic rumble.
+  - Wired `Triangle` button input: tags the active picture as `#favorite` in `.labels.json` with haptic confirmation and HUD notification.
+
+- **Video Generation Acceleration Guidance**:
+  - Added an integrated Speed Tip in the Video settings group explaining that Wan 2.1 video generation takes ~2 minutes with the CausVid LoRA (4 to 8 steps, CFG 1), compared to ~14 minutes at 20 steps.
 
 ## Install
 
@@ -25,27 +32,34 @@ Credits: PS5SD by Darkatek7 (Heel Tobias), stable-diffusion.cpp (ggerganov / lee
 
 ----
 
-Machete AI Studio 1.2.2 resuelve los fallos de descarga de modelos en el catalogo (errores HTTP 401 y HTTP 404) actualizando los repositorios a espejos publicos no restringidos e incorporando canonicalizacion dinamica de URLs para reintentos.
+Machete AI Studio 1.2.3 aporta correcciones criticas de diseno, contraste de color y desplazamiento en el Web Studio, incorpora el logo nativo de la aplicacion en el servidor web, habilita el envio directo a Telegram de todos los formatos (imagenes y videos), activa los controles Cross y Triangle del DualSense en el panel de TV y anade guia de aceleracion para generacion de video.
 
 ## Correcciones y Mejoras
 
-- **Espejos de Descarga y Resolucion de Errores HTTP 401/404**:
-  - Se corrigio el nombre de repositorio con mayusculas de SD 3.5 Medium Q8_0 (`city96/stable-diffusion-3.5-medium-gguf`), eliminando el error HTTP 401 Unauthorized sin requerir token de Hugging Face.
-  - Se redirigio el VAE de SD 3.5 (`PS5SD_SD35_VAE`) a un espejo abierto (`Shio-Koube/SD-3.5-vae`), evitando el bloqueo de repositorio restringido.
-  - Se actualizo la ruta de Kokoro 82M a `prince-canuma/Kokoro-82M` (`kokoro-v1_0.safetensors`), solucionando el error HTTP 404 Not Found debido a la reorganizacion del repositorio oficial.
-  - Se restauro la descarga de PhotoMaker v1 safetensors a traves de `bssrdf/PhotoMaker` (`photomaker-v1.safetensors`), evitando el error 404 al descargar modelos de fijacion facial.
-  - Se sustituyeron las dependencias de Gemma 2 LLM por el cuantil publico no restringido (`bartowski/gemma-2-2b-it-GGUF`).
-  - Se actualizaron Sana 1.6B y 0.6B a las versiones safetensors de diffusers (`Efficient-Large-Model/Sana_1600M_1024px_diffusers` y `Sana_600M_512px_diffusers`).
-- **Canonicalizador Dinamico de URLs**:
-  - Se implemento `canonicalize_model_url()` en `download_core.cpp` y `downloader.cpp`.
-  - Reasigna automaticamente las URLs fallidas o en cola hacia los espejos funcionales verificados, permitiendo presionar 'Retry' en la interfaz web y descargar con exito de inmediato sin necesidad de limpiar la cola o ingresar tokens.
-- **Web UI y Arquitectura (Preservadas)**:
-  - Estabilidad y tolerancia a excepciones en el inicio de la interfaz web introducidas en v1.2.1.
-  - Shaders de computo Packed FP16 en GFX1030 (~20.6 TFLOPS de rendimiento aritmetico).
-  - Control de navegacion TV con mando DualSense, Camara de Director 3D y control activo de ventilador.
+- **Diseno, Contraste y Desplazamiento del Web Studio**:
+  - Restauracion completa de los estilos de escritorio y capas z-index para el visor Lightbox (`.lb`), eliminando elementos superpuestos y bloqueos graficos.
+  - Correccion de discrepancias de color en el tema claro al sustituir fondos oscuros fijos por variables CSS adaptables (`--sel-bg`, `--raised`, `--hover-weak`), garantizando legibilidad y armonia visual.
+  - Ajuste de margenes y fijacion adhesiva de la barra de generacion movil (`.gorow`), evitando que tape controles o entorpezca el scroll.
+  - Correccion de puntos de ruptura para que dispositivos medianos mantengan la barra horizontal de pestanas sin cortes laterales indeseados.
+  - Barras de desplazamiento ampliadas a 8px con alto contraste tanto en modo oscuro como en modo claro.
+
+- **Icono de Aplicacion y Favicon en el Servidor**:
+  - Implementacion de la ruta `/ps5sd/v1/app/icon` que entrega `icon0.png` con encabezados PNG y respaldo vectorial SVG.
+  - Visualizacion del logotipo oficial en la cabecera de la interfaz web y como favicon en la pestana del navegador.
+
+- **Envio a Telegram para Todo Tipo de Archivos**:
+  - El boton de envio a Telegram se integro de forma permanente en la barra de herramientas principal del Lightbox (`.lb-acts`), permitiendo enviar tanto videos como imagenes previas con o sin metadatos.
+  - Incorporacion de boton de envio a Telegram en la barra de seleccion multiple de la galeria (`#gselbar`).
+
+- **Controles DualSense en el Panel de TV**:
+  - Implementacion del boton `Cruz` (Cross): inicia la generacion inmediata en segundo plano con vibracion haptica en el mando.
+  - Implementacion del boton `Triangulo` (Triangle): marca la imagen seleccionada como favorita (`#favorite`) en `.labels.json` con vibracion y notificacion en pantalla.
+
+- **Guia de Optimizacion de Velocidad en Video**:
+  - Se anadio un aviso instructivo en la seccion de video indicando que Wan 2.1 tarda ~2 minutos utilizando el LoRA CausVid (4 a 8 pasos, CFG 1), frente a los ~14 minutos que toma a 20 pasos convencionales.
 
 ## Instalacion
 
 Instale desde la tienda homebrew (Machete AI Studio, PPSA99699), o descomprima PPSA99699.zip en /data/homebrew/ en la consola y permita que ShadowMountPlus escanee. Requisitos: kstuff-lite, ShadowMountPlus, elfldr; ftpsrv en 2121 opcional.
 
-Creditos: PS5SD por Darkatek7 (Heel Tobias), stable-diffusion.cpp (ggerganov / leejet), ps5-exporter (Marice), agregados de Machete Studio por VenezuelanBiggie24.
+Creditos: PS5SD por Darkatek7 (Heel Tobias), stable-diffusion.cpp (ggerganov / leejet), ps5-exporter (Marice), adiciones de Machete Studio por VenezuelanBiggie24.

@@ -192,6 +192,7 @@
     $('gsel').onclick = function () { setSelecting(!gsel); };
     $('gsel-all').onclick = selectAll;
     $('gsel-dl').onclick = downloadSelected;
+    if ($('gsel-telegram')) $('gsel-telegram').onclick = sendSelectedToTelegram;
     $('gsel-del').onclick = askDeleteSelected;
     $('lb-use').onclick = useSettings;
     $('prompt-copy').onclick = function () { copyText($('prompt').value, 'The prompt'); };

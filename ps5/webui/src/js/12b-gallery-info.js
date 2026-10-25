@@ -102,14 +102,14 @@
     else copyText(String(d.parameters || d.prompt || '').replace(/,\s*SDCPP:\s*\{[\s\S]*$/, ''), 'The settings');
   }
 
-  // Sends the current lightbox image directly to the paired Telegram companion bot.
+  // Sends the current lightbox image or video directly to the paired Telegram companion bot.
   function sendToTelegram() {
     var it = lbItem();
     if (!it || !it.name) return;
-    toast('Sending to Telegram companion...');
+    toast('Sending ' + it.name + ' to Telegram companion...');
     var info = infoCache[it.name];
     var j = info && info.sdcpp;
-    var caption = j && j.prompt ? j.prompt.positive : (info && info.prompt ? info.prompt : '');
+    var caption = j && j.prompt ? j.prompt.positive : (info && info.prompt ? info.prompt : (it.title || it.name));
     req('POST', '/ps5sd/v1/app/companion/send', JSON.stringify({ file: it.name, caption: caption }), function (code, data) {
       if (code === 200 && data && data.ok) {
         toast('Sent to Telegram companion bot successfully.');
