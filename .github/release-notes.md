@@ -1,20 +1,30 @@
-Machete AI Studio 1.1.0 integrates hardware-level active fan control payload execution, 8 MB chunked tensor streaming, automated single-retry memory recovery, thread exception guards, FLUX.2 Klein 9B LoRA mapping, and Web UI appearance and workflow improvements, while keeping 100% of Machete's Cinema Studio TV Dashboard, Face Studio, and Telegram Companion Bot intact.
+Machete AI Studio 1.1.1 delivers a commercial-grade generative AI web studio interface comparable to top-tier commercial AI suites, integrates generation duration tracking in saved image metadata, and incorporates upstream model defaults and per-model preset memory, while preserving 100% of Machete's Cinema Studio TV Dashboard, Face Studio, and Telegram Companion Bot.
 
 ## Enhancements & Architecture
 
-- **Active Fan Control Payload (ps5sd-fan.elf)**: Hardware cooling integration via port 9021 ELF loader with a 3-second heartbeat on port 9075. Offers Quiet, Balanced (3 deg C below target), Cool (6 deg C below target), and Manual (target down to 70 deg C) modes. Safely steps temperature down 1 degree every 20 seconds, preventing high-temperature throttle states under extended generation runs.
-- **8 MB Chunked Tensor Streaming**: Lowers peak CPU heap memory allocation during model loading from 1.33 GiB to 0.72 GiB (45% reduction), avoiding FreeBSD malloc exhaustion on dense models with LoRAs.
-- **Graceful OOM Recovery & Auto-Retry**: Automated single-retry recovery for generation jobs that experience memory fragmentation or std::bad_alloc, catching and re-allocating without restarting the application.
-- **ThreadGuard Forensics & Safety**: Wraps network downloader, Hugging Face search, console stats, and manager threads with exception boundaries. Integrates std::terminate forensics logging uncaught exception details and direct memory pool statistics to app.log prior to exit.
-- **FLUX.2 Klein 9B LoRA Support**: Diffusers layer key mapping support in patch 0070 for PEFT and diffusers-format LoRAs.
-- **Web UI Appearance & Ergonomics**:
-  - Light and Dark appearance modes with system preference sync.
-  - Collapsible compact sidebar mode for tablet and widescreen workflows.
-  - Inline 2-tap deletion under the active result ("Delete? Press again") to instantly discard generations.
-  - Numeric CLIP skip stepper with model-specific adaptive guidance.
-  - Modal scroll lock preventing background scrolling while viewer or settings dialogs are active.
-- **Cinema Studio TV Dashboard (Preserved)**: 1064px Hero Artwork Canvas, frosted obsidian glassmorphism, 4-dial digital HUD telemetry, and zero raw log clutter on the TV.
-- **Telegram Companion Bot (Preserved)**: Universal resolution parsing, interactive touch keypad, base64 delivery fallback, and direct prompt execution.
+- **Commercial-Grade Studio Web UI**:
+  - Obsidian Space dark theme with luminous cyan and violet accents, frosted glassmorphism (`backdrop-filter: blur(20px)`), and porcelain light mode support.
+  - 8 Creative Style Chips: Cinematic 8K, Photorealistic, Cyberpunk Neon, Anime Aesthetic, Studio Product, Dark Fantasy, Retro 90s, Concept Art.
+  - Quick Negative Filter Chips: Instant 1-tap insertion of quality boosters, anatomical safeguards, and watermark suppression.
+  - Visual Aspect Ratio Selector: 6 proportion presets (1:1 Square, 16:9 Wide, 9:16 Story, 4:3 Classic, 3:2 Photo, 21:9 Cinema) with interactive proportion glyphs.
+  - Mobile Ergonomics & Docked CTA: Bottom docked generation controls on mobile devices for seamless one-handed generation without scrolling.
+  - Clean TV Cursor Separation: Distinct font scaling isolating TV joystick pointer navigation (`html.tv`) from mobile and desktop views (`html`).
+  - Prompt Clear Tool: Dedicated quick clear control for prompt authoring.
+- **Generation Duration Metadata (Patch 0074)**:
+  - Exact generation duration recorded in saved PNG tEXt parameters (`Time: 52.3 s`) and sdcpp JSON payload.
+  - Gallery viewer displays elapsed generation duration (`took 52.3 s`).
+  - Automatic model naming resolution from diffusion model component for multi-file architectures (FLUX, Z-Image, Wan).
+- **Per-Model Default Preset Memory**:
+  - Console settings (`default_presets`) now persist user-selected default presets per model file across reboots.
+- **FLUX.2 Klein 9B Optimized Defaults**:
+  - Tuned defaults for Klein 9B (8 steps, dpm2 sampler, CFG 1) delivering enhanced detail and high fidelity.
+- **Hardware & Engine Foundations (Preserved)**:
+  - Active hardware fan control payload (`ps5sd-fan.elf`) with port 9021 ELF loader and port 9075 thermal watchdog.
+  - 8 MB chunked tensor streaming reducing peak CPU heap allocation by 45%.
+  - Single-retry OOM recovery and ThreadGuard exception boundaries.
+  - Cinema Studio TV Dashboard (1064px canvas, 4-dial HUD telemetry).
+  - Face Studio (PhotoMaker identity preservation).
+  - Telegram Companion Bot with remote prompt generation.
 
 ## Install
 
@@ -24,23 +34,33 @@ Credits: PS5SD by Darkatek7 (Heel Tobias), stable-diffusion.cpp (ggerganov / lee
 
 ----
 
-Machete AI Studio 1.1.0 incorpora ejecucion de payload de control activo de ventilador por hardware, carga de tensores en bloques de 8 MB, recuperacion automatica por reintento tras falta de memoria, proteccion de excepciones en hilos, mapeo de LoRAs para FLUX.2 Klein 9B y mejoras de ergonomia en la interfaz web, manteniendo intactos el panel Cinema Studio TV, Face Studio y el Bot Acompanante de Telegram.
+Machete AI Studio 1.1.1 ofrece una interfaz web de estudio de IA generativa de nivel comercial comparable a las herramientas lideres del mercado, incorpora registro de tiempo de generacion en los metadatos de las imagenes guardadas, y anade persistencia de ajustes predeterminados por modelo y sincronizacion de novedades upstream, manteniendo intactos el panel Cinema Studio TV, Face Studio y el Bot Acompanante de Telegram.
 
 ## Mejoras y Arquitectura
 
-- **Payload de Control Activo de Ventilador (ps5sd-fan.elf)**: Integracion de refrigeracion por hardware mediante el cargador ELF en puerto 9021 con latido cada 3 segundos en el puerto 9075. Ofrece modos Quiet, Balanced (3 grados C por debajo del objetivo), Cool (6 grados C por debajo) y Manual (objetivo hasta 70 grados C). Ajusta la temperatura progresivamente un grado cada 20 segundos evitando temperaturas excesivas en sesiones prolongadas.
-- **Carga de Tensores en Bloques de 8 MB**: Reduce el consumo maximo de memoria heap de la CPU al cargar modelos de 1.33 GiB a 0.72 GiB (reduccion del 45%), previniendo el agotamiento de memoria en modelos complejos con LoRAs.
-- **Recuperacion y Reintento Automatico ante OOM**: Reintento automatico unico para trabajos de generacion que experimenten fragmentacion de memoria o std::bad_alloc, resolviendo fallos esporadicos sin reiniciar la aplicacion.
-- **Seguridad ThreadGuard y Diagnostico de Cierres**: Proteccion de hilos de descarga, busqueda en Hugging Face, estadisticas y administracion. Incorpora registro en app.log de excepciones no capturadas y balance de memoria unificada previo a cualquier salida de emergencia.
-- **Compatibilidad con LoRAs FLUX.2 Klein 9B**: Mapeo de capas diffusers y PEFT en el parche 0070 para modelos Klein 9B.
-- **Ergonomia y Apariencia Web UI**:
-  - Modo claro y oscuro con deteccion automatica del sistema operativo.
-  - Barra lateral colapsable para pantallas compactas o tablets.
-  - Boton de borrado en dos toques bajo el resultado activo ("Delete? Press again") para eliminar generaciones no deseadas.
-  - Control numerico para CLIP skip con sugerencias adaptadas segun el modelo cargado.
-  - Bloqueo de desplazamiento de fondo mientras los visores o paneles emergentes estan abiertos.
-- **Panel de TV Cinema Studio (Preservado)**: Lienzo de 1064px, obsidian glassmorphism, 4 cuadrantes HUD de telemetria digital y pantalla libre de texto de depuracion.
-- **Bot Acompanante de Telegram (Preservado)**: Deteccion flexible de resoluciones, teclado tactil interactivo, entrega de respaldo en base64 y recepcion directa de prompts.
+- **Interfaz Web de Estudio Profesional**:
+  - Tema oscuro Obsidian Space con acentos luminosos en cian y violeta, paneles de cristal esmerilado (`backdrop-filter: blur(20px)`) y soporte para modo claro porcelana.
+  - 8 Presets Creativos de Estilo: Cinematic 8K, Photorealistic, Cyberpunk Neon, Anime Aesthetic, Studio Product, Dark Fantasy, Retro 90s, Concept Art.
+  - Filtros Rapidos de Prompt Negativo: Insercion en 1 toque de mejoras de calidad, correccion anatomica y eliminacion de marcas de agua.
+  - Selector Visual de Relacion de Aspecto: 6 proporciones (1:1 Cuadrado, 16:9 Panoramico, 9:16 Historia, 4:3 Clasico, 3:2 Foto, 21:9 Cine) con glifos interactivos.
+  - Ergonomia Movil y Boton Flotante: Controles de generacion anclados en la parte inferior en moviles para generacion comoda con una sola mano sin necesidad de deslizar.
+  - Separacion de Escala para TV: Tipografia adaptativa que aisla la navegacion con cursor de joystick en TV (`html.tv`) de las pantallas moviles y de escritorio (`html`).
+  - Boton Limpiar Prompt: Control directo para limpiar el texto del prompt con un toque.
+- **Metadatos de Tiempo de Generacion (Parche 0074)**:
+  - Registro exacto de la duracion de cada generacion en los parametros tEXt del PNG (`Time: 52.3 s`) y en el JSON sdcpp.
+  - El visor de la galeria muestra el tiempo transcurrido (`took 52.3 s`).
+  - Resolucion automatica del nombre del modelo desde el componente diffusion model en arquitecturas multifile (FLUX, Z-Image, Wan).
+- **Memoria de Ajustes Predeterminados por Modelo**:
+  - Los ajustes de la consola (`default_presets`) ahora guardan la configuracion predeterminada elegida por el usuario para cada archivo de modelo.
+- **Valores Optimizados para FLUX.2 Klein 9B**:
+  - Ajustes predeterminados afinados para Klein 9B (8 pasos, muestreador dpm2, CFG 1) proporcionando mayor nivel de detalle y nitidez.
+- **Bases de Hardware y Motor (Preservadas)**:
+  - Payload de control activo de ventilador (`ps5sd-fan.elf`) con cargador ELF en puerto 9021 y vigilancia termica en puerto 9075.
+  - Transmision de tensores en bloques de 8 MB reduciendo el consumo maximo de memoria de CPU un 45%.
+  - Reintento automatico ante falta de memoria y proteccion de hilos ThreadGuard.
+  - Panel Cinema Studio TV (lienzo de 1064px, telemetria digital HUD de 4 cuadrantes).
+  - Face Studio (preservacion de identidad con PhotoMaker).
+  - Bot Acompanante de Telegram con generacion remota por comandos y texto.
 
 ## Instalacion
 
