@@ -210,6 +210,11 @@ jobs:
             echo "ggml: $p"
             git -C third_party/stable-diffusion.cpp/ggml apply --verbose "$GITHUB_WORKSPACE/$p"
           done
+          for p in patches/ps5-homebrew-ui/*.patch; do
+            [ -e "$p" ] || continue
+            echo "ps5-homebrew-ui: $p"
+            git -C third_party/ps5-homebrew-ui apply --verbose "$GITHUB_WORKSPACE/$p"
+          done
 
       - name: Build stable-diffusion.cpp (CPU)
         run: |

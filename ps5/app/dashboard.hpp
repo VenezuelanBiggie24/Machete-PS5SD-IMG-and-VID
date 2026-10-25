@@ -64,6 +64,18 @@ class Dashboard {
     void toggle_screensaver() { screensaver_active_ = !screensaver_active_; if (!screensaver_active_) idle_time_ = 0.0f; }
     bool screensaver_active() const { return screensaver_active_; }
 
+    // Fullscreen Cinema Gallery mode on TV.
+    void toggle_fullscreen() { fullscreen_gallery_ = !fullscreen_gallery_; }
+    bool fullscreen_gallery() const { return fullscreen_gallery_; }
+    void close_fullscreen() { fullscreen_gallery_ = false; }
+
+    // On-screen virtual pointer cursor controlled by DualSense analog stick or touchpad.
+    void move_cursor(float stick_x, float stick_y, float dt);
+    bool cursor_active() const { return cursor_active_ && cursor_timer_ > 0.0f; }
+    float cursor_x() const { return cursor_x_; }
+    float cursor_y() const { return cursor_y_; }
+    bool handle_cursor_click();
+
     // Cycles the active gallery image with DualSense L1/R1 or D-Pad.
     void cycle_picture(int delta) {
         if (pictures_.empty()) return;
@@ -130,6 +142,8 @@ class Dashboard {
     void draw_log_tile(hui::gfx::DrawList & list, const hui::gfx::Rect & r) const;
     void draw_memory(hui::gfx::DrawList & list, const hui::gfx::Rect & r) const;
     void draw_footer(hui::gfx::DrawList & list) const;
+    void draw_cursor(hui::gfx::DrawList & list) const;
+    void draw_fullscreen_gallery(hui::gfx::DrawList & list) const;
     void draw_stat(hui::gfx::DrawList & list, const char * name, const std::string & value, float x,
                    float baseline) const;
     void draw_panel(hui::gfx::DrawList & list, const hui::gfx::Rect & r, float radius, hui::gfx::Color accent,
@@ -151,9 +165,14 @@ class Dashboard {
     float               age_   = 0;  // the same, for the entrance
     bool                log_open_ = false;
     bool                screensaver_active_ = false;
+    bool                fullscreen_gallery_ = false;
     float               idle_time_ = 0.0f;
     int                 selected_picture_index_ = 0;
     bool                loaded_   = false;
+    float               cursor_x_ = 960.0f;
+    float               cursor_y_ = 540.0f;
+    bool                cursor_active_ = false;
+    float               cursor_timer_ = 0.0f;
 
     // The state's colour, eased, so a change of state recolours the screen.
     hui::ui::SpringColor accent_;

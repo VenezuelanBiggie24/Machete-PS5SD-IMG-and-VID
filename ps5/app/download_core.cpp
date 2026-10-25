@@ -215,6 +215,12 @@ std::string canonicalize_model_url(const std::string & url) {
     if (url.find("Efficient-Large-Model/Sana_600M_512px/resolve/main/checkpoints/Sana_600M_512px.safetensors") != std::string::npos) {
         return "https://huggingface.co/Efficient-Large-Model/Sana_600M_512px_diffusers/resolve/main/transformer/diffusion_pytorch_model.safetensors";
     }
+    if (url.find("concedo/sdxs-512-tinySDdistilled-GGUF/resolve/main/sdxs-512-tinySDdistilled-f16-q8_0.gguf") != std::string::npos) {
+        return "https://huggingface.co/concedo/sdxs-512-tinySDdistilled-GGUF/resolve/main/sdxs-512-tinySDdistilled_Q8_0.gguf";
+    }
+    if (url.find("Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/vae/wan_2.2_vae.safetensors") != std::string::npos) {
+        return "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/vae/wan2.2_vae.safetensors";
+    }
     return url;
 }
 

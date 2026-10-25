@@ -1,0 +1,143 @@
+diff --git a/src/platform/ps5/pad.cpp b/src/platform/ps5/pad.cpp
+index f526e38..d3b3f0a 100644
+--- a/src/platform/ps5/pad.cpp
++++ b/src/platform/ps5/pad.cpp
+@@ -8,10 +8,58 @@
+ 
+ #include <cstddef>
+ #include <cstdint>
++#include <cstring>
++#include <dlfcn.h>
+ 
+ namespace
+ {
+ 
++struct ScePadTriggerEffectFeedbackParam
++{
++    std::uint8_t position;
++    std::uint8_t strength;
++    std::uint8_t reserved[6];
++};
++
++struct ScePadTriggerEffectWeaponParam
++{
++    std::uint8_t startPosition;
++    std::uint8_t endPosition;
++    std::uint8_t strength;
++    std::uint8_t reserved[5];
++};
++
++struct ScePadTriggerEffectVibrationParam
++{
++    std::uint8_t position;
++    std::uint8_t amplitude;
++    std::uint8_t frequency;
++    std::uint8_t reserved[5];
++};
++
++union ScePadTriggerEffectCommandData
++{
++    ScePadTriggerEffectFeedbackParam feedbackParam;
++    ScePadTriggerEffectWeaponParam weaponParam;
++    ScePadTriggerEffectVibrationParam vibrationParam;
++    std::uint8_t raw[8];
++};
++
++struct ScePadTriggerEffectCommand
++{
++    std::uint32_t mode;
++    ScePadTriggerEffectCommandData commandData;
++    std::uint8_t reserved[4];
++};
++
++struct ScePadTriggerEffectParam
++{
++    std::uint32_t triggerMask;
++    ScePadTriggerEffectCommand command[2];
++};
++
++using ScePadSetTriggerEffectFn = int (*)(int handle, const ScePadTriggerEffectParam *param);
++
+ // scePadRead sample layout (120 bytes), as typed in ProsperoLight.
+ struct RawPadSample
+ {
+@@ -122,6 +170,54 @@ void Pad::set_light_bar(std::uint8_t r, std::uint8_t g, std::uint8_t b)
+         sys::log("[HUI] pad scePadSetLightBar=0x%08x", static_cast<unsigned>(result));
+ }
+ 
++void Pad::set_trigger_effect(std::uint32_t trigger_mask, std::uint32_t mode, std::uint8_t start_pos, std::uint8_t end_pos, std::uint8_t strength)
++{
++    if (handle_ < 0)
++        return;
++
++    static ScePadSetTriggerEffectFn s_setTriggerEffect = nullptr;
++    static bool s_triggerResolved = false;
++    if (!s_triggerResolved)
++    {
++        s_setTriggerEffect = reinterpret_cast<ScePadSetTriggerEffectFn>(dlsym(RTLD_DEFAULT, "scePadSetTriggerEffect"));
++        s_triggerResolved = true;
++    }
++
++    if (!s_setTriggerEffect)
++        return;
++
++    ScePadTriggerEffectParam param{};
++    param.triggerMask = trigger_mask;
++
++    for (int i = 0; i < 2; ++i)
++    {
++        if ((trigger_mask & (1 << i)) != 0)
++        {
++            param.command[i].mode = mode;
++            if (mode == 2) // WEAPON mode: snap/break
++            {
++                param.command[i].commandData.weaponParam.startPosition = start_pos;
++                param.command[i].commandData.weaponParam.endPosition   = end_pos;
++                param.command[i].commandData.weaponParam.strength      = strength;
++            }
++            else if (mode == 1) // FEEDBACK mode: continuous resistance
++            {
++                param.command[i].commandData.feedbackParam.position = start_pos;
++                param.command[i].commandData.feedbackParam.strength = strength;
++            }
++        }
++    }
++
++    const int res = s_setTriggerEffect(handle_, &param);
++    if (res != 0)
++        sys::log("[HUI] pad scePadSetTriggerEffect=0x%08x", static_cast<unsigned>(res));
++}
++
++void Pad::reset_trigger_effect()
++{
++    set_trigger_effect(3, 0, 0, 0, 0);
++}
++
+ void Pad::rumble(float strength, float seconds)
+ {
+     if (handle_ < 0 || strength <= 0.0f || seconds <= 0.0f)
+@@ -152,6 +248,7 @@ void Pad::close()
+ {
+     if (handle_ >= 0)
+     {
++        reset_trigger_effect();
+         const PadVibration stop{0, 0};
+         scePadSetVibration(handle_, &stop);
+         scePadClose(handle_);
+diff --git a/src/platform/ps5/pad.hpp b/src/platform/ps5/pad.hpp
+index ab535e7..01873a6 100644
+--- a/src/platform/ps5/pad.hpp
++++ b/src/platform/ps5/pad.hpp
+@@ -41,6 +41,12 @@ class Pad
+     // Call once per frame: ends a rumble whose time is up.
+     void tick(float dt);
+ 
++    // Configures DualSense adaptive trigger feedback.
++    // trigger_mask: 1 = L2, 2 = R2, 3 = both
++    // mode: 0 = OFF, 1 = FEEDBACK (continuous resistance), 2 = WEAPON (crisp tactile snap)
++    void set_trigger_effect(std::uint32_t trigger_mask, std::uint32_t mode, std::uint8_t start_pos, std::uint8_t end_pos, std::uint8_t strength);
++    void reset_trigger_effect();
++
+   private:
+     int handle_ = -1;
+     int user_ = -1;

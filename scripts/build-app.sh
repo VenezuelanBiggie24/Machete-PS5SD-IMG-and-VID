@@ -167,6 +167,7 @@ shopt -s nullglob
 apply_series "$ggml" ggml "$root"/patches/ggml/*.patch
 apply_series "$sd" stable-diffusion.cpp "$root"/patches/sdcpp/*.patch
 apply_series "$ftpsrv" ftpsrv "$root"/patches/ftpsrv/*.patch
+apply_series "$kit" ps5-homebrew-ui "$root"/patches/ps5-homebrew-ui/*.patch
 shopt -u nullglob
 
 # ---- ftpsrv, PS5SD's copy ------------------------------------------------------

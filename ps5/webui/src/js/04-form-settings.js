@@ -188,3 +188,41 @@
     st.announce = '';
   }
 
+  function toggleTurboMode() {
+    var btn = $('btn-turbo');
+    if (!btn) return;
+    var active = btn.classList.contains('active');
+    var isVideo = (current && current.kind === 'video') || /wan|video/i.test($('cm-name').textContent || '');
+    if (active) {
+      btn.classList.remove('active');
+      $('steps').value = isVideo ? 20 : 25;
+      $('cfg').value = isVideo ? 6.0 : 7.0;
+      persist();
+      if (typeof toast === 'function') toast('Modo Turbo desactivado (ajustes normales restaurados)');
+    } else {
+      btn.classList.add('active');
+      $('steps').value = isVideo ? 4 : 8;
+      $('cfg').value = 1.0;
+      if (typeof loraList !== 'undefined' && loraList && loraList.length) {
+        for (var i = 0; i < loraList.length; i++) {
+          var lp = (loraList[i].path || '').toLowerCase();
+          if (lp.indexOf('causvid') !== -1 || lp.indexOf('lightning') !== -1 || lp.indexOf('turbo') !== -1) {
+            var already = false;
+            for (var j = 0; j < loraSel.length; j++) {
+              if (loraSel[j].path === loraList[i].path) { already = true; loraSel[j].off = false; break; }
+            }
+            if (!already) {
+              loraSel.push({ path: loraList[i].path, m: 1.0, off: false });
+            }
+            if (typeof drawLoraPicker === 'function') drawLoraPicker();
+            break;
+          }
+        }
+      }
+      persist();
+      if (typeof toast === 'function') {
+        toast('Modo Turbo activado: ' + (isVideo ? '4 pasos, CFG 1.0 (Aceleracion CausVid)' : '8 pasos, CFG 1.0 (Aceleracion Lightning)'));
+      }
+    }
+  }
+

@@ -234,6 +234,7 @@ std::string CompanionBot::build_menu_markup() const {
         keyboard.push_back(nlohmann::json::array({ "Escala CFG", "Fotogramas Video" }));
         keyboard.push_back(nlohmann::json::array({ "Volver al Menu" }));
     } else if (state_ == BotState::AWAITING_STEPS) {
+        keyboard.push_back(nlohmann::json::array({ "4 pasos (Turbo Video/SDXL)", "8 pasos (Lightning)" }));
         keyboard.push_back(nlohmann::json::array({ "10 pasos (Rapido)", "20 pasos (Normal)" }));
         keyboard.push_back(nlohmann::json::array({ "30 pasos (Detallado)", "50 pasos (Ultra)" }));
         keyboard.push_back(nlohmann::json::array({ "Cancelar" }));
@@ -252,7 +253,8 @@ std::string CompanionBot::build_menu_markup() const {
     } else {
         // Main menu
         keyboard.push_back(nlohmann::json::array({ "Crear Imagen", "Crear Video" }));
-        keyboard.push_back(nlohmann::json::array({ "Modelos", "Ajustes", "Estado Consola" }));
+        keyboard.push_back(nlohmann::json::array({ "Modo Rapido (Turbo)", "Modelos" }));
+        keyboard.push_back(nlohmann::json::array({ "Ajustes", "Estado Consola" }));
         keyboard.push_back(nlohmann::json::array({ "Ayuda" }));
     }
 
@@ -684,11 +686,32 @@ void CompanionBot::poll_loop() {
                             continue;
                         }
 
+                        if (lower == "modo rapido (turbo)" || lower == "turbo" || lower == "modo rapido" ||
+                            text.rfind("/turbo", 0) == 0 || text.rfind("/fast", 0) == 0 || text.rfind("/rapido", 0) == 0) {
+                            state_ = BotState::IDLE;
+                            params_.steps = 4;
+                            params_.cfg = 1.0f;
+                            params_.width = 832;
+                            params_.height = 480;
+                            params_.frames = 33;
+                            send_message(chat_id,
+                                         "<b>MODO RAPIDO (TURBO) ACTIVADO</b>\n"
+                                         "━━━━━━━━━━━━━━━━━━━━━━\n"
+                                         "Configuracion hiper-optimizada para maxima velocidad:\n"
+                                         "• <b>Pasos:</b> 4 (Aceleracion instantanea por LoRA)\n"
+                                         "• <b>Escala CFG:</b> 1.0 (Sin pasos dobles redundantes)\n"
+                                         "• <b>Resolucion:</b> 832x480 (Ideal para video ultrarrapido)\n"
+                                         "• <b>Duracion:</b> 33 cuadros (~2 segundos)\n\n"
+                                         "¡Listo! Ahora escribe directamente en el chat lo que deseas generar.");
+                            continue;
+                        }
+
                         // Prompt execution (either in awaiting state, slash command, or direct text prompt)
                         bool is_video_cmd = (state_ == BotState::AWAITING_PROMPT_VID || text.rfind("/video", 0) == 0);
                         bool is_img_cmd   = (state_ == BotState::AWAITING_PROMPT_IMG || text.rfind("/gen", 0) == 0);
                         bool is_nav_phrase = (lower == "menu" || lower == "inicio" || lower == "ajustes" || lower == "configuracion" ||
-                                              lower == "modelos" || lower == "estado consola" || lower == "ayuda");
+                                              lower == "modelos" || lower == "estado consola" || lower == "ayuda" ||
+                                              lower == "modo rapido (turbo)" || lower == "turbo" || lower == "modo rapido");
                         bool is_direct_prompt = (state_ == BotState::IDLE && text.size() >= 2 && text[0] != '/' && !is_nav_phrase);
 
                         if (is_video_cmd || is_img_cmd || is_direct_prompt) {

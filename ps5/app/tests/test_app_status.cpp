@@ -101,10 +101,10 @@ void test_job() {
     s.set_result("/data/PS5SD/outputs/a.png");  // the same path again moves it to the front
     snap = s.snapshot();
     CHECK(snap.recent.size() == 2 && snap.recent[0].path.back() == 'g' && snap.recent[0].path.find("a.png") != std::string::npos);
-    for (int i = 0; i < 40; i++) {
+    for (int i = 0; i < 80; i++) {
         s.set_result("/x/" + std::to_string(i) + ".png");
     }
-    CHECK(s.snapshot().recent.size() == 12);
+    CHECK(s.snapshot().recent.size() == 64);
 
     for (int i = 0; i < 40; i++) {
         s.log("line " + std::to_string(i) + "\n");

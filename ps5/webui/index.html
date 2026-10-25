@@ -109,8 +109,7 @@
   html, body { margin: 0; background: var(--bg); color: var(--body);
     font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI Variable Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     line-height: 1.5; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
-  body { background: var(--bg) radial-gradient(circle at 50% 0%, #111a33 0%, var(--bg) 40rem) no-repeat; min-height: 100vh; }
-  html[data-theme="light"] body { background: var(--bg) radial-gradient(circle at 50% 0%, #e0f2fe 0%, var(--bg) 40rem) no-repeat; }
+  body { background: var(--bg) radial-gradient(circle at 50% 0%, var(--bg-glow) 0%, var(--bg) 40rem) no-repeat; min-height: 100vh; }
   a { color: var(--accent-hi); text-decoration: none; }
 
   /* Custom scrollbars */
@@ -128,7 +127,7 @@
 
   .top { display: flex; align-items: center; min-height: 3.75rem; padding: 0 1.75rem; background: rgba(7, 9, 14, 0.7); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border-bottom: 1px solid var(--border); }
   html[data-theme="light"] .top { background: rgba(248, 250, 252, 0.8); }
-  .brandbox { display: flex; align-items: center; gap: 0.6rem; }
+  .brandbox { display: flex; align-items: center; gap: 0.6rem; overflow: hidden; white-space: nowrap; }
   .logo-img { width: 1.75rem; height: 1.75rem; border-radius: 0.4rem; object-fit: cover; flex: none; box-shadow: 0 0 12px rgba(6, 182, 212, 0.45); }
   .logo { width: 1.15rem; height: 1.15rem; border-radius: 0.35rem; background: var(--grad-primary); box-shadow: 0 0 1rem rgba(6, 182, 212, 0.6); }
   .brand { color: var(--text); font-size: 1.15rem; font-weight: 700; letter-spacing: -0.01em; margin-right: 0.5rem; }
@@ -136,9 +135,11 @@
     border-radius: 9999px; background: rgba(6, 182, 212, 0.15); color: var(--accent-hi); border: 1px solid rgba(6, 182, 212, 0.35); text-transform: uppercase; }
   .ver { color: var(--faint); font-size: 0.8rem; margin: 0 1rem 0 0; }
   .model { color: var(--muted); font-size: 0.925rem; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  button.model { display: block; min-height: 0; margin: 0; padding: 0.3rem 0.6rem; border: 1px solid transparent; border-radius: 8px; background: transparent;
-    text-align: left; line-height: 1.5; cursor: pointer; transition: all 0.15s ease; }
-  button.model:hover { background: var(--hover-weak); border-color: var(--border); color: var(--text); }
+  button.model { display: inline-flex; align-items: center; min-height: 2.2rem; margin: 0 0.75rem; padding: 0.35rem 0.85rem;
+    border: 1px solid var(--border); border-radius: 9999px; background: var(--raised); color: var(--text);
+    font-weight: 500; font-size: 0.875rem; max-width: 26rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    text-align: left; line-height: 1.5; cursor: pointer; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15); transition: all 0.15s ease; }
+  button.model:hover { background: var(--raised-hi); border-color: var(--accent); color: var(--accent-hi); }
   button.model::after { content: "\00a0\25BE"; color: var(--faint); }
   .pill { display: flex; align-items: center; font-size: 0.8125rem; color: var(--faint); background: var(--surface);
     border: 1px solid var(--border); border-radius: 2rem; padding: 0.25rem 0.9rem 0.25rem 0.75rem; margin-left: 0.75rem; white-space: nowrap; }
@@ -320,6 +321,16 @@
   .prtoggle .caret, .grphead .caret { flex: none; margin-left: 0.6rem; color: var(--faint); transition: transform 0.15s; }
   .prtoggle[aria-expanded="true"] .caret, .grphead[aria-expanded="true"] .caret { transform: rotate(180deg); }
   .prrow #savepreset { margin-left: 0.6rem; min-height: 2.75rem; }
+  .btn-turbo { display: inline-flex; align-items: center; gap: 0.45rem; min-height: 2.25rem; margin-left: 0.75rem;
+    padding: 0.35rem 0.9rem; border-radius: 9999px; background: rgba(245, 158, 11, 0.12);
+    border: 1px solid rgba(245, 158, 11, 0.4); color: #fbbf24; font-size: 0.825rem; font-weight: 700;
+    cursor: pointer; transition: all 0.2s ease; }
+  .btn-turbo:hover { background: rgba(245, 158, 11, 0.22); border-color: #f59e0b; box-shadow: 0 0 12px rgba(245, 158, 11, 0.4); }
+  .btn-turbo.active { background: linear-gradient(135deg, #f59e0b, #ef4444); color: #fff; border-color: transparent;
+    box-shadow: 0 0 16px rgba(245, 158, 11, 0.6); }
+  .turbo-badge { font-size: 0.65rem; padding: 0.1rem 0.35rem; border-radius: 4px; background: rgba(245, 158, 11, 0.3);
+    color: #fef08a; letter-spacing: 0.05em; text-transform: uppercase; }
+  .btn-turbo.active .turbo-badge { background: rgba(0, 0, 0, 0.3); color: #fff; }
   .prmenu { margin-top: 0.5rem; padding: 0.5rem; background: var(--field); border: 1px solid var(--border); border-radius: 12px; }
   .prmenu button { display: block; width: 100%; min-height: 2.85rem; margin: 0.2rem 0; text-align: left; overflow: hidden; text-overflow: ellipsis; }
   .prmenu button.on { background: var(--sel-bg); border-color: var(--accent-hi); color: var(--text); }
@@ -759,9 +770,10 @@
     html.side-mini .sidefold svg { transform: rotate(180deg); }
     html.side-mini .tabs { padding: 0.5rem 0.45rem; }
     html.side-mini .tabs button { justify-content: center; padding: 0; }
-    html.side-mini .tabs button > span, html.side-mini .brand, html.side-mini .ver, html.side-mini .pro-tag { display: none; }
+    html.side-mini .tabs button > span { display: none; }
+    html.side-mini .brandbox .brand, html.side-mini .brandbox .ver, html.side-mini .brandbox .pro-tag { display: none !important; }
     html.side-mini .tabs svg { margin: 0; }
-    html.side-mini .brandbox { justify-content: center; padding: 0; }
+    html.side-mini .brandbox { justify-content: center; padding: 0 !important; width: 4.25rem !important; overflow: hidden !important; }
   }
   html.tv .sidefold { display: none; }
 
@@ -818,6 +830,7 @@
     <div class="prblock" id="pr-block">
       <div class="prrow">
         <button type="button" class="prtoggle" id="pr-toggle" aria-expanded="false" aria-controls="pr-menu"><span class="prlabel">Preset:</span> <span id="pr-name">model defaults</span><span class="caret" aria-hidden="true">&#9662;</span></button>
+        <button type="button" class="btn-turbo" id="btn-turbo" title="Fast generation mode: auto-configures low steps and fast LoRA acceleration"><span class="turbo-badge">TURBO</span> Modo Rapido</button>
         <button type="button" id="savepreset" style="display:none">Save as preset</button>
       </div>
       <div class="prmenu" id="pr-menu" style="display:none">
@@ -2192,6 +2205,44 @@
         'Its defaults are set: ' + p.w + '×' + p.h + ', ' + p.steps + (p.steps === 1 ? ' step' : ' steps') + ', CFG ' + p.cfg + '.'));
     }
     st.announce = '';
+  }
+
+  function toggleTurboMode() {
+    var btn = $('btn-turbo');
+    if (!btn) return;
+    var active = btn.classList.contains('active');
+    var isVideo = (current && current.kind === 'video') || /wan|video/i.test($('cm-name').textContent || '');
+    if (active) {
+      btn.classList.remove('active');
+      $('steps').value = isVideo ? 20 : 25;
+      $('cfg').value = isVideo ? 6.0 : 7.0;
+      persist();
+      if (typeof toast === 'function') toast('Modo Turbo desactivado (ajustes normales restaurados)');
+    } else {
+      btn.classList.add('active');
+      $('steps').value = isVideo ? 4 : 8;
+      $('cfg').value = 1.0;
+      if (typeof loraList !== 'undefined' && loraList && loraList.length) {
+        for (var i = 0; i < loraList.length; i++) {
+          var lp = (loraList[i].path || '').toLowerCase();
+          if (lp.indexOf('causvid') !== -1 || lp.indexOf('lightning') !== -1 || lp.indexOf('turbo') !== -1) {
+            var already = false;
+            for (var j = 0; j < loraSel.length; j++) {
+              if (loraSel[j].path === loraList[i].path) { already = true; loraSel[j].off = false; break; }
+            }
+            if (!already) {
+              loraSel.push({ path: loraList[i].path, m: 1.0, off: false });
+            }
+            if (typeof drawLoraPicker === 'function') drawLoraPicker();
+            break;
+          }
+        }
+      }
+      persist();
+      if (typeof toast === 'function') {
+        toast('Modo Turbo activado: ' + (isVideo ? '4 pasos, CFG 1.0 (Aceleracion CausVid)' : '8 pasos, CFG 1.0 (Aceleracion Lightning)'));
+      }
+    }
   }
 
   // ---------- LoRAs ----------
@@ -8540,6 +8591,7 @@
     try { initAppearance(); } catch (e) {}
     $('opt-tv').onchange = setTvOption;
     $('opt-tvkey').onchange = setTvKeyOption;
+    if ($('btn-turbo')) $('btn-turbo').onclick = toggleTurboMode;
     $('hr-on').onchange = function () { drawHires(); persist(); };
     $('hr-up').onchange = function () { save('hrup', this.value); persist(); };
     $('hr-scale').onchange = $('hr-steps').onchange = $('hr-den').onchange = persist;

@@ -48,6 +48,7 @@
     try { initAppearance(); } catch (e) {}
     $('opt-tv').onchange = setTvOption;
     $('opt-tvkey').onchange = setTvKeyOption;
+    if ($('btn-turbo')) $('btn-turbo').onclick = toggleTurboMode;
     $('hr-on').onchange = function () { drawHires(); persist(); };
     $('hr-up').onchange = function () { save('hrup', this.value); persist(); };
     $('hr-scale').onchange = $('hr-steps').onchange = $('hr-den').onchange = persist;

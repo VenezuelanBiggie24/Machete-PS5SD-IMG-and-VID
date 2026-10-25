@@ -88,6 +88,7 @@ class AppStatus {
     void set_progress(int step, int steps, float step_s);
     void set_memory(double free_gib, double pool_gib);
     void set_result(std::string path);
+    void add_existing_result(std::string path, std::string prompt);
     void set_model(std::string name);
     void set_tv_images(bool shown);
     // The API key the screen shows; empty for none.
@@ -112,7 +113,7 @@ class AppStatus {
 
   private:
     static constexpr std::size_t kLines   = 24;
-    static constexpr std::size_t kResults = 12;
+    static constexpr std::size_t kResults = 64;
     mutable std::mutex           mutex_;
     Snapshot                     s_;
     std::deque<std::string>      lines_;

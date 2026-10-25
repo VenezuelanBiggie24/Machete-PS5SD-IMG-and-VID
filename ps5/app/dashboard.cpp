@@ -313,7 +313,7 @@ void Dashboard::sync_preview(const AppStatus::Snapshot & s) {
 // decoded one per frame (a 1024 px PNG takes a few tens of milliseconds on
 // the console; one a frame keeps a burst of results from stalling it).
 void Dashboard::sync_pictures(const AppStatus::Snapshot & s) {
-    const std::size_t keep = std::min<std::size_t>(s.recent.size(), kThumbs);
+    const std::size_t keep = std::min<std::size_t>(s.recent.size(), 64);
     std::vector<Picture> next;
     for (std::size_t i = 0; i < keep; i++) {
         const AppStatus::Result & wanted = s.recent[i];
@@ -334,30 +334,45 @@ void Dashboard::sync_pictures(const AppStatus::Snapshot & s) {
     }
     pictures_ = std::move(next);
 
+    const int target_idx = (!pictures_.empty())
+                               ? std::clamp(selected_picture_index_, 0, static_cast<int>(pictures_.size()) - 1)
+                               : -1;
+
+    for (std::size_t i = 0; i < pictures_.size(); i++) {
+        if (static_cast<int>(i) != target_idx) {
+            release(pictures_[i].large);
+        }
+    }
+
+    // 1. Decode active selection's large texture if missing
+    if (target_idx >= 0 && target_idx < static_cast<int>(pictures_.size())) {
+        Picture & p = pictures_[target_idx];
+        if (p.large.id == 0 && !p.failed) {
+            Rgba image;
+            if (load_image_rgba(p.path, 1024, image)) {
+                upload(p.large, image.width, image.height, image.pixels.data());
+                if (p.thumb.id == 0) {
+                    const Rgba small = shrink_to(image, 256);
+                    upload(p.thumb, small.width, small.height, small.pixels.data());
+                }
+            } else {
+                p.failed = true;
+            }
+            return;
+        }
+    }
+
+    // 2. Decode missing thumbnails (one per frame)
     for (std::size_t i = 0; i < pictures_.size(); i++) {
         Picture & p = pictures_[i];
-        if (i != 0) {
-            release(p.large);  // only the newest is shown large
-        }
-        if (p.failed) {
-            continue;
-        }
-        const bool need_large = i == 0 && p.large.id == 0;
-        if (p.thumb.id != 0 && !need_large) {
+        if (p.failed || p.thumb.id != 0) {
             continue;
         }
         Rgba image;
-        if (!load_image_rgba(p.path, need_large ? 1024 : 256, image)) {
-            std::printf("ps5sd: dashboard: cannot read %s\n", p.path.c_str());
+        if (load_image_rgba(p.path, 256, image)) {
+            upload(p.thumb, image.width, image.height, image.pixels.data());
+        } else {
             p.failed = true;
-            continue;
-        }
-        if (need_large) {
-            upload(p.large, image.width, image.height, image.pixels.data());
-        }
-        if (p.thumb.id == 0) {
-            const Rgba small = shrink_to(image, 256);
-            upload(p.thumb, small.width, small.height, small.pixels.data());
         }
         break;  // one decode a frame
     }
@@ -381,6 +396,9 @@ void Dashboard::update(const AppStatus::Snapshot & s, float dt) {
     }
     clock_ += dt;
     age_ += dt;
+    if (cursor_timer_ > 0.0f) {
+        cursor_timer_ -= dt;
+    }
 
     if (s.state == State::generating) {
         idle_time_ = 0.0f;
@@ -554,6 +572,12 @@ void Dashboard::compose(hui::gfx::Renderer & renderer, const char * version, con
 }
 
 void Dashboard::draw(DrawList & list, const char * version, const char * build) const {
+    if (fullscreen_gallery_) {
+        draw_fullscreen_gallery(list);
+        draw_cursor(list);
+        return;
+    }
+
     if (screensaver_active_ && !pictures_.empty() && pictures_[0].large.id != 0) {
         const Texture & t = pictures_[0].large;
         const Rect full{ 0, 0, 1920, 1080 };
@@ -601,6 +625,7 @@ void Dashboard::draw(DrawList & list, const char * version, const char * build) 
     begin();
     draw_footer(list);
     end();
+    draw_cursor(list);
 }
 
 void Dashboard::draw_header(DrawList & list, const char * version, const char * build) const {
@@ -887,13 +912,15 @@ void Dashboard::draw_recent(DrawList & list, const Rect & r) const {
         return;
     }
 
-    char count[48];
-    if (s.images > 0) {
-        std::snprintf(count, sizeof(count), "%d creations this session", s.images);
+    const int total = static_cast<int>(pictures_.size());
+    char count[64];
+    if (total > 0) {
+        std::snprintf(count, sizeof(count), "%d / %d  %s  L1/R1 to browse",
+                      selected_picture_index_ + 1, total, kDot);
     } else {
         std::snprintf(count, sizeof(count), "none yet");
     }
-    hui::ui::text(list, fonts_.mono, count, r.x + r.w - kPad, r.y + 32, 18, with_a(kInk, kMuted), Align::right);
+    hui::ui::text(list, fonts_.mono, count, r.x + r.w - kPad, r.y + 32, 16, with_a(kInk, kMuted), Align::right);
 
     const float size = 140.0f;
     const float gap  = (r.w - 2.0f * kPad - (float) kThumbs * size) / (float) (kThumbs - 1);
@@ -906,18 +933,37 @@ void Dashboard::draw_recent(DrawList & list, const Rect & r) const {
                       with_a(kInk, kFaint), Align::center);
         return;
     }
+
+    int start_idx = 0;
+    if (total > kThumbs) {
+        start_idx = std::clamp(selected_picture_index_ - (kThumbs / 2), 0, total - kThumbs);
+    }
+
     for (int i = 0; i < kThumbs; i++) {
+        const int p_idx = start_idx + i;
         const Rect slot{ r.x + kPad + (size + gap) * (float) i, r.y + 50, size, size };
-        const bool have = (std::size_t) i < pictures_.size();
+        const bool have = p_idx < total;
+        const bool is_sel = have && p_idx == selected_picture_index_;
+        const bool hovered = cursor_active() &&
+                             cursor_x_ >= slot.x && cursor_x_ <= slot.x + slot.w &&
+                             cursor_y_ >= slot.y && cursor_y_ <= slot.y + slot.h;
+
         list.rounded_rect(slot, 16, with_a(kWell, have ? 0.85f : 0.45f));
-        if (have && pictures_[(std::size_t) i].thumb.id != 0) {
-            const Texture & t = pictures_[(std::size_t) i].thumb;
+        if (have && pictures_[(std::size_t) p_idx].thumb.id != 0) {
+            const Texture & t = pictures_[(std::size_t) p_idx].thumb;
             list.image(t.id, contain(slot, t.width, t.height), hui::gfx::kFullUv, Color{ 1, 1, 1, 1 }, 14);
-        } else if (have && pictures_[(std::size_t) i].failed) {
+        } else if (have && pictures_[(std::size_t) p_idx].failed) {
             hui::ui::text(list, fonts_.semibold, "?", slot.cx(), slot.cy() + 12, 36, with_a(kInk, kFaint), Align::center);
         }
-        list.bordered_rect(slot, 16, kClear, i == 0 && have ? 2.5f : 1.5f,
-                           i == 0 && have ? with_a(kLime, 0.85f) : with_a(kInk, have ? 0.15f : 0.06f));
+
+        if (is_sel) {
+            list.bordered_rect(slot, 16, kClear, 3.0f, kCyan);
+            list.circle(slot.cx(), slot.y + 8, 3.0f, kCyan);
+        } else if (hovered) {
+            list.bordered_rect(slot, 16, kClear, 2.0f, with_a(Color{ 1, 1, 1, 1 }, 0.75f));
+        } else {
+            list.bordered_rect(slot, 16, kClear, 1.5f, with_a(kInk, have ? 0.15f : 0.06f));
+        }
     }
 }
 
@@ -1014,9 +1060,10 @@ void Dashboard::draw_footer(DrawList & list) const {
     const Cue cues[] = {
         { "TRIANGLE", "FAVORITE", kAmber },
         { "CROSS", "GENERATE", kLime },
-        { "SQUARE", "LOG / HUD", kCyan },
-        { "CIRCLE", "AMBIENT", kViolet },
-        { "L1 / R1", "BROWSE", kCyan }
+        { "SQUARE", "FULLSCREEN GALLERY", kCyan },
+        { "CIRCLE", "AMBIENT / BACK", kViolet },
+        { "L1 / R1", "BROWSE", kCyan },
+        { "L-STICK", "POINTER", kSteel },
     };
 
     float x = bar.x + 20.0f;
@@ -1034,6 +1081,142 @@ void Dashboard::draw_footer(DrawList & list) const {
     }
 
     caps(list, "PS5 DUALSENSE READY", bar.x + bar.w - 20.0f, cy + 4.0f, 11, with_a(kCyan, 0.65f), Align::right);
+}
+
+void Dashboard::draw_cursor(DrawList & list) const {
+    if (!cursor_active()) {
+        return;
+    }
+    const float alpha = std::min(1.0f, cursor_timer_);
+    const float cx    = cursor_x_;
+    const float cy    = cursor_y_;
+    list.circle(cx, cy, 14.0f, with_a(kCyan, 0.20f * alpha));
+    list.ring(cx, cy, 14.0f, 2.0f, with_a(kCyan, 0.85f * alpha));
+    list.circle(cx, cy, 4.0f, with_a(Color{ 1, 1, 1, 1 }, 0.95f * alpha));
+}
+
+void Dashboard::draw_fullscreen_gallery(DrawList & list) const {
+    const Rect full{ 0, 0, 1920, 1080 };
+    list.rounded_rect(full, 0, Color::rgb(0x080c18, 1.0f));
+
+    if (pictures_.empty()) {
+        hui::ui::text(list, fonts_.regular, "No creations found in gallery yet", full.cx(), full.cy(), 28,
+                      with_a(kInk, kFaint), Align::center);
+        return;
+    }
+
+    const int idx = std::clamp(selected_picture_index_, 0, static_cast<int>(pictures_.size()) - 1);
+    const Picture & p = pictures_[idx];
+    const Texture * tex = (p.large.id != 0) ? &p.large : ((p.thumb.id != 0) ? &p.thumb : nullptr);
+
+    if (tex != nullptr) {
+        const Rect view_area{ 48, 80, 1824, 880 };
+        list.image(tex->id, contain(view_area, tex->width, tex->height), hui::gfx::kFullUv, Color{ 1, 1, 1, 1 }, 12);
+    }
+
+    // Top metadata bar
+    const Rect top_bar{ 96, 20, 1728, 48 };
+    list.rounded_rect(top_bar, 14, Color::rgb(0x0e1424, 0.90f));
+    list.bordered_rect(top_bar, 14, kClear, 1.0f, with_a(kCyan, 0.40f));
+    char count_str[64];
+    std::snprintf(count_str, sizeof(count_str), "CINEMA GALLERY (%d of %d)", idx + 1, static_cast<int>(pictures_.size()));
+    caps(list, count_str, top_bar.x + 24, top_bar.cy() + 5, 14, kCyan);
+
+    const std::string pr = p.prompt.empty() ? "Machete Studio Creation" : p.prompt;
+    hui::ui::text(list, fonts_.regular, fonts_.regular.font->fit(pr, 18, 1100), top_bar.x + 280, top_bar.cy() + 6, 18, with_a(kInk, 0.9f));
+
+    // Bottom controller cues bar
+    const Rect bot_bar{ 96, 988, 1728, 48 };
+    list.rounded_rect(bot_bar, 14, Color::rgb(0x0e1424, 0.90f));
+    list.bordered_rect(bot_bar, 14, kClear, 1.0f, with_a(kSteel, 0.35f));
+
+    struct Cue { const char * key; const char * label; Color accent; };
+    const Cue cues[] = {
+        { "L1 / R1", "PREV / NEXT", kCyan },
+        { "TRIANGLE", "FAVORITE", kAmber },
+        { "CROSS", "GENERATE", kLime },
+        { "CIRCLE", "BACK TO STUDIO", kRose },
+        { "L-STICK", "POINTER", kSteel },
+    };
+    float x = bot_bar.x + 24.0f;
+    const float cy = bot_bar.cy();
+    for (const auto & cue : cues) {
+        const float key_w = hui::ui::text(list, fonts_.mono, cue.key, 0, 0, 12, kClear) + 14.0f;
+        const Rect pill{ x, cy - 10.0f, key_w, 20.0f };
+        list.rounded_rect(pill, 5.0f, with_a(cue.accent, 0.18f));
+        list.bordered_rect(pill, 5.0f, kClear, 1.0f, with_a(cue.accent, 0.60f));
+        hui::ui::text(list, fonts_.mono, cue.key, pill.cx(), pill.cy() + 4.0f, 12, cue.accent, Align::center);
+
+        x += key_w + 8.0f;
+        const float label_w = caps(list, cue.label, x, cy + 4.0f, 12, with_a(kInk, 0.85f), Align::left);
+        x += label_w + 28.0f;
+    }
+}
+
+void Dashboard::move_cursor(float stick_x, float stick_y, float dt) {
+    cursor_active_ = true;
+    cursor_timer_  = 6.0f;
+    const float speed = 1400.0f;
+    cursor_x_ = std::clamp(cursor_x_ + (stick_x / 128.0f) * speed * dt, 10.0f, 1910.0f);
+    cursor_y_ = std::clamp(cursor_y_ + (stick_y / 128.0f) * speed * dt, 10.0f, 1070.0f);
+}
+
+bool Dashboard::handle_cursor_click() {
+    if (!cursor_active()) {
+        return false;
+    }
+    cursor_timer_ = 6.0f;
+
+    // 1. Fullscreen Gallery interaction
+    if (fullscreen_gallery_) {
+        if (cursor_x_ < 280.0f) {
+            cycle_picture(-1);
+            return true;
+        } else if (cursor_x_ > 1640.0f) {
+            cycle_picture(1);
+            return true;
+        } else {
+            fullscreen_gallery_ = false;
+            return true;
+        }
+    }
+
+    // 2. Canvas click: toggles fullscreen gallery
+    if (cursor_x_ >= kImage.x && cursor_x_ <= kImage.x + kImage.w &&
+        cursor_y_ >= kImage.y && cursor_y_ <= kImage.y + kImage.h) {
+        if (!pictures_.empty()) {
+            fullscreen_gallery_ = true;
+            return true;
+        }
+    }
+
+    // 3. Recent filmstrip thumbnails click
+    if (cursor_x_ >= kRecent.x && cursor_x_ <= kRecent.x + kRecent.w &&
+        cursor_y_ >= kRecent.y && cursor_y_ <= kRecent.y + kRecent.h) {
+        if (log_open_) {
+            toggle_log();
+            return true;
+        }
+        const float size = 140.0f;
+        const float gap  = (kRecent.w - 2.0f * kPad - (float) kThumbs * size) / (float) (kThumbs - 1);
+        const int total  = static_cast<int>(pictures_.size());
+        int start_idx    = 0;
+        if (total > kThumbs) {
+            start_idx = std::clamp(selected_picture_index_ - (kThumbs / 2), 0, total - kThumbs);
+        }
+        for (int i = 0; i < kThumbs; i++) {
+            const Rect slot{ kRecent.x + kPad + (size + gap) * (float) i, kRecent.y + 50, size, size };
+            if (cursor_x_ >= slot.x && cursor_x_ <= slot.x + slot.w &&
+                cursor_y_ >= slot.y && cursor_y_ <= slot.y + slot.h) {
+                if (start_idx + i < total) {
+                    selected_picture_index_ = start_idx + i;
+                    return true;
+                }
+            }
+        }
+    }
+
+    return false;
 }
 
 }  // namespace ps5sd

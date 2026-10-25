@@ -1035,7 +1035,8 @@ int retry_download(const std::string & id, std::string & out) {
             return answer(out, 409, error_json(item->rec.dest + " is " + item->rec.state + ", not failed or cancelled"));
         }
         const DownloadRecord rec = item->rec;
-        const int status = enqueue_locked(rec.url, rec.kind, rec.dest, rec.catalog, added, out);
+        const std::string canon_url = canonicalize_model_url(rec.url);
+        const int status = enqueue_locked(canon_url, rec.kind, rec.dest, rec.catalog, added, out);
         if (status != 202) {
             return status;
         }
@@ -1247,7 +1248,14 @@ void downloader_start(const DownloaderConfig & config) {
         for (const auto & r : loaded) {
             auto item = std::make_unique<Item>();
             item->rec = r;
-            item->rec.url = canonicalize_model_url(item->rec.url);
+            const std::string canon = canonicalize_model_url(item->rec.url);
+            if (canon != item->rec.url) {
+                item->rec.url = canon;
+                if (item->rec.state == "failed") {
+                    item->rec.state = "queued";
+                    item->rec.error.clear();
+                }
+            }
             g_items.push_back(std::move(item));
         }
         std::error_code ec;

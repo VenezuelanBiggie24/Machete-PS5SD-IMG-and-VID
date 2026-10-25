@@ -36,6 +36,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include <arpa/inet.h>
+#include <dirent.h>
 #include <netinet/in.h>
 #include <pthread.h>
 #include <sys/socket.h>
@@ -2466,6 +2467,41 @@ extern "C" void sd_activity_job_end(int ok, const char * output_path) {
     set_phase("Ready", first.empty() ? "image sent" : std::string("saved ") + first);
 }
 
+void scan_initial_gallery() {
+    if (kOutputs.empty()) return;
+    DIR * d = opendir(kOutputs.c_str());
+    if (!d) return;
+    std::vector<std::string> files;
+    struct dirent * dir = nullptr;
+    while ((dir = readdir(d)) != nullptr) {
+        if (dir->d_name[0] == '.') continue;
+        const std::string name = dir->d_name;
+        if (name.size() > 4) {
+            std::string ext = name.substr(name.size() - 4);
+            for (auto & c : ext) c = std::tolower(c);
+            if (ext == ".png" || ext == ".jpg" || ext == ".mp4") {
+                files.push_back(kOutputs + "/" + name);
+            } else if (name.size() > 5 && name.substr(name.size() - 5) == ".webm") {
+                files.push_back(kOutputs + "/" + name);
+            }
+        }
+    }
+    closedir(d);
+    std::sort(files.begin(), files.end(), std::greater<std::string>());
+    for (const auto & f : files) {
+        std::string prompt;
+        const size_t slash = f.find_last_of("/\\");
+        const std::string fname = (slash != std::string::npos) ? f.substr(slash + 1) : f;
+        const std::string txt_file = kOutputs + "/.thumbs/" + fname + ".txt";
+        std::ifstream prompt_in(txt_file);
+        if (prompt_in.is_open()) {
+            std::getline(prompt_in, prompt);
+        }
+        g_status.add_existing_result(f, prompt);
+    }
+    std::printf("ps5sd: gallery: scanned %zu existing creation(s)\n", files.size());
+}
+
 int main(int, char **) {
     StorageManager::instance().init();
     update_storage_paths();
@@ -2505,6 +2541,7 @@ int main(int, char **) {
     if (const int dropped = drop_temporary(kOutputs); dropped > 0) {
         std::printf("ps5sd: deleted %d image(s) that were not to be kept\n", dropped);
     }
+    scan_initial_gallery();
     for (const std::string & id : update_catalog_presets(kPresets)) {
         std::printf("ps5sd: preset %s updated to the catalog's current settings\n", id.c_str());
     }
@@ -2626,13 +2663,30 @@ int main(int, char **) {
                 const std::uint32_t pressed = s.buttons & ~prev_buttons;
                 prev_buttons = s.buttons;
 
+                // Left analog stick to on-screen virtual pointer cursor
+                const float deadzone = 16.0f;
+                const float sx = static_cast<float>(s.left_x) - 128.0f;
+                const float sy = static_cast<float>(s.left_y) - 128.0f;
+                if (std::abs(sx) > deadzone || std::abs(sy) > deadzone) {
+                    view.move_cursor(sx, sy, 1.0f / 60.0f);
+                }
+
                 if (pressed & hui::pad_bits::kSquare) {
-                    view.toggle_log();
+                    if (view.fullscreen_gallery()) {
+                        view.close_fullscreen();
+                    } else {
+                        view.toggle_fullscreen();
+                    }
                     pad.rumble(0.4f, 0.12f);
                 }
                 if (pressed & hui::pad_bits::kCircle) {
-                    view.toggle_screensaver();
-                    pad.rumble(0.4f, 0.12f);
+                    if (view.fullscreen_gallery()) {
+                        view.close_fullscreen();
+                        pad.rumble(0.3f, 0.1f);
+                    } else {
+                        view.toggle_screensaver();
+                        pad.rumble(0.4f, 0.12f);
+                    }
                 }
                 if (pressed & (hui::pad_bits::kL1 | hui::pad_bits::kLeft)) {
                     view.cycle_picture(-1);
@@ -2643,20 +2697,28 @@ int main(int, char **) {
                     pad.rumble(0.25f, 0.08f);
                 }
                 if (pressed & hui::pad_bits::kCross) {
-                    const auto cur_snap = g_status.snapshot();
-                    if (cur_snap.state != AppStatus::State::generating) {
-                        pad.rumble(0.6f, 0.2f);
-                        std::string p = view.current_picture_prompt();
-                        if (p.empty()) {
-                            p = "A cinematic masterpiece, highly detailed digital art";
+                    bool handled = false;
+                    if (view.cursor_active()) {
+                        handled = view.handle_cursor_click();
+                    }
+                    if (!handled) {
+                        const auto cur_snap = g_status.snapshot();
+                        if (cur_snap.state != AppStatus::State::generating) {
+                            pad.rumble(0.6f, 0.2f);
+                            std::string p = view.current_picture_prompt();
+                            if (p.empty()) {
+                                p = "A cinematic masterpiece, highly detailed digital art";
+                            }
+                            std::thread([p]() {
+                                CompanionParams cp;
+                                std::string err;
+                                companion_generate(p, cp, err);
+                            }).detach();
+                        } else {
+                            pad.rumble(0.2f, 0.08f);
                         }
-                        std::thread([p]() {
-                            CompanionParams cp;
-                            std::string err;
-                            companion_generate(p, cp, err);
-                        }).detach();
                     } else {
-                        pad.rumble(0.2f, 0.08f);
+                        pad.rumble(0.3f, 0.1f);
                     }
                 }
                 if (pressed & hui::pad_bits::kTriangle) {
@@ -2674,12 +2736,30 @@ int main(int, char **) {
                 }
             }
             const auto snap = g_status.snapshot();
-            if (snap.state == AppStatus::State::generating) {
-                pad.set_light_bar(255, 140, 0);
-            } else if (view.screensaver_active()) {
-                pad.set_light_bar(180, 0, 255);
-            } else {
-                pad.set_light_bar(0, 160, 255);
+            static AppStatus::State s_prev_state = AppStatus::State::ready;
+            if (snap.state != s_prev_state) {
+                s_prev_state = snap.state;
+                if (snap.state == AppStatus::State::generating) {
+                    pad.set_light_bar(255, 140, 0);
+                    // Heavy trigger resistance on both L2 & R2 while generating
+                    pad.set_trigger_effect(3, 1, 1, 8, 8);
+                } else {
+                    if (view.screensaver_active()) {
+                        pad.set_light_bar(180, 0, 255);
+                    } else {
+                        pad.set_light_bar(0, 160, 255);
+                    }
+                    // Tactile camera shutter snap on R2 for generation
+                    pad.set_trigger_effect(2, 2, 2, 7, 7);
+                    // Free L2
+                    pad.set_trigger_effect(1, 0, 0, 0, 0);
+                }
+            } else if (snap.state != AppStatus::State::generating) {
+                if (view.screensaver_active()) {
+                    pad.set_light_bar(180, 0, 255);
+                } else {
+                    pad.set_light_bar(0, 160, 255);
+                }
             }
             pad.tick(1.0f / 60.0f);
 

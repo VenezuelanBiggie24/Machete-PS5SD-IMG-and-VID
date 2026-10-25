@@ -128,6 +128,19 @@ void AppStatus::set_result(std::string path) {
     s_.result = std::move(path);
 }
 
+void AppStatus::add_existing_result(std::string path, std::string prompt) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    for (const auto & r : s_.recent) {
+        if (r.path == path) {
+            return;
+        }
+    }
+    s_.recent.push_back(Result{ std::move(path), std::move(prompt) });
+    if (s_.recent.size() > kResults) {
+        s_.recent.resize(kResults);
+    }
+}
+
 void AppStatus::set_model(std::string name) {
     std::lock_guard<std::mutex> lock(mutex_);
     s_.model = std::move(name);

@@ -1,28 +1,38 @@
-Machete AI Studio 1.2.3 brings critical layout, color contrast, and scroll fixes to the Web Studio, introduces native app icon serving, enables direct Telegram sharing for all media formats (images and videos), wires DualSense Cross and Triangle controls on the TV dashboard, and provides in-app speed guidance for video generation.
+Machete AI Studio 1.2.4 introduces an interactive on-screen virtual pointer cursor and full-screen cinema gallery on TV, implements DualSense adaptive trigger mechanical resistance, adds one-click Turbo Mode presets with automatic LoRA acceleration (CausVid for Wan 2.1 and Lightning for SDXL), expands the Telegram Companion bot with /turbo mode commands and quick menu toggles, fixes model download errors with comprehensive URL canonicalization, and refines Web Studio header aesthetics.
 
 ## Fixes & Enhancements
 
-- **Web Studio Layout, Contrast & Scroll Polishing**:
-  - Restored complete desktop modal styling and z-index layering for the Lightbox viewer (`.lb`), eliminating rendering glitches and element overlapping.
-  - Resolved theme color clashes in light mode by replacing hardcoded dark backgrounds with dynamic CSS variables (`--sel-bg`, `--raised`, `--hover-weak`), ensuring high-contrast readability.
-  - Fixed mobile generation dock (`.gorow`) margin collisions and sticky positioning to prevent overlapping underlying parameter controls.
-  - Corrected sidebar collapse breakpoint so medium tablet viewports maintain full horizontal tab navigation.
-  - Upgraded scrollbars to 8px width with accessible contrast thumbs across dark and light themes.
+- **TV UI Virtual Pointer Cursor & Full-Screen Cinema Gallery**:
+  - Implemented an interactive on-screen virtual cursor controlled with the DualSense Left Analog Stick or Touchpad, providing smooth point-and-click navigation directly on TV without leaving the homebrew application.
+  - Added Full-Screen Cinema Gallery mode (toggled via Square button, canvas click, or thumbnail selection) allowing users to browse their creations full-bleed with L1/R1 navigation, prompt overlays, and favorite toggling.
+  - Implemented initial gallery filesystem scanning on console startup (`scan_initial_gallery`), populating existing creations and videos directly into the TV filmstrip.
+  - Upgraded the TV filmstrip into a dynamic scrolling window that visually highlights active selections and cursor hover targets across all creations.
 
-- **App Brand Icon & Favicon Integration**:
-  - Implemented `/ps5sd/v1/app/icon` endpoint serving the official `icon0.png` asset with PNG headers and inline SVG fallback.
-  - Added official high-resolution application branding to the studio header bar and browser tab favicon.
+- **DualSense Adaptive Trigger Resistance & Haptic Feedback**:
+  - Integrated native `scePadSetTriggerEffect` support into the PS5 homebrew pad subsystem.
+  - During AI image and video generation, adaptive triggers engage heavy mechanical feedback resistance on L2 and R2, providing physical tactile confirmation that the GPU is under full rendering load.
+  - When idle, the R2 trigger engages a two-stage tactile snap (weapon mode) mimicking a professional DSLR camera shutter when pulling the trigger to generate.
 
-- **Telegram Companion Sharing for All Media**:
-  - Moved the Telegram send action directly to the primary Lightbox toolbar (`.lb-acts`), making it available and functional for both videos and images regardless of metadata presence.
-  - Added a one-click Telegram send button to the Gallery multi-selection bar (`#gselbar`).
+- **One-Click Turbo Mode Presets & Accelerator LoRA Bundling**:
+  - Added a dedicated "Turbo Mode" toggle button to the Web Studio Create tab.
+  - For Wan 2.1 Video: sets 4 steps, CFG 1.0, and auto-activates the CausVid LoRA, slashing video render times from ~15 minutes down to ~2 minutes.
+  - For SDXL: sets 8 steps, CFG 1.5, and attaches the SDXL-Lightning LoRA for photorealistic 1024x1024 generations in ~4 seconds.
+  - For SD-Turbo / SDXS: sets 1 step, CFG 1.0 for instant sub-second previews.
+  - Updated the official model catalog to bundle CausVid LoRA with Wan 2.1 and Lightning LoRA with SDXL.
 
-- **TV Dashboard DualSense Controller Inputs**:
-  - Wired `Cross` button input: triggers immediate asynchronous image/video generation with DualSense haptic rumble.
-  - Wired `Triangle` button input: tags the active picture as `#favorite` in `.labels.json` with haptic confirmation and HUD notification.
+- **Telegram Companion Bot Turbo Integration**:
+  - Added `/turbo`, `/fast`, and `/rapido` slash commands to the Telegram Companion bot.
+  - Added a persistent "Modo Rapido (Turbo)" menu button to the Telegram reply keyboard for instant one-tap activation of high-speed parameters.
 
-- **Video Generation Acceleration Guidance**:
-  - Added an integrated Speed Tip in the Video settings group explaining that Wan 2.1 video generation takes ~2 minutes with the CausVid LoRA (4 to 8 steps, CFG 1), compared to ~14 minutes at 20 steps.
+- **Model Download Reliability & URL Canonicalization**:
+  - Corrected model file URLs in the catalog, including SDXS-512 and Wan 2.2 VAE filenames.
+  - Enhanced `canonicalize_model_url` in the download core to resolve legacy gated or altered URLs.
+  - Updated `downloader_start` to automatically reset failed downloads to queued with cleared errors whenever canonicalized URLs are detected, allowing one-click retry for previously failed queue items.
+
+- **Web Studio Header & Sidebar Polish**:
+  - Styled the active model button into an elevated pill badge, preventing layout collisions.
+  - Hardened folded sidebar CSS (`html.side-mini`) with strict clipping and hidden labels to prevent text overflow over the top header.
+  - Replaced hardcoded dark background gradients in light mode with dynamic theme variables.
 
 ## Install
 
@@ -32,34 +42,44 @@ Credits: PS5SD by Darkatek7 (Heel Tobias), stable-diffusion.cpp (ggerganov / lee
 
 ----
 
-Machete AI Studio 1.2.3 aporta correcciones criticas de diseno, contraste de color y desplazamiento en el Web Studio, incorpora el logo nativo de la aplicacion en el servidor web, habilita el envio directo a Telegram de todos los formatos (imagenes y videos), activa los controles Cross y Triangle del DualSense en el panel de TV y anade guia de aceleracion para generacion de video.
+Machete AI Studio 1.2.4 presenta un cursor de puntero virtual en pantalla y galeria de cine a pantalla completa en TV, implementa resistencia mecanica en los gatillos adaptativos del DualSense, anade preajustes de Modo Rapido (Turbo) con un solo clic con aceleracion LoRA automatica (CausVid para Wan 2.1 y Lightning para SDXL), expande el bot complementario de Telegram con comandos /turbo y botones de menu rapido, soluciona errores de descarga de modelos mediante canonicalizacion integral de URLs y perfecciona la estetica de la cabecera en el Web Studio.
 
 ## Correcciones y Mejoras
 
-- **Diseno, Contraste y Desplazamiento del Web Studio**:
-  - Restauracion completa de los estilos de escritorio y capas z-index para el visor Lightbox (`.lb`), eliminando elementos superpuestos y bloqueos graficos.
-  - Correccion de discrepancias de color en el tema claro al sustituir fondos oscuros fijos por variables CSS adaptables (`--sel-bg`, `--raised`, `--hover-weak`), garantizando legibilidad y armonia visual.
-  - Ajuste de margenes y fijacion adhesiva de la barra de generacion movil (`.gorow`), evitando que tape controles o entorpezca el scroll.
-  - Correccion de puntos de ruptura para que dispositivos medianos mantengan la barra horizontal de pestanas sin cortes laterales indeseados.
-  - Barras de desplazamiento ampliadas a 8px con alto contraste tanto en modo oscuro como en modo claro.
+- **Cursor Virtual en Pantalla y Galeria de Cine a Pantalla Completa en TV**:
+  - Implementacion de un cursor interactivo en pantalla controlado con el stick analogico izquierdo o el panel tactil del DualSense, permitiendo navegacion completa sin salir de la aplicacion ni requerir navegadores externos.
+  - Modo de Galeria a Pantalla Completa (activable con el boton Cuadrado, haciendo clic en el lienzo o seleccionando miniaturas), permitiendo recorrer todas las creaciones a pantalla completa con L1/R1, indicaciones en pantalla y marcado de favoritos.
+  - Escaneo automatico del sistema de archivos al iniciar la consola (`scan_initial_gallery`), cargando todas las imagenes y videos previos en la tira de miniaturas de la TV.
+  - Tira de miniaturas mejorada con ventana desplazable que resalta la seleccion activa y el objetivo sobrevolado por el cursor.
 
-- **Icono de Aplicacion y Favicon en el Servidor**:
-  - Implementacion de la ruta `/ps5sd/v1/app/icon` que entrega `icon0.png` con encabezados PNG y respaldo vectorial SVG.
-  - Visualizacion del logotipo oficial en la cabecera de la interfaz web y como favicon en la pestana del navegador.
+- **Resistencia en Gatillos Adaptativos del DualSense y Respuesta Haptica**:
+  - Integracion nativa de `scePadSetTriggerEffect` en el subsistema de mando para homebrew de PS5.
+  - Durante la generacion de imagen o video, los gatillos adaptativos L2 y R2 activan una resistencia mecanica firme, confirmando fisicamente que la GPU esta en pleno proceso de renderizado.
+  - En reposo, el gatillo R2 activa una respuesta de dos etapas con tope mecanico (modo weapon) que imita el obturador de una camara profesional al disparar para generar.
 
-- **Envio a Telegram para Todo Tipo de Archivos**:
-  - El boton de envio a Telegram se integro de forma permanente en la barra de herramientas principal del Lightbox (`.lb-acts`), permitiendo enviar tanto videos como imagenes previas con o sin metadatos.
-  - Incorporacion de boton de envio a Telegram en la barra de seleccion multiple de la galeria (`#gselbar`).
+- **Preajustes de Modo Rapido (Turbo) con LoRA Acelerador**:
+  - Boton dedicado "Modo Rapido (Turbo)" en la pestana Crear de la interfaz web.
+  - Para Wan 2.1 Video: configura 4 pasos, CFG 1.0 y vincula automaticamente el LoRA CausVid, reduciendo el tiempo de renderizado de ~15 minutos a ~2 minutos.
+  - Para SDXL: configura 8 pasos, CFG 1.5 y adjunta el LoRA SDXL-Lightning para imagenes fotorrealistas de 1024x1024 en ~4 segundos.
+  - Para SD-Turbo / SDXS: configura 1 paso y CFG 1.0 para resultados instantaneos.
+  - Actualizacion del catalogo oficial para incluir los LoRAs CausVid y Lightning en las descargas correspondientes.
 
-- **Controles DualSense en el Panel de TV**:
-  - Implementacion del boton `Cruz` (Cross): inicia la generacion inmediata en segundo plano con vibracion haptica en el mando.
-  - Implementacion del boton `Triangulo` (Triangle): marca la imagen seleccionada como favorita (`#favorite`) en `.labels.json` con vibracion y notificacion en pantalla.
+- **Integracion de Modo Turbo en el Bot de Telegram**:
+  - Comandos `/turbo`, `/fast` y `/rapido` anadidos al bot de Telegram.
+  - Boton persistente "Modo Rapido (Turbo)" en el teclado interactivo de Telegram para activar ajustes veloces con un solo toque.
 
-- **Guia de Optimizacion de Velocidad en Video**:
-  - Se anadio un aviso instructivo en la seccion de video indicando que Wan 2.1 tarda ~2 minutos utilizando el LoRA CausVid (4 a 8 pasos, CFG 1), frente a los ~14 minutos que toma a 20 pasos convencionales.
+- **Fiabilidad en Descargas de Modelos y Canonicalizacion de URLs**:
+  - Correccion de URLs de modelos en el catalogo, incluyendo nombres de archivo de SDXS-512 y Wan 2.2 VAE.
+  - Mejora de `canonicalize_model_url` para resolver URLs antiguas con restricciones.
+  - Actualizacion en `downloader_start` para reiniciar descargas fallidas al estado en cola y limpiar errores cuando se detecten URLs canonicalizadas.
+
+- **Perfeccionamiento Visual en Web Studio**:
+  - Transformacion del selector de modelo activo en una capsula destacada para evitar colisiones visuales.
+  - Refuerzo del CSS de la barra lateral plegada (`html.side-mini`) con recorte estricto para evitar superposicion de textos en la cabecera.
+  - Eliminacion de manchas oscuras en tema claro sustituyendo gradientes fijos por variables de tema.
 
 ## Instalacion
 
-Instale desde la tienda homebrew (Machete AI Studio, PPSA99699), o descomprima PPSA99699.zip en /data/homebrew/ en la consola y permita que ShadowMountPlus escanee. Requisitos: kstuff-lite, ShadowMountPlus, elfldr; ftpsrv en 2121 opcional.
+Instala desde la tienda homebrew (Machete AI Studio, PPSA99699) o descomprime PPSA99699.zip en /data/homebrew/ en la consola y permite que ShadowMountPlus escanee. Requisitos: kstuff-lite, ShadowMountPlus, elfldr; ftpsrv en 2121 opcional.
 
 Creditos: PS5SD por Darkatek7 (Heel Tobias), stable-diffusion.cpp (ggerganov / leejet), ps5-exporter (Marice), adiciones de Machete Studio por VenezuelanBiggie24.

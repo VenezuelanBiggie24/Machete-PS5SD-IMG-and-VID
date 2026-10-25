@@ -423,7 +423,7 @@ inline std::vector<CatalogEntry> entries() {
         {
             "wan21-t2v-1.3b",
             "Wan 2.1 T2V 1.3B (video)",
-            "Short videos from a prompt: 33 frames (2 s) at 832x480 in about 2 min 15 s with the CausVid LoRA, 81 frames (5 s) in about 8 min. 6.7 GB.",
+            "Short videos from a prompt: 33 frames (2 s) at 832x480 in about 5 min, 81 frames (5 s) in about 12 min. 6.7 GB.",
             {
                 { "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/"
                   "diffusion_models/wan2.1_t2v_1.3B_fp16.safetensors",
@@ -463,7 +463,7 @@ inline std::vector<CatalogEntry> entries() {
         {
             "wan21-t2v-1.3b-tae",
             "Wan 2.1 T2V 1.3B, fast decoder (video)",
-            "Wan 2.1 with a small decoder: 33 frames (2 s) in about 1 min 30 s with the CausVid LoRA, 81 frames in about 6 min; a little softer. Shares the model files, 23 MB more.",
+            "Wan 2.1 with a small decoder: 33 frames (2 s) in about 4 min, 81 frames in about 10 min; a little softer. Shares the model files, 23 MB more.",
             {
                 { "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/"
                   "diffusion_models/wan2.1_t2v_1.3B_fp16.safetensors",
@@ -493,6 +493,72 @@ inline std::vector<CatalogEntry> entries() {
             "33\n"
             "--fps\n"
             "16\n",
+            false,
+            "",
+        },
+        {
+            "wan21-fast",
+            "Wan 2.1 Fast Video (CausVid 4-Step)",
+            "Hyper-fast video generation: 33 frames (2 s) at 832x480 in about 2 min with CausVid LoRA (4 steps). 6.8 GB.",
+            {
+                { "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/"
+                  "diffusion_models/wan2.1_t2v_1.3B_fp16.safetensors",
+                  "diffusion_models/wan2.1_t2v_1.3B_fp16.safetensors", 2838303560ull, 0 },
+                { "https://huggingface.co/city96/umt5-xxl-encoder-gguf/resolve/main/umt5-xxl-encoder-Q4_K_M.gguf",
+                  "text_encoders/umt5-xxl-encoder-Q4_K_M.gguf", 3655145312ull, 0 },
+                { "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/vae/"
+                  "wan_2.1_vae.safetensors",
+                  "vae/wan_2.1_vae.safetensors", 253815318ull, 0 },
+                { "https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/Wan21_CausVid_bidirect2_T2V_1_3B_lora_rank32.safetensors",
+                  "loras/Wan21_CausVid_1.3B_lora.safetensors", 91233416ull, 0 },
+            },
+            "# name: Wan 2.1 Fast Video (CausVid 4-Step)\n"
+            "# defaults: steps=4 cfg=1 width=832 height=480 sampler=euler\n"
+            "--diffusion-model\n"
+            "diffusion_models/wan2.1_t2v_1.3B_fp16.safetensors\n"
+            "--t5xxl\n"
+            "text_encoders/umt5-xxl-encoder-Q4_K_M.gguf\n"
+            "--vae\n"
+            "vae/wan_2.1_vae.safetensors\n"
+            "--lora-model\n"
+            "loras/Wan21_CausVid_1.3B_lora.safetensors\n"
+            "--vae-tiling\n"
+            "--vae-tile-size\n"
+            "256\n"
+            "--vae-tile-overlap\n"
+            "0.25\n"
+            "--flow-shift\n"
+            "3\n"
+            "--video-frames\n"
+            "33\n"
+            "--fps\n"
+            "16\n",
+            false,
+            "",
+        },
+        {
+            "sdxl-lightning",
+            "SDXL Lightning 8-Step (Turbo Image)",
+            "Hyper-fast SDXL generation: 1024x1024 photorealistic art in only 8 steps (~4 seconds on PS5). 5.8 GB.",
+            {
+                { "https://huggingface.co/gpustack/stable-diffusion-xl-base-1.0-GGUF/resolve/main/"
+                  "stable-diffusion-xl-base-1.0-Q8_0.gguf",
+                  "stable-diffusion-xl-base-1.0-Q8_0.gguf", 4873718560ull, 0 },
+                PS5SD_SDXL_VAE,
+                { "https://huggingface.co/ByteDance/SDXL-Lightning/resolve/main/sdxl_lightning_8step_lora.safetensors",
+                  "loras/sdxl_lightning_8step_lora.safetensors", 393854592ull, 0 },
+            },
+            "# name: SDXL Lightning 8-Step (Turbo Image)\n"
+            "# defaults: steps=8 cfg=1.5 width=1024 height=1024 sampler=euler\n"
+            "-m\n"
+            "stable-diffusion-xl-base-1.0-Q8_0.gguf\n"
+            "--vae\n"
+            "vae/sdxl_vae_fp16_fix.safetensors\n"
+            "--lora-model\n"
+            "loras/sdxl_lightning_8step_lora.safetensors\n"
+            "--vae-tiling\n"
+            "--vae-tile-size\n"
+            "640\n",
             false,
             "",
         },
