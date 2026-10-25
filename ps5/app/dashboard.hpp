@@ -64,6 +64,15 @@ class Dashboard {
     void toggle_screensaver() { screensaver_active_ = !screensaver_active_; if (!screensaver_active_) idle_time_ = 0.0f; }
     bool screensaver_active() const { return screensaver_active_; }
 
+    // Cycles the active gallery image with DualSense L1/R1 or D-Pad.
+    void cycle_picture(int delta) {
+        if (pictures_.empty()) return;
+        const int n = static_cast<int>(pictures_.size());
+        selected_picture_index_ = (selected_picture_index_ + delta) % n;
+        if (selected_picture_index_ < 0) selected_picture_index_ += n;
+    }
+    int selected_picture() const { return selected_picture_index_; }
+
     // Skips the entrance animation and the springs' travel (the PC preview
     // calls it before a picture; the console never does).
     void settle();
@@ -104,6 +113,7 @@ class Dashboard {
     void draw_recent(hui::gfx::DrawList & list, const hui::gfx::Rect & r) const;
     void draw_log_tile(hui::gfx::DrawList & list, const hui::gfx::Rect & r) const;
     void draw_memory(hui::gfx::DrawList & list, const hui::gfx::Rect & r) const;
+    void draw_footer(hui::gfx::DrawList & list) const;
     void draw_stat(hui::gfx::DrawList & list, const char * name, const std::string & value, float x,
                    float baseline) const;
     void draw_panel(hui::gfx::DrawList & list, const hui::gfx::Rect & r, float radius, hui::gfx::Color accent,
@@ -126,6 +136,7 @@ class Dashboard {
     bool                log_open_ = false;
     bool                screensaver_active_ = false;
     float               idle_time_ = 0.0f;
+    int                 selected_picture_index_ = 0;
     bool                loaded_   = false;
 
     // The state's colour, eased, so a change of state recolours the screen.

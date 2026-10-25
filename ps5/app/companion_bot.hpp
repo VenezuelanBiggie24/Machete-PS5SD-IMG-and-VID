@@ -51,6 +51,9 @@ public:
 
     bool is_running() const { return running_; }
 
+    // Sends an image directly to the paired Telegram user.
+    bool send_to_paired(const std::string & photo_path, const std::string & caption);
+
 private:
     CompanionBot() = default;
     ~CompanionBot() { stop(); }

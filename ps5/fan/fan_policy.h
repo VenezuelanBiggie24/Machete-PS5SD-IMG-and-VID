@@ -26,6 +26,16 @@ static inline int fan_wanted(int mode, int manual, int stock) {
   return want;
 }
 
+/* Predictive pre-cooling target: lowers target by an extra 3 C when an AI generation job begins,
+ * providing proactive thermal headroom before GPU boost clocks engage. */
+static inline int fan_precool_wanted(int mode, int manual, int stock, int active_job) {
+  int base = fan_wanted(mode, manual, stock);
+  if (!active_job || mode == FAN_QUIET) return base;
+  int precool = base - 3;
+  if (precool < FAN_LOWEST) precool = stock < FAN_LOWEST ? stock : FAN_LOWEST;
+  return precool;
+}
+
 /* The next target to write: one degree down when the last step is step_s seconds ago, up at once. */
 static inline int fan_next(int current, int wanted, double since_step, double step_s) {
   if (wanted >= current) return wanted;

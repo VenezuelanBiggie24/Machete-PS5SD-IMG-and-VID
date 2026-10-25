@@ -543,7 +543,10 @@
   .drow .bar { margin: 0.45rem 0 0.35rem; }
   .inrow { display: flex; }
   .lrow { display: flex; align-items: center; margin-bottom: 0.5rem; }
+  .lrow .lon { flex: none; width: 1.35rem; height: 1.35rem; margin: 0 0.6rem 0 0; accent-color: var(--accent); }
   .lrow .lname { flex: 1; min-width: 0; color: var(--text); word-wrap: break-word; }
+  .lrow.off .lname { color: var(--faint); text-decoration: line-through; }
+  .lrow.off input[type="number"] { opacity: 0.45; }
   .lrow input { flex: none; width: 6rem; margin: 0 0.5rem; }
   .lrow button { flex: none; min-width: 3.25rem; padding: 0 0.8rem; }
   .inrow select.upkind { flex: none; width: auto; margin-right: 0.6rem; }
@@ -909,6 +912,14 @@
               <button type="button" id="init-mask">Paint a mask</button>
               <button type="button" id="init-drop">Remove</button>
             </div>
+            <div class="outpaint-row" style="margin-top:8px; display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
+              <span class="lbl" style="width:100%; font-size:11px; margin-bottom:2px; color:var(--text-muted, #94a3b8);">Re-frame / Outpaint:</span>
+              <button type="button" class="sml" onclick="outpaintCanvas('left', 0.25)" title="Expand Left 25%">+ Left</button>
+              <button type="button" class="sml" onclick="outpaintCanvas('right', 0.25)" title="Expand Right 25%">+ Right</button>
+              <button type="button" class="sml" onclick="outpaintCanvas('up', 0.25)" title="Expand Top 25%">+ Top</button>
+              <button type="button" class="sml" onclick="outpaintCanvas('down', 0.25)" title="Expand Bottom 25%">+ Bottom</button>
+              <button type="button" class="sml" onclick="outpaintCanvas('all', 0.25)" title="Expand All Sides 25%">+ All</button>
+            </div>
           </div>
         </div>
         <label class="opt" id="init-ref-row" style="display:none"><input type="checkbox" id="init-ref" checked> Edit by the prompt: say what to change, the rest of the picture stays</label>
@@ -1079,6 +1090,20 @@
             <div></div>
           </div>
           <p class="hint">Auto is the preset's: 3 for Wan 2.1, 5 for Wan 2.2 TI2V. Higher spends more of the steps on the large shapes and the motion, lower on the details.</p>
+          <div class="director-cam-box" style="margin-top:0.8rem; padding-top:0.6rem; border-top:1px solid var(--border, rgba(255,255,255,0.08));">
+            <div class="lbl" style="font-weight:600; font-size:12px; margin-bottom:0.4rem; color:var(--text);">Director Camera Controls (Motion Guidance)</div>
+            <div style="display:flex; gap:0.4rem; flex-wrap:wrap;">
+              <button type="button" class="sml" onclick="applyCameraMotion('Pan Left')" title="Camera pans left">&larr; Pan L</button>
+              <button type="button" class="sml" onclick="applyCameraMotion('Pan Right')" title="Camera pans right">&rarr; Pan R</button>
+              <button type="button" class="sml" onclick="applyCameraMotion('Tilt Up')" title="Camera tilts upward">&uarr; Tilt Up</button>
+              <button type="button" class="sml" onclick="applyCameraMotion('Tilt Down')" title="Camera tilts downward">&darr; Tilt Down</button>
+              <button type="button" class="sml" onclick="applyCameraMotion('Zoom In')" title="Camera zooms in">&oplus; Zoom In</button>
+              <button type="button" class="sml" onclick="applyCameraMotion('Zoom Out')" title="Camera zooms out">&ominus; Zoom Out</button>
+              <button type="button" class="sml" onclick="applyCameraMotion('Roll CW')" title="Camera rolls clockwise">&circlearrowright; Roll CW</button>
+              <button type="button" class="sml" onclick="applyCameraMotion('Roll CCW')" title="Camera rolls counter-clockwise">&circlearrowleft; Roll CCW</button>
+              <button type="button" class="sml" onclick="applyCameraMotion('Clear')" title="Clear camera direction" style="opacity:0.75;">&times; Clear</button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -1176,7 +1201,7 @@
     <section class="panel" id="pnl-up" style="display:none">
       <div class="ph"><h2>Upload from this computer</h2><button type="button" class="info" data-help="help-upload" aria-label="More about uploads">&#9432;</button></div>
       <div class="inrow"><select id="up-kind" class="upkind" aria-label="What it is"><option value="models">Model</option><option value="loras">LoRA</option><option value="embeddings">Embedding</option><option value="presets">Preset (.txt)</option><option value="upscalers">Upscaler</option><option value="tags">Tags (.csv)</option></select><button type="button" id="up-pick">Choose a file</button></div>
-      <input id="up-file" type="file" style="display:none">
+      <input id="up-file" type="file" multiple style="display:none">
       <div id="up-box" style="display:none">
         <div class="mname" id="up-name"></div>
         <div class="bar"><div id="up-fill"></div></div>
@@ -1421,6 +1446,7 @@
         <button type="button" id="lb-cp">Copy prompt</button>
         <button type="button" id="lb-cn" style="display:none">Copy negative</button>
         <button type="button" id="lb-ca" title="The prompt and the settings as text, as other tools paste them">Copy all</button>
+        <button type="button" id="lb-telegram" title="Send directly to Telegram companion bot">Send to Telegram</button>
       </div>
     </div>
     <button type="button" id="lb-use" title="Put the prompt and the settings of this image into the Create tab">Use these settings</button>
@@ -1691,6 +1717,7 @@
   function checkAuth(then) {
     req('GET', '/ps5sd/v1/auth', null, function (code, data) {
       if (code === 200 && data && data.required && !data.authenticated) { showLogin(); return; }
+      if (code === 200) setOnline(true);
       then();
     }, 8000);
   }
@@ -2163,14 +2190,22 @@
     return path.replace(/^.*\//, '').replace(/\.(gguf|safetensors|ckpt|sft)$/i, '');
   }
 
-  // The request's "lora" field: the picked LoRAs that are still there, strength 0 left out.
+  // The request's "lora" field: the picked LoRAs that are on and still there, strength 0 left out.
   function loraBody(p) {
     var out = [];
     var ls = p.loras || [];
     for (var i = 0; i < ls.length; i++) {
-      if (ls[i].m !== 0 && loraKnown(ls[i].path)) out.push({ path: ls[i].path, multiplier: ls[i].m });
+      if (ls[i].m !== 0 && !ls[i].off && loraKnown(ls[i].path)) out.push({ path: ls[i].path, multiplier: ls[i].m });
     }
     return out;
+  }
+
+  // The Style group's summary: "2 LoRAs", "2 LoRAs, 1 off".
+  function loraSummary() {
+    if (!loraSel.length) return 'none';
+    var off = 0;
+    for (var i = 0; i < loraSel.length; i++) if (loraSel[i].off) off++;
+    return loraSel.length + (loraSel.length === 1 ? ' LoRA' : ' LoRAs') + (off ? ', ' + off + ' off' : '');
   }
 
   // The family of the loaded model ('' when it cannot be told), for the LoRA list.
@@ -2200,10 +2235,34 @@
     var wrong = [];
     for (var i = 0; i < loraSel.length; i++) {
       (function (s) {
-        var row = el('div', 'lrow');
+        var row = el('div', 'lrow' + (s.off ? ' off' : ''));
         var gone = !loraKnown(s.path);
         var of = otherFamily(s.path, '', fam);
-        if (of) wrong.push(readable(loraName(s.path)) + ' is made for ' + of);
+        if (of && !s.off) wrong.push(readable(loraName(s.path)) + ' is made for ' + of);
+        // on or off: an off LoRA stays in the list with its strength, but is not sent
+        var sw = document.createElement('input');
+        sw.type = 'checkbox';
+        sw.className = 'lon';
+        sw.checked = !s.off;
+        sw.title = 'On or off; the strength stays';
+        sw.setAttribute('aria-label', 'Use ' + loraName(s.path));
+        sw.onchange = function () {
+          s.off = !sw.checked;
+          var f = s.was ? fastLoraSettings(s.path) : null;
+          if (f && s.off && JSON.stringify(quality()) === JSON.stringify(s.set)) {
+            setQuality(s.was);
+            toast('Off: the settings from before ' + f.label + ' are back: ' + settingsText(s.was) + '.');
+          } else if (f && !s.off) {
+            s.was = quality();
+            setQuality(f);
+            s.set = quality();
+            toast(f.label + ' is on again: ' + settingsText(s.set) + '.');
+          }
+          summary();
+          drawLoraPicker();
+          persist();
+        };
+        row.appendChild(sw);
         row.appendChild(el('span', 'lname', readable(loraName(s.path)) + (gone ? ' (not on the console)' : '')));
         var inp = document.createElement('input');
         inp.type = 'number';
@@ -2949,6 +3008,24 @@
     return f;
   }
 
+  // Expands bracketed prompt permutations: "{cyberpunk, retro} cat in {rain, snow}"
+  // into an array of distinct prompt combinations.
+  function expandPermutations(text) {
+    var match = text.match(/\{([^{}]+)\}/);
+    if (!match) return [text];
+    var rawOptions = match[1].split(',');
+    var results = [];
+    for (var i = 0; i < rawOptions.length; i++) {
+      var opt = rawOptions[i].trim();
+      var variant = text.substring(0, match.index) + opt + text.substring(match.index + match[0].length);
+      var sub = expandPermutations(variant);
+      for (var j = 0; j < sub.length; j++) {
+        results.push(sub[j]);
+      }
+    }
+    return results;
+  }
+
   function generate() {
     if (st.sw) { toast('The model is switching. Try again in a moment.'); return; }
     if (st.mdl && st.mdl.standby) { toast('No model is loaded. Pick or download one first.'); setView('models'); return; }
@@ -2960,9 +3037,28 @@
       $('prompt').focus();
       return;
     }
+    var variants = expandPermutations(p.prompt);
     var n = runCount();
     // while something runs, the same settings wait in the server's queue
-    if (st.busy) { addToQueue(p, n); return; }
+    if (st.busy) {
+      for (var vi = 0; vi < variants.length; vi++) {
+        var pVar = Object.assign({}, p);
+        pVar.prompt = variants[vi];
+        if (!pVar.named) pVar.seed = Math.floor(Math.random() * 2147483647);
+        addToQueue(pVar, n);
+      }
+      return;
+    }
+    if (variants.length > 1) {
+      p.prompt = variants[0];
+      toast('Running permutation 1 of ' + variants.length + ' (' + (variants.length - 1) + ' queued)');
+      for (var k = 1; k < variants.length; k++) {
+        var pQ = Object.assign({}, p);
+        pQ.prompt = variants[k];
+        if (!pQ.named) pQ.seed = Math.floor(Math.random() * 2147483647);
+        addToQueue(pQ, n);
+      }
+    }
     persist();
     wakeAudio();
     document.title = st.title;
@@ -3978,6 +4074,23 @@
     if (name === 'settings') drawConsole();
     if (name === 'models') enterModels(); else dlSchedule(dlDelay());
   }
+
+  window.applyCameraMotion = function (action) {
+    var p = $('prompt');
+    if (!p) return;
+    var val = p.value;
+    var re = /\s*\[camera:\s*[^\]]+\]/gi;
+    val = val.replace(re, '');
+    if (action !== 'Clear') {
+      var tag = ' [camera: ' + action.toLowerCase() + ']';
+      val = val.trim() + tag;
+      toast('Director Camera: ' + action + ' added to prompt.');
+    } else {
+      toast('Director Camera direction cleared.');
+    }
+    p.value = val.trim();
+    persist();
+  };
 
   // ---------- the Create tab: modes, settings groups, the model in use ----------
   // st.mode is what a request is made from: 'image' (text), 'edit' (st.init, a start image),
@@ -5142,6 +5255,23 @@
     if (which === 'prompt') copyText(j && j.prompt ? j.prompt.positive || '' : d.prompt || '', 'The prompt');
     else if (which === 'negative') copyText(j && j.prompt ? j.prompt.negative || '' : '', 'The negative prompt');
     else copyText(String(d.parameters || d.prompt || '').replace(/,\s*SDCPP:\s*\{[\s\S]*$/, ''), 'The settings');
+  }
+
+  // Sends the current lightbox image directly to the paired Telegram companion bot.
+  function sendToTelegram() {
+    var it = lbItem();
+    if (!it || !it.name) return;
+    toast('Sending to Telegram companion...');
+    var info = infoCache[it.name];
+    var j = info && info.sdcpp;
+    var caption = j && j.prompt ? j.prompt.positive : (info && info.prompt ? info.prompt : '');
+    req('POST', '/ps5sd/v1/app/companion/send', JSON.stringify({ file: it.name, caption: caption }), function (code, data) {
+      if (code === 200 && data && data.ok) {
+        toast('Sent to Telegram companion bot successfully.');
+      } else {
+        toast((data && (data.message || data.error)) || 'Could not send to Telegram (check bot setup in Settings).', 6000);
+      }
+    });
   }
 
   // The prompt and the settings of the image in the viewer into the Create tab. The model stays: it
@@ -6421,28 +6551,53 @@
   }
 
   // ---------- upload ----------
-  // PUT with the file as the body; the app passes it on to ftpsrv as it comes.
+  // PUT with the file as the body; the app passes it on to ftpsrv as it comes. Several files go one
+  // after the other (upQueue); Cancel stops the one that runs and the ones still waiting.
   var upXhr = null;
+  var upQueue = [];
+
+  function upOk(kind, name) {
+    var okName = kind === 'presets' ? /\.txt$/i : kind === 'upscalers' ? /\.(pth|pt|safetensors|gguf)$/i : kind === 'tags' ? /\.(csv|txt)$/i
+      : /\.(gguf|safetensors|ckpt|sft)$/i;
+    return okName.test(name);
+  }
 
   function upStart() {
     var input = $('up-file');
-    var f = input.files && input.files[0];
-    input.value = '';
-    if (!f || upXhr) return;
+    var files = input.files || [];
     var kind = $('up-kind').value;
-    var name = f.name;
-    var okName = kind === 'presets' ? /\.txt$/i : kind === 'upscalers' ? /\.(pth|pt|safetensors|gguf)$/i : kind === 'tags' ? /\.(csv|txt)$/i
-      : /\.(gguf|safetensors|ckpt|sft)$/i;
-    if (!okName.test(name)) {
-      toast(kind === 'presets' ? 'A preset is a .txt file.' : kind === 'upscalers' ? 'An upscaler is a .pth, .pt, .safetensors or .gguf file.'
-        : kind === 'tags' ? 'A tag file is a .csv (as a1111-sd-webui-tagcomplete has them) or a .txt file.'
-        : 'Only .gguf, .safetensors, .ckpt and .sft files.', 6000);
-      return;
+    var bad = [];
+    for (var i = 0; i < files.length; i++) {
+      if (upOk(kind, files[i].name)) upQueue.push({ f: files[i], kind: kind });
+      else bad.push(files[i].name);
     }
+    input.value = '';
+    if (bad.length) {
+      toast((bad.length === files.length ? '' : 'Left out: ' + bad.join(', ') + '. ') +
+        (kind === 'presets' ? 'A preset is a .txt file.' : kind === 'upscalers' ? 'An upscaler is a .pth, .pt, .safetensors or .gguf file.'
+        : kind === 'tags' ? 'A tag file is a .csv (as a1111-sd-webui-tagcomplete has them) or a .txt file.'
+        : 'Only .gguf, .safetensors, .ckpt and .sft files.'), 7000);
+    }
+    upNext();
+  }
+
+  function upNext() {
+    if (upXhr || !upQueue.length) return;
+    var job = upQueue.shift();
+    upSend(job.f, job.kind);
+  }
+
+  function upCancel() {
+    upQueue = [];
+    if (upXhr) upXhr.abort();
+  }
+
+  function upSend(f, kind) {
+    var name = f.name;
     var x = new XMLHttpRequest();
     var t0 = Date.now();
     upXhr = x;
-    text($('up-name'), name);
+    text($('up-name'), name + (upQueue.length ? ' (then ' + upQueue.length + ' more)' : ''));
     $('up-fill').style.width = '0%';
     text($('up-meta'), 'Starting');
     show('up-box', true);
@@ -6469,9 +6624,12 @@
   function upDone(code, data, name, kind) {
     if (!upXhr) return;
     upXhr = null;
-    show('up-box', false);
-    $('up-pick').disabled = false;
-    $('up-kind').disabled = false;
+    var more = upQueue.length > 0;
+    if (!more) {
+      show('up-box', false);
+      $('up-pick').disabled = false;
+      $('up-kind').disabled = false;
+    }
     if (code === 200) {
       var listed = kind === 'models' || kind === 'presets' || kind === 'loras' || kind === 'upscalers';
       toast(name + ' is on the console' + (listed ? ' and in the list.' : kind === 'tags' ? '; the prompt fields suggest its tags.' : '.'), 6000);
@@ -6482,8 +6640,9 @@
     } else if (code === 0) {
       toast('The upload of ' + name + ' stopped.', 6000);
     } else {
-      toast((data && data.error) || ('The upload failed (' + code + ').'), 8000);
+      toast((data && data.error) || ('The upload of ' + name + ' failed (' + code + ').'), 8000);
     }
+    upNext();
   }
 
   // ---------- catalog (Get more) ----------
@@ -6930,6 +7089,80 @@
     if (!on) i.mask = null;
     show('me', false);
     drawInit();
+  }
+
+  // Directional canvas outpainting / re-framing: expands the canvas in a chosen direction
+  // (left, right, up, down, or all) and automatically masks the expanded margins so
+  // Stable Diffusion outpaints the extended environment while keeping the original image intact.
+  function outpaintCanvas(dir, pct) {
+    var i = st.init;
+    if (!i || !i.canvas) {
+      toast('Load or select an image to outpaint first.');
+      return;
+    }
+    pct = pct || 0.25;
+    var curW = i.canvas.width;
+    var curH = i.canvas.height;
+    var addW = 0, addH = 0;
+    var offX = 0, offY = 0;
+
+    if (dir === 'left') {
+      addW = Math.max(64, Math.round(curW * pct / 64) * 64);
+      offX = addW;
+    } else if (dir === 'right') {
+      addW = Math.max(64, Math.round(curW * pct / 64) * 64);
+    } else if (dir === 'up') {
+      addH = Math.max(64, Math.round(curH * pct / 64) * 64);
+      offY = addH;
+    } else if (dir === 'down') {
+      addH = Math.max(64, Math.round(curH * pct / 64) * 64);
+    } else if (dir === 'all') {
+      addW = Math.max(64, Math.round(curW * (pct / 2) / 64) * 64) * 2;
+      addH = Math.max(64, Math.round(curH * (pct / 2) / 64) * 64) * 2;
+      offX = addW / 2;
+      offY = addH / 2;
+    }
+
+    var newW = curW + addW;
+    var newH = curH + addH;
+    if (Math.max(newW, newH) > INIT_MAX) {
+      toast('Expanded dimensions exceed maximum supported ' + INIT_MAX + 'px.');
+      return;
+    }
+
+    var newC = canvasOf(newW, newH);
+    var ctxC = newC.getContext('2d');
+    ctxC.drawImage(i.canvas, offX, offY);
+
+    var newM = canvasOf(newW, newH);
+    var ctxM = newM.getContext('2d');
+    if (i.mask) {
+      ctxM.drawImage(i.mask, offX, offY);
+    }
+    ctxM.fillStyle = 'rgba(255, 48, 48, 1.0)';
+    if (offX > 0) ctxM.fillRect(0, 0, offX, newH);
+    if (addW - offX > 0) ctxM.fillRect(curW + offX, 0, addW - offX, newH);
+    if (offY > 0) ctxM.fillRect(0, 0, newW, offY);
+    if (addH - offY > 0) ctxM.fillRect(0, curH + offY, newW, addH - offY);
+
+    var totalPix = newW * newH;
+    var outpaintPix = totalPix - (curW * curH);
+    var paintedShare = Math.min(1.0, outpaintPix / totalPix);
+
+    st.init = {
+      canvas: newC,
+      name: (i.name || 'image') + '-outpaint',
+      mask: newM,
+      painted: Math.max(0.1, paintedShare)
+    };
+
+    var f = fitArea(newW, newH, st.preset ? st.preset.w * st.preset.h : 1024 * 1024);
+    $('w').value = f.w;
+    $('h').value = f.h;
+    markPreset();
+    persist();
+    drawInit();
+    toast('Canvas expanded ' + dir + ' by ' + Math.round(pct * 100) + '%. Outer margins are masked for AI outpainting.');
   }
 
   // ---- the request and putting the result back
@@ -7786,6 +8019,7 @@
             modelName(function (name, reachable) {
               st.infoBusy = false;
               if (!reachable) { setOnline(false); return; }
+              setOnline(true);
               var entry = st.mdl && st.mdl.loaded ? findModel(st.mdl.loaded) : null;
               // the same names as the Models tab (titleOf, readable: 13-models.js)
               st.label = entry ? titleOf(entry) : (name ? readable(name) : 'no model loaded');
@@ -8202,7 +8436,7 @@
     $('lora-add').onchange = addLora;
     $('up-pick').onclick = function () { $('up-file').click(); };
     $('up-file').onchange = upStart;
-    $('up-cancel').onclick = function () { if (upXhr) upXhr.abort(); };
+    $('up-cancel').onclick = upCancel;
     window.onbeforeunload = function () { return upXhr ? 'An upload is still running.' : undefined; };
     $('dl-url').onkeydown = function (e) { e = e || window.event; if (e.keyCode === 13) { addByUrl(); return false; } return true; };
     $('hf-go').onclick = hfSearch;
@@ -8236,6 +8470,7 @@
     $('lb-cp').onclick = function () { copyInfo('prompt'); };
     $('lb-cn').onclick = function () { copyInfo('negative'); };
     $('lb-ca').onclick = function () { copyInfo('all'); };
+    if ($('lb-telegram')) $('lb-telegram').onclick = sendToTelegram;
     $('ld-cancel').onclick = closeLabels;
     $('ld-save').onclick = saveLabels;
     zoomInit();

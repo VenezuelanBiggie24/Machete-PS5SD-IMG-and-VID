@@ -598,6 +598,9 @@ void Dashboard::draw(DrawList & list, const char * version, const char * build) 
     begin();
     draw_recent(list, kRecent);
     end();
+    begin();
+    draw_footer(list);
+    end();
 }
 
 void Dashboard::draw_header(DrawList & list, const char * version, const char * build) const {
@@ -809,17 +812,28 @@ void Dashboard::draw_image(DrawList & list, const Rect & r) const {
     const AppStatus::Snapshot & s = snap_;
     const bool  generating        = s.state == State::generating;
     const bool  live              = generating && preview_.id != 0;
-    const Picture * newest        = !pictures_.empty() && pictures_[0].large.id != 0 ? &pictures_[0] : nullptr;
+    const Picture * current       = nullptr;
+    if (!pictures_.empty()) {
+        const int idx = std::clamp(selected_picture_index_, 0, static_cast<int>(pictures_.size()) - 1);
+        if (pictures_[idx].large.id != 0) {
+            current = &pictures_[idx];
+        } else if (pictures_[0].large.id != 0) {
+            current = &pictures_[0];
+        }
+    }
     draw_panel(list, r, kRadius, kViolet, live ? 0.7f : 0.15f);
 
     std::string name = "Cinema Studio Canvas";
     if (live) {
         name = "Live Generation Preview";
-    } else if (newest != nullptr && !generating) {
-        name = "Latest Masterpiece";
+    } else if (current != nullptr && !generating) {
+        name = (selected_picture_index_ > 0)
+                   ? ("Gallery View (" + std::to_string(selected_picture_index_ + 1) + "/" +
+                      std::to_string(pictures_.size()) + ")")
+                   : "Latest Masterpiece";
     }
     caps(list, name, r.x + 28, r.y + 36, 16, kViolet);
-    const Texture * tex = live ? &preview_ : (newest != nullptr ? &newest->large : nullptr);
+    const Texture * tex = live ? &preview_ : (current != nullptr ? &current->large : nullptr);
     if (tex != nullptr) {
         char size[48];
         std::snprintf(size, sizeof(size), "%d x %d  %s  Native HDR", tex->width, tex->height, kDot);
@@ -985,6 +999,41 @@ void Dashboard::draw_log_tile(DrawList & list, const Rect & r) const {
     if (s.lines.empty()) {
         hui::ui::text(list, fonts_.regular, "nothing logged yet", r.x + 24, y, 18, with_a(kInk, kFaint));
     }
+}
+
+void Dashboard::draw_footer(DrawList & list) const {
+    const Rect bar{ 96, 1012, 1728, 44 };
+    list.rounded_rect(bar, 12, with_a(kWell, 0.70f));
+    list.bordered_rect(bar, 12, kClear, 1.0f, with_a(kSteel, 0.25f));
+
+    struct Cue {
+        const char * key;
+        const char * label;
+        Color accent;
+    };
+    const Cue cues[] = {
+        { "TRIANGLE", "FAVORITE", kAmber },
+        { "CROSS", "GENERATE", kLime },
+        { "SQUARE", "LOG / HUD", kCyan },
+        { "CIRCLE", "AMBIENT", kViolet },
+        { "L1 / R1", "BROWSE", kCyan }
+    };
+
+    float x = bar.x + 20.0f;
+    const float cy = bar.cy();
+    for (const auto & cue : cues) {
+        const float key_w = hui::ui::text(list, fonts_.mono, cue.key, 0, 0, 12, kClear) + 14.0f;
+        const Rect pill{ x, cy - 10.0f, key_w, 20.0f };
+        list.rounded_rect(pill, 5.0f, with_a(cue.accent, 0.18f));
+        list.bordered_rect(pill, 5.0f, kClear, 1.0f, with_a(cue.accent, 0.60f));
+        hui::ui::text(list, fonts_.mono, cue.key, pill.cx(), pill.cy() + 4.0f, 12, cue.accent, Align::center);
+
+        x += key_w + 8.0f;
+        const float label_w = caps(list, cue.label, x, cy + 4.0f, 12, with_a(kInk, 0.85f), Align::left);
+        x += label_w + 24.0f;
+    }
+
+    caps(list, "PS5 DUALSENSE READY", bar.x + bar.w - 20.0f, cy + 4.0f, 11, with_a(kCyan, 0.65f), Align::right);
 }
 
 }  // namespace ps5sd

@@ -29,6 +29,11 @@ int main() {
     check(fan_wanted(FAN_COOL, 0, 72) == FAN_LOWEST, "cool on a low stock target: the lowest");
     check(fan_wanted(FAN_COOL, 0, 69) == 69, "a stock target under the lowest stays");
 
+    check(fan_precool_wanted(FAN_QUIET, 0, 91, 1) == 91, "precool quiet stays stock");
+    check(fan_precool_wanted(FAN_BALANCED, 0, 91, 0) == 88, "precool balanced idle stays 88");
+    check(fan_precool_wanted(FAN_BALANCED, 0, 91, 1) == 85, "precool balanced active drops 3 extra");
+    check(fan_precool_wanted(FAN_COOL, 0, 91, 1) == 82, "precool cool active drops 3 extra");
+
     check(fan_next(91, 85, 100, 20) == 90, "down: one degree");
     check(fan_next(90, 85, 5, 20) == 90, "down: not before the step time");
     check(fan_next(85, 85, 100, 20) == 85, "there: no change");

@@ -102,6 +102,23 @@
     else copyText(String(d.parameters || d.prompt || '').replace(/,\s*SDCPP:\s*\{[\s\S]*$/, ''), 'The settings');
   }
 
+  // Sends the current lightbox image directly to the paired Telegram companion bot.
+  function sendToTelegram() {
+    var it = lbItem();
+    if (!it || !it.name) return;
+    toast('Sending to Telegram companion...');
+    var info = infoCache[it.name];
+    var j = info && info.sdcpp;
+    var caption = j && j.prompt ? j.prompt.positive : (info && info.prompt ? info.prompt : '');
+    req('POST', '/ps5sd/v1/app/companion/send', JSON.stringify({ file: it.name, caption: caption }), function (code, data) {
+      if (code === 200 && data && data.ok) {
+        toast('Sent to Telegram companion bot successfully.');
+      } else {
+        toast((data && (data.message || data.error)) || 'Could not send to Telegram (check bot setup in Settings).', 6000);
+      }
+    });
+  }
+
   // The prompt and the settings of the image in the viewer into the Create tab. The model stays: it
   // says so when the image was made with another one.
   function useSettings() {

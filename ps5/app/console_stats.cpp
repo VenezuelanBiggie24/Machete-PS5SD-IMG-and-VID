@@ -303,7 +303,7 @@ void ConsoleStats::set_fan(const std::string & mode, int target) {
 
 // Tells the payload the mode (its heartbeat), and starts it when it does not
 // answer: at most three times, 20 s apart.
-void ConsoleStats::fan_tick(double up) {
+void ConsoleStats::fan_tick(double up, bool active_job) {
     std::string mode;
     int         target;
     {
@@ -317,7 +317,13 @@ void ConsoleStats::fan_tick(double up) {
         fan_        = FanState{};
         return;
     }
-    const std::string line  = "MODE " + mode + (mode == "manual" ? " " + std::to_string(target) : std::string());
+    // Predictive pre-cooling: when an active job is generating in balanced mode,
+    // proactively step to cool for thermal headroom before GPU boost clocks peak.
+    std::string eff_mode = mode;
+    if (active_job && mode == "balanced") {
+        eff_mode = "cool";
+    }
+    const std::string line  = "MODE " + eff_mode + (eff_mode == "manual" ? " " + std::to_string(target) : std::string());
     const std::string reply = fan_command(line);
     FanState          f;
     std::string       status;
@@ -372,7 +378,8 @@ void ConsoleStats::run(AppStatus & status) {
     for (;;) {
         std::this_thread::sleep_for(std::chrono::seconds(1));
         if (++ticks % 3 == 0) {
-            fan_tick(now_seconds() - start);
+            const bool active_job = status.snapshot().state == AppStatus::State::generating;
+            fan_tick(now_seconds() - start, active_job);
         }
         const std::string text = http_get(kExporterPort, "/metrics");
         std::string       state = "running";

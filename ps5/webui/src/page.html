@@ -224,6 +224,14 @@
               <button type="button" id="init-mask">Paint a mask</button>
               <button type="button" id="init-drop">Remove</button>
             </div>
+            <div class="outpaint-row" style="margin-top:8px; display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
+              <span class="lbl" style="width:100%; font-size:11px; margin-bottom:2px; color:var(--text-muted, #94a3b8);">Re-frame / Outpaint:</span>
+              <button type="button" class="sml" onclick="outpaintCanvas('left', 0.25)" title="Expand Left 25%">+ Left</button>
+              <button type="button" class="sml" onclick="outpaintCanvas('right', 0.25)" title="Expand Right 25%">+ Right</button>
+              <button type="button" class="sml" onclick="outpaintCanvas('up', 0.25)" title="Expand Top 25%">+ Top</button>
+              <button type="button" class="sml" onclick="outpaintCanvas('down', 0.25)" title="Expand Bottom 25%">+ Bottom</button>
+              <button type="button" class="sml" onclick="outpaintCanvas('all', 0.25)" title="Expand All Sides 25%">+ All</button>
+            </div>
           </div>
         </div>
         <label class="opt" id="init-ref-row" style="display:none"><input type="checkbox" id="init-ref" checked> Edit by the prompt: say what to change, the rest of the picture stays</label>
@@ -394,6 +402,20 @@
             <div></div>
           </div>
           <p class="hint">Auto is the preset's: 3 for Wan 2.1, 5 for Wan 2.2 TI2V. Higher spends more of the steps on the large shapes and the motion, lower on the details.</p>
+          <div class="director-cam-box" style="margin-top:0.8rem; padding-top:0.6rem; border-top:1px solid var(--border, rgba(255,255,255,0.08));">
+            <div class="lbl" style="font-weight:600; font-size:12px; margin-bottom:0.4rem; color:var(--text);">Director Camera Controls (Motion Guidance)</div>
+            <div style="display:flex; gap:0.4rem; flex-wrap:wrap;">
+              <button type="button" class="sml" onclick="applyCameraMotion('Pan Left')" title="Camera pans left">&larr; Pan L</button>
+              <button type="button" class="sml" onclick="applyCameraMotion('Pan Right')" title="Camera pans right">&rarr; Pan R</button>
+              <button type="button" class="sml" onclick="applyCameraMotion('Tilt Up')" title="Camera tilts upward">&uarr; Tilt Up</button>
+              <button type="button" class="sml" onclick="applyCameraMotion('Tilt Down')" title="Camera tilts downward">&darr; Tilt Down</button>
+              <button type="button" class="sml" onclick="applyCameraMotion('Zoom In')" title="Camera zooms in">&oplus; Zoom In</button>
+              <button type="button" class="sml" onclick="applyCameraMotion('Zoom Out')" title="Camera zooms out">&ominus; Zoom Out</button>
+              <button type="button" class="sml" onclick="applyCameraMotion('Roll CW')" title="Camera rolls clockwise">&circlearrowright; Roll CW</button>
+              <button type="button" class="sml" onclick="applyCameraMotion('Roll CCW')" title="Camera rolls counter-clockwise">&circlearrowleft; Roll CCW</button>
+              <button type="button" class="sml" onclick="applyCameraMotion('Clear')" title="Clear camera direction" style="opacity:0.75;">&times; Clear</button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -491,7 +513,7 @@
     <section class="panel" id="pnl-up" style="display:none">
       <div class="ph"><h2>Upload from this computer</h2><button type="button" class="info" data-help="help-upload" aria-label="More about uploads">&#9432;</button></div>
       <div class="inrow"><select id="up-kind" class="upkind" aria-label="What it is"><option value="models">Model</option><option value="loras">LoRA</option><option value="embeddings">Embedding</option><option value="presets">Preset (.txt)</option><option value="upscalers">Upscaler</option><option value="tags">Tags (.csv)</option></select><button type="button" id="up-pick">Choose a file</button></div>
-      <input id="up-file" type="file" style="display:none">
+      <input id="up-file" type="file" multiple style="display:none">
       <div id="up-box" style="display:none">
         <div class="mname" id="up-name"></div>
         <div class="bar"><div id="up-fill"></div></div>
@@ -736,6 +758,7 @@
         <button type="button" id="lb-cp">Copy prompt</button>
         <button type="button" id="lb-cn" style="display:none">Copy negative</button>
         <button type="button" id="lb-ca" title="The prompt and the settings as text, as other tools paste them">Copy all</button>
+        <button type="button" id="lb-telegram" title="Send directly to Telegram companion bot">Send to Telegram</button>
       </div>
     </div>
     <button type="button" id="lb-use" title="Put the prompt and the settings of this image into the Create tab">Use these settings</button>

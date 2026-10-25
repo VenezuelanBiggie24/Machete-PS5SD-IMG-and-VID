@@ -486,7 +486,10 @@
   .drow .bar { margin: 0.45rem 0 0.35rem; }
   .inrow { display: flex; }
   .lrow { display: flex; align-items: center; margin-bottom: 0.5rem; }
+  .lrow .lon { flex: none; width: 1.35rem; height: 1.35rem; margin: 0 0.6rem 0 0; accent-color: var(--accent); }
   .lrow .lname { flex: 1; min-width: 0; color: var(--text); word-wrap: break-word; }
+  .lrow.off .lname { color: var(--faint); text-decoration: line-through; }
+  .lrow.off input[type="number"] { opacity: 0.45; }
   .lrow input { flex: none; width: 6rem; margin: 0 0.5rem; }
   .lrow button { flex: none; min-width: 3.25rem; padding: 0 0.8rem; }
   .inrow select.upkind { flex: none; width: auto; margin-right: 0.6rem; }

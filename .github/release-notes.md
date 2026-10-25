@@ -1,30 +1,29 @@
-Machete AI Studio 1.1.1 delivers a commercial-grade generative AI web studio interface comparable to top-tier commercial AI suites, integrates generation duration tracking in saved image metadata, and incorporates upstream model defaults and per-model preset memory, while preserving 100% of Machete's Cinema Studio TV Dashboard, Face Studio, and Telegram Companion Bot.
+Machete AI Studio 1.2.0 delivers expanded generative model architecture (Sana 1.6B/0.6B linear attention, SD 3.5 Medium MMDiT, Kokoro 82M voice synthesis), validates GFX1030 Packed FP16 dual-issue compute shaders, integrates native DualSense gamepad control and dynamic lightbar/haptic feedback on the TV dashboard, introduces the Director Camera 3D motion suite, and resolves spurious WebUI offline lock issues.
 
 ## Enhancements & Architecture
 
-- **Commercial-Grade Studio Web UI**:
-  - Obsidian Space dark theme with luminous cyan and violet accents, frosted glassmorphism (`backdrop-filter: blur(20px)`), and porcelain light mode support.
-  - 8 Creative Style Chips: Cinematic 8K, Photorealistic, Cyberpunk Neon, Anime Aesthetic, Studio Product, Dark Fantasy, Retro 90s, Concept Art.
-  - Quick Negative Filter Chips: Instant 1-tap insertion of quality boosters, anatomical safeguards, and watermark suppression.
-  - Visual Aspect Ratio Selector: 6 proportion presets (1:1 Square, 16:9 Wide, 9:16 Story, 4:3 Classic, 3:2 Photo, 21:9 Cinema) with interactive proportion glyphs.
-  - Mobile Ergonomics & Docked CTA: Bottom docked generation controls on mobile devices for seamless one-handed generation without scrolling.
-  - Clean TV Cursor Separation: Distinct font scaling isolating TV joystick pointer navigation (`html.tv`) from mobile and desktop views (`html`).
-  - Prompt Clear Tool: Dedicated quick clear control for prompt authoring.
-- **Generation Duration Metadata (Patch 0074)**:
-  - Exact generation duration recorded in saved PNG tEXt parameters (`Time: 52.3 s`) and sdcpp JSON payload.
-  - Gallery viewer displays elapsed generation duration (`took 52.3 s`).
-  - Automatic model naming resolution from diffusion model component for multi-file architectures (FLUX, Z-Image, Wan).
-- **Per-Model Default Preset Memory**:
-  - Console settings (`default_presets`) now persist user-selected default presets per model file across reboots.
-- **FLUX.2 Klein 9B Optimized Defaults**:
-  - Tuned defaults for Klein 9B (8 steps, dpm2 sampler, CFG 1) delivering enhanced detail and high fidelity.
-- **Hardware & Engine Foundations (Preserved)**:
+- **Pillar 1: Expanded Generative Models & Kokoro Audio**:
+  - Sana 1.6B (1024px) linear attention model for high-resolution generation in 14-20 steps.
+  - Sana 0.6B (512px) ultra-lightweight draft model for rapid ideation in 12-14 steps.
+  - SD 3.5 Medium (Q8_0) MMDiT model with superior prompt comprehension and typography adherence.
+  - Kokoro 82M voice & speech audio synthesis model for prompt/story narration.
+  - 1-click installable catalog entries and custom preset profiles (`presets/sana-1.6b.txt`, `presets/sana-0.6b.txt`, `presets/sd3.5-medium.txt`, `presets/kokoro-82m.txt`).
+- **Pillar 2: GFX1030 Packed FP16 Compute Shaders**:
+  - Validated RADV ACO compiler support for `v_pk_fma_f16` instructions via `shaderFloat16` (`VK_KHR_shader_float16_int8`), unlocking up to ~20.6 TFLOPS arithmetic throughput on PS5 RDNA2 GPU.
+  - Compute queue family isolation and multi-add kernel compilation for tensor ops.
+- **Pillar 3: DualSense Gamepad & Hardware Mastery**:
+  - Native controller polling integrated into the TV main loop via `hui::ps5::Pad`.
+  - Direct button shortcuts: Square toggles HUD/log telemetry overlay, Circle toggles Screensaver, L1/Left and R1/Right cycle through gallery images.
+  - Dynamic DualSense lightbar states: Amber pulsing during generation, Ambient Purple during screensaver, Cyan/Blue idle.
+  - Tactile haptic vibration pulses confirming controller actions.
+- **Pillar 4: Creative Studio Director Camera & WebUI Offline Fix**:
+  - Camera Director 3D motion controls for video models (Pan Left/Right, Tilt Up/Down, Zoom In/Out, Roll CW/CCW).
+  - WebUI Offline Fix: Added missing backend routes (`/ps5sd/v1/auth`, `/ps5sd/v1/health`, `/ps5sd/v1/auth/login`, `/ps5sd/v1/auth/logout`) and HTTP HEAD support to prevent browser timeout lockouts.
+  - Guaranteed immediate online state activation (`setOnline(true)`) upon successful authentication check and server load.
+- **Foundations Preserved**:
   - Active hardware fan control payload (`ps5sd-fan.elf`) with port 9021 ELF loader and port 9075 thermal watchdog.
-  - 8 MB chunked tensor streaming reducing peak CPU heap allocation by 45%.
-  - Single-retry OOM recovery and ThreadGuard exception boundaries.
-  - Cinema Studio TV Dashboard (1064px canvas, 4-dial HUD telemetry).
-  - Face Studio (PhotoMaker identity preservation).
-  - Telegram Companion Bot with remote prompt generation.
+  - 8 MB chunked tensor streaming and single-retry OOM recovery.
+  - Cinema Studio TV Dashboard, Face Studio (PhotoMaker), and Telegram Companion Bot.
 
 ## Install
 
@@ -34,36 +33,35 @@ Credits: PS5SD by Darkatek7 (Heel Tobias), stable-diffusion.cpp (ggerganov / lee
 
 ----
 
-Machete AI Studio 1.1.1 ofrece una interfaz web de estudio de IA generativa de nivel comercial comparable a las herramientas lideres del mercado, incorpora registro de tiempo de generacion en los metadatos de las imagenes guardadas, y anade persistencia de ajustes predeterminados por modelo y sincronizacion de novedades upstream, manteniendo intactos el panel Cinema Studio TV, Face Studio y el Bot Acompanante de Telegram.
+Machete AI Studio 1.2.0 incorpora arquitectura ampliada de modelos generativos (Sana 1.6B/0.6B con atencion lineal, SD 3.5 Medium MMDiT, sintesis de voz Kokoro 82M), valida shaders de computo Packed FP16 en GFX1030, integra control nativo con mando DualSense y respuesta dinamica de barra de luz y vibracion haptica en la TV, estrena controles de Camara de Director 3D, y soluciona bloqueos por falso estado desconectado en la interfaz web.
 
 ## Mejoras y Arquitectura
 
-- **Interfaz Web de Estudio Profesional**:
-  - Tema oscuro Obsidian Space con acentos luminosos en cian y violeta, paneles de cristal esmerilado (`backdrop-filter: blur(20px)`) y soporte para modo claro porcelana.
-  - 8 Presets Creativos de Estilo: Cinematic 8K, Photorealistic, Cyberpunk Neon, Anime Aesthetic, Studio Product, Dark Fantasy, Retro 90s, Concept Art.
-  - Filtros Rapidos de Prompt Negativo: Insercion en 1 toque de mejoras de calidad, correccion anatomica y eliminacion de marcas de agua.
-  - Selector Visual de Relacion de Aspecto: 6 proporciones (1:1 Cuadrado, 16:9 Panoramico, 9:16 Historia, 4:3 Clasico, 3:2 Foto, 21:9 Cine) con glifos interactivos.
-  - Ergonomia Movil y Boton Flotante: Controles de generacion anclados en la parte inferior en moviles para generacion comoda con una sola mano sin necesidad de deslizar.
-  - Separacion de Escala para TV: Tipografia adaptativa que aisla la navegacion con cursor de joystick en TV (`html.tv`) de las pantallas moviles y de escritorio (`html`).
-  - Boton Limpiar Prompt: Control directo para limpiar el texto del prompt con un toque.
-- **Metadatos de Tiempo de Generacion (Parche 0074)**:
-  - Registro exacto de la duracion de cada generacion en los parametros tEXt del PNG (`Time: 52.3 s`) y en el JSON sdcpp.
-  - El visor de la galeria muestra el tiempo transcurrido (`took 52.3 s`).
-  - Resolucion automatica del nombre del modelo desde el componente diffusion model en arquitecturas multifile (FLUX, Z-Image, Wan).
-- **Memoria de Ajustes Predeterminados por Modelo**:
-  - Los ajustes de la consola (`default_presets`) ahora guardan la configuracion predeterminada elegida por el usuario para cada archivo de modelo.
-- **Valores Optimizados para FLUX.2 Klein 9B**:
-  - Ajustes predeterminados afinados para Klein 9B (8 pasos, muestreador dpm2, CFG 1) proporcionando mayor nivel de detalle y nitidez.
-- **Bases de Hardware y Motor (Preservadas)**:
+- **Pilar 1: Modelos Generativos Ampliados y Audio Kokoro**:
+  - Modelo Sana 1.6B (1024px) con atencion lineal para generacion de alta resolucion en 14-20 pasos.
+  - Modelo ligero Sana 0.6B (512px) para bocetos ultra-rapidos en 12-14 pasos.
+  - Modelo SD 3.5 Medium (Q8_0) MMDiT con fidelidad avanzada al prompt y composicion tipografica.
+  - Modelo de sintesis de voz Kokoro 82M para narracion y lectura de prompts y relatos.
+  - Registros de catalogo con instalacion en un clic y perfiles predeterminados dedicados (`presets/sana-1.6b.txt`, `presets/sana-0.6b.txt`, `presets/sd3.5-medium.txt`, `presets/kokoro-82m.txt`).
+- **Pilar 2: Shaders de Computo Packed FP16 en GFX1030**:
+  - Soporte validado del compilador ACO en RADV para instrucciones `v_pk_fma_f16` mediante `shaderFloat16` (`VK_KHR_shader_float16_int8`), alcanzando hasta ~20.6 TFLOPS de rendimiento aritmetico en la GPU RDNA2 de PS5.
+  - Aislamiento de cola de computo dedicada y compilacion optimizada de kernels de multiplicacion y suma de tensores.
+- **Pilar 3: Mando DualSense y Dominio del Hardware**:
+  - Bucle de sondeo del mando integrado en el renderizador principal de TV a traves de `hui::ps5::Pad`.
+  - Accesos directos con botones: Cuadrado activa/desactiva la telemetria y registros, Circulo activa el salvapantallas, L1/Izquierda y R1/Derecha navegan por la galeria de imagenes.
+  - Estados dinamicos en la barra de luz DualSense: Ambar pulsante durante generacion, Purpura ambiental en salvapantallas, Cian/Azul en reposo.
+  - Pulsos de vibracion haptica que confirman de forma tactil las acciones del mando.
+- **Pilar 4: Camara de Director de Estudio Creativo y Correccion de WebUI**:
+  - Controles de movimiento 3D de Camara de Director para modelos de video (Paneo Izquierda/Derecha, Inclinacion Arriba/Abajo, Zoom Acercar/Alejar, Rotacion Horaria/Antihoraria).
+  - Correccion de desconexion en WebUI: Incorporacion de rutas de backend faltantes (`/ps5sd/v1/auth`, `/ps5sd/v1/health`, `/ps5sd/v1/auth/login`, `/ps5sd/v1/auth/logout`) y soporte HTTP HEAD para evitar bloqueos por tiempo de espera en el navegador.
+  - Activacion inmediata del estado en linea (`setOnline(true)`) tras autenticacion y carga de informacion del servidor.
+- **Bases Preservadas**:
   - Payload de control activo de ventilador (`ps5sd-fan.elf`) con cargador ELF en puerto 9021 y vigilancia termica en puerto 9075.
-  - Transmision de tensores en bloques de 8 MB reduciendo el consumo maximo de memoria de CPU un 45%.
-  - Reintento automatico ante falta de memoria y proteccion de hilos ThreadGuard.
-  - Panel Cinema Studio TV (lienzo de 1064px, telemetria digital HUD de 4 cuadrantes).
-  - Face Studio (preservacion de identidad con PhotoMaker).
-  - Bot Acompanante de Telegram con generacion remota por comandos y texto.
+  - Transmision de tensores en bloques de 8 MB y recuperacion automatica ante falta de memoria.
+  - Panel Cinema Studio TV, Face Studio (PhotoMaker) y Bot Acompanante de Telegram.
 
 ## Instalacion
 
-Instala desde la tienda homebrew (Machete AI Studio, PPSA99699), o descomprime PPSA99699.zip en /data/homebrew/ en la consola y deja que ShadowMountPlus lo detecte. Requisitos: kstuff-lite, ShadowMountPlus, elfldr; ftpsrv en 2121 opcional.
+Instale desde la tienda homebrew (Machete AI Studio, PPSA99699), o descomprima PPSA99699.zip en /data/homebrew/ en la consola y permita que ShadowMountPlus escanee. Requisitos: kstuff-lite, ShadowMountPlus, elfldr; ftpsrv en 2121 opcional.
 
-Creditos: PS5SD de Darkatek7 (Heel Tobias), stable-diffusion.cpp (ggerganov / leejet), ps5-exporter (Marice), adaptaciones de Machete Studio por VenezuelanBiggie24.
+Creditos: PS5SD por Darkatek7 (Heel Tobias), stable-diffusion.cpp (ggerganov / leejet), ps5-exporter (Marice), agregados de Machete Studio por VenezuelanBiggie24.

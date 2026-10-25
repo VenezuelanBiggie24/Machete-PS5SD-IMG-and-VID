@@ -97,6 +97,7 @@ std::string sd_server_failure_reason(const std::string & fallback);
 #ifndef PS5SD_NO_DISPLAY
 #include "display.hpp"
 #include "gfx/renderer.hpp"
+#include "platform/ps5/pad.hpp"
 #include "status_view.hpp"
 #endif
 
@@ -2014,6 +2015,27 @@ extern "C" int sd_app_request(const char * method, const char * path, const char
             { "running", CompanionBot::instance().is_running() }
         }.dump();
         status = 200;
+    } else if (m == "POST" && p == "companion/send") {
+        try {
+            auto j = nlohmann::json::parse(std::string(body, body_len));
+            std::string file = j.value("file", "");
+            if (file.empty()) {
+                out = error_json("missing file parameter");
+                status = 400;
+            } else {
+                std::string full_path = kOutputs + "/" + file;
+                std::string caption = j.value("caption", "");
+                bool ok = CompanionBot::instance().send_to_paired(full_path, caption);
+                out = nlohmann::json{
+                    { "ok", ok },
+                    { "message", ok ? "Sent to Telegram companion bot." : "Failed to send (bot not running or not paired)." }
+                }.dump();
+                status = ok ? 200 : 400;
+            }
+        } catch (...) {
+            out = error_json("invalid json");
+            status = 400;
+        }
     } else if (m == "GET" && p == "compat/sd-models") {
         out    = sd_models_json(g_library);
         status = 200;
@@ -2570,10 +2592,48 @@ int main(int, char **) {
     watch_quit_file();
 
 #ifndef PS5SD_NO_DISPLAY
+    hui::ps5::Pad pad;
+    pad.open();
+    std::uint32_t prev_buttons = 0;
+
     // The screen and the quit request until the system closes the title: a
     // title may not return from main or exit.
     for (uint64_t n = 0;; ++n) {
         if (ui_ok) {
+            std::array<hui::PadSample, 16> samples;
+            const std::size_t count = pad.read(samples);
+            if (count > 0) {
+                const auto & s = samples[count - 1];
+                const std::uint32_t pressed = s.buttons & ~prev_buttons;
+                prev_buttons = s.buttons;
+
+                if (pressed & hui::pad_bits::kSquare) {
+                    view.toggle_log();
+                    pad.rumble(0.4f, 0.12f);
+                }
+                if (pressed & hui::pad_bits::kCircle) {
+                    view.toggle_screensaver();
+                    pad.rumble(0.4f, 0.12f);
+                }
+                if (pressed & (hui::pad_bits::kL1 | hui::pad_bits::kLeft)) {
+                    view.cycle_picture(-1);
+                    pad.rumble(0.25f, 0.08f);
+                }
+                if (pressed & (hui::pad_bits::kR1 | hui::pad_bits::kRight)) {
+                    view.cycle_picture(1);
+                    pad.rumble(0.25f, 0.08f);
+                }
+            }
+            const auto snap = g_status.snapshot();
+            if (snap.state == AppStatus::State::generating) {
+                pad.set_light_bar(255, 140, 0);
+            } else if (view.screensaver_active()) {
+                pad.set_light_bar(180, 0, 255);
+            } else {
+                pad.set_light_bar(0, 160, 255);
+            }
+            pad.tick(1.0f / 60.0f);
+
             render();
         }
         if (!display.swap() || !ui_ok) {

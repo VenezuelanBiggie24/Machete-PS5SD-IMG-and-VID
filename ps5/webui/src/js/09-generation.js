@@ -21,6 +21,24 @@
     return f;
   }
 
+  // Expands bracketed prompt permutations: "{cyberpunk, retro} cat in {rain, snow}"
+  // into an array of distinct prompt combinations.
+  function expandPermutations(text) {
+    var match = text.match(/\{([^{}]+)\}/);
+    if (!match) return [text];
+    var rawOptions = match[1].split(',');
+    var results = [];
+    for (var i = 0; i < rawOptions.length; i++) {
+      var opt = rawOptions[i].trim();
+      var variant = text.substring(0, match.index) + opt + text.substring(match.index + match[0].length);
+      var sub = expandPermutations(variant);
+      for (var j = 0; j < sub.length; j++) {
+        results.push(sub[j]);
+      }
+    }
+    return results;
+  }
+
   function generate() {
     if (st.sw) { toast('The model is switching. Try again in a moment.'); return; }
     if (st.mdl && st.mdl.standby) { toast('No model is loaded. Pick or download one first.'); setView('models'); return; }
@@ -32,9 +50,28 @@
       $('prompt').focus();
       return;
     }
+    var variants = expandPermutations(p.prompt);
     var n = runCount();
     // while something runs, the same settings wait in the server's queue
-    if (st.busy) { addToQueue(p, n); return; }
+    if (st.busy) {
+      for (var vi = 0; vi < variants.length; vi++) {
+        var pVar = Object.assign({}, p);
+        pVar.prompt = variants[vi];
+        if (!pVar.named) pVar.seed = Math.floor(Math.random() * 2147483647);
+        addToQueue(pVar, n);
+      }
+      return;
+    }
+    if (variants.length > 1) {
+      p.prompt = variants[0];
+      toast('Running permutation 1 of ' + variants.length + ' (' + (variants.length - 1) + ' queued)');
+      for (var k = 1; k < variants.length; k++) {
+        var pQ = Object.assign({}, p);
+        pQ.prompt = variants[k];
+        if (!pQ.named) pQ.seed = Math.floor(Math.random() * 2147483647);
+        addToQueue(pQ, n);
+      }
+    }
     persist();
     wakeAudio();
     document.title = st.title;

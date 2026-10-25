@@ -98,7 +98,7 @@ class ConsoleStats {
 
   private:
     void run(AppStatus & status);
-    void fan_tick(double up);
+    void fan_tick(double up, bool active_job = false);
 
     std::mutex     mutex_;
     ConsoleHistory history_;

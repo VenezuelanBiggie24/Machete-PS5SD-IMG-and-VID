@@ -1,0 +1,11 @@
+# name: SD 3.5 Medium (Q8_0)
+# defaults: steps=24 cfg=4.5 width=1024 height=1024 sampler=euler
+--diffusion-model
+diffusion_models/sd3.5_medium-Q8_0.gguf
+--t5xxl
+text_encoders/t5-v1_1-xxl-encoder-Q4_K_M.gguf
+--vae
+vae/sd3.5_vae.safetensors
+--vae-tiling
+--vae-tile-size
+512

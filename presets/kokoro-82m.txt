@@ -1,0 +1,4 @@
+# name: Kokoro 82M (Audio / TTS)
+# defaults: voice=af_heart speed=1.0
+--audio-model
+audio_models/kokoro-v0_19.safetensors

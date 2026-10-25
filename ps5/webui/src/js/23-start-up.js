@@ -176,7 +176,7 @@
     $('lora-add').onchange = addLora;
     $('up-pick').onclick = function () { $('up-file').click(); };
     $('up-file').onchange = upStart;
-    $('up-cancel').onclick = function () { if (upXhr) upXhr.abort(); };
+    $('up-cancel').onclick = upCancel;
     window.onbeforeunload = function () { return upXhr ? 'An upload is still running.' : undefined; };
     $('dl-url').onkeydown = function (e) { e = e || window.event; if (e.keyCode === 13) { addByUrl(); return false; } return true; };
     $('hf-go').onclick = hfSearch;
@@ -210,6 +210,7 @@
     $('lb-cp').onclick = function () { copyInfo('prompt'); };
     $('lb-cn').onclick = function () { copyInfo('negative'); };
     $('lb-ca').onclick = function () { copyInfo('all'); };
+    if ($('lb-telegram')) $('lb-telegram').onclick = sendToTelegram;
     $('ld-cancel').onclick = closeLabels;
     $('ld-save').onclick = saveLabels;
     zoomInit();

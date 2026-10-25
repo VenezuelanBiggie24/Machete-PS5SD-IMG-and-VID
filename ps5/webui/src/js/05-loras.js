@@ -33,14 +33,22 @@
     return path.replace(/^.*\//, '').replace(/\.(gguf|safetensors|ckpt|sft)$/i, '');
   }
 
-  // The request's "lora" field: the picked LoRAs that are still there, strength 0 left out.
+  // The request's "lora" field: the picked LoRAs that are on and still there, strength 0 left out.
   function loraBody(p) {
     var out = [];
     var ls = p.loras || [];
     for (var i = 0; i < ls.length; i++) {
-      if (ls[i].m !== 0 && loraKnown(ls[i].path)) out.push({ path: ls[i].path, multiplier: ls[i].m });
+      if (ls[i].m !== 0 && !ls[i].off && loraKnown(ls[i].path)) out.push({ path: ls[i].path, multiplier: ls[i].m });
     }
     return out;
+  }
+
+  // The Style group's summary: "2 LoRAs", "2 LoRAs, 1 off".
+  function loraSummary() {
+    if (!loraSel.length) return 'none';
+    var off = 0;
+    for (var i = 0; i < loraSel.length; i++) if (loraSel[i].off) off++;
+    return loraSel.length + (loraSel.length === 1 ? ' LoRA' : ' LoRAs') + (off ? ', ' + off + ' off' : '');
   }
 
   // The family of the loaded model ('' when it cannot be told), for the LoRA list.
@@ -70,10 +78,34 @@
     var wrong = [];
     for (var i = 0; i < loraSel.length; i++) {
       (function (s) {
-        var row = el('div', 'lrow');
+        var row = el('div', 'lrow' + (s.off ? ' off' : ''));
         var gone = !loraKnown(s.path);
         var of = otherFamily(s.path, '', fam);
-        if (of) wrong.push(readable(loraName(s.path)) + ' is made for ' + of);
+        if (of && !s.off) wrong.push(readable(loraName(s.path)) + ' is made for ' + of);
+        // on or off: an off LoRA stays in the list with its strength, but is not sent
+        var sw = document.createElement('input');
+        sw.type = 'checkbox';
+        sw.className = 'lon';
+        sw.checked = !s.off;
+        sw.title = 'On or off; the strength stays';
+        sw.setAttribute('aria-label', 'Use ' + loraName(s.path));
+        sw.onchange = function () {
+          s.off = !sw.checked;
+          var f = s.was ? fastLoraSettings(s.path) : null;
+          if (f && s.off && JSON.stringify(quality()) === JSON.stringify(s.set)) {
+            setQuality(s.was);
+            toast('Off: the settings from before ' + f.label + ' are back: ' + settingsText(s.was) + '.');
+          } else if (f && !s.off) {
+            s.was = quality();
+            setQuality(f);
+            s.set = quality();
+            toast(f.label + ' is on again: ' + settingsText(s.set) + '.');
+          }
+          summary();
+          drawLoraPicker();
+          persist();
+        };
+        row.appendChild(sw);
         row.appendChild(el('span', 'lname', readable(loraName(s.path)) + (gone ? ' (not on the console)' : '')));
         var inp = document.createElement('input');
         inp.type = 'number';

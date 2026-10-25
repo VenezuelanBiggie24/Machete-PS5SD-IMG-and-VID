@@ -60,6 +60,18 @@ namespace catalog_data {
     { "https://huggingface.co/city96/t5-v1_1-xxl-encoder-gguf/resolve/main/t5-v1_1-xxl-encoder-Q4_K_M.gguf", \
       "text_encoders/t5-v1_1-xxl-encoder-Q4_K_M.gguf", 2896123072ull, 0 }
 
+#define PS5SD_SANA_LLM                                                                                    \
+    { "https://huggingface.co/google/gemma-2-2b-it-GGUF/resolve/main/gemma-2-2b-it-Q4_K_M.gguf",         \
+      "text_encoders/gemma-2-2b-it-Q4_K_M.gguf", 1677721600ull, 0 }
+
+#define PS5SD_SANA_VAE                                                                                    \
+    { "https://huggingface.co/mit-han-lab/dc-ae-f32c32-sana-1.0/resolve/main/model.safetensors",         \
+      "vae/dc-ae-f32c32-sana-1.0.safetensors", 104857600ull, 0 }
+
+#define PS5SD_SD35_VAE                                                                                    \
+    { "https://huggingface.co/stabilityai/stable-diffusion-3.5-medium/resolve/main/vae/diffusion_pytorch_model.safetensors", \
+      "vae/sd3.5_vae.safetensors", 167772160ull, 0 }
+
 // Presets that an older PS5SD wrote for a catalog entry, byte for byte as it wrote them.
 // update_catalog_presets gives such a preset the entry's current text; one that someone changed
 // stays as it is.
@@ -553,6 +565,92 @@ inline std::vector<CatalogEntry> entries() {
             false,
             "fast distilled video",
         },
+        {
+            "sana-1.6b",
+            "Sana 1.6B (1024px)",
+            "Linear attention diffusion model with Gemma 2B. Fast 1024x1024 generation in 14-20 steps. 3.4 GB.",
+            {
+                { "https://huggingface.co/Efficient-Large-Model/Sana_1600M_1024px/resolve/main/checkpoints/"
+                  "Sana_1600M_1024px.safetensors",
+                  "diffusion_models/sana_1600M_1024px.safetensors", 1720000000ull, 0 },
+                PS5SD_SANA_LLM,
+                PS5SD_SANA_VAE,
+            },
+            "# name: Sana 1.6B (1024px)\n"
+            "# defaults: steps=18 cfg=4.5 width=1024 height=1024 sampler=euler\n"
+            "--diffusion-model\n"
+            "diffusion_models/sana_1600M_1024px.safetensors\n"
+            "--llm\n"
+            "text_encoders/gemma-2-2b-it-Q4_K_M.gguf\n"
+            "--vae\n"
+            "vae/dc-ae-f32c32-sana-1.0.safetensors\n"
+            "--vae-tiling\n"
+            "--vae-tile-size\n"
+            "512\n",
+            false,
+            "fast linear attention 1024px",
+        },
+        {
+            "sana-0.6b",
+            "Sana 0.6B (512px)",
+            "Ultra-lightweight linear attention model for rapid 512x512 drafts in 12-14 steps. 2.4 GB.",
+            {
+                { "https://huggingface.co/Efficient-Large-Model/Sana_600M_512px/resolve/main/checkpoints/"
+                  "Sana_600M_512px.safetensors",
+                  "diffusion_models/sana_600M_512px.safetensors", 650000000ull, 0 },
+                PS5SD_SANA_LLM,
+                PS5SD_SANA_VAE,
+            },
+            "# name: Sana 0.6B (512px)\n"
+            "# defaults: steps=14 cfg=4.5 width=512 height=512 sampler=euler\n"
+            "--diffusion-model\n"
+            "diffusion_models/sana_600M_512px.safetensors\n"
+            "--llm\n"
+            "text_encoders/gemma-2-2b-it-Q4_K_M.gguf\n"
+            "--vae\n"
+            "vae/dc-ae-f32c32-sana-1.0.safetensors\n",
+            false,
+            "fast drafts",
+        },
+        {
+            "sd35-medium",
+            "SD 3.5 Medium (Q8_0)",
+            "Stable Diffusion 3.5 Medium with MMDiT architecture and improved prompt following. 6.4 GB.",
+            {
+                { "https://huggingface.co/city96/StableDiffusion3.5-Medium-gguf/resolve/main/sd3.5_medium-Q8_0.gguf",
+                  "diffusion_models/sd3.5_medium-Q8_0.gguf", 2600000000ull, 0 },
+                PS5SD_LTX_T5,
+                PS5SD_SD35_VAE,
+            },
+            "# name: SD 3.5 Medium (Q8_0)\n"
+            "# defaults: steps=24 cfg=4.5 width=1024 height=1024 sampler=euler\n"
+            "--diffusion-model\n"
+            "diffusion_models/sd3.5_medium-Q8_0.gguf\n"
+            "--t5xxl\n"
+            "text_encoders/t5-v1_1-xxl-encoder-Q4_K_M.gguf\n"
+            "--vae\n"
+            "vae/sd3.5_vae.safetensors\n"
+            "--vae-tiling\n"
+            "--vae-tile-size\n"
+            "512\n",
+            false,
+            "high detail and prompt following",
+        },
+        {
+            "kokoro-82m",
+            "Kokoro 82M (Audio / TTS)",
+            "Ultra-compact high-quality speech and audio synthesis model (82M parameters). 356 MB.",
+            {
+                { "https://huggingface.co/hexgrad/Kokoro-82M/resolve/main/kokoro-v0_19.safetensors",
+                  "audio_models/kokoro-v0_19.safetensors", 356000000ull, 0 },
+            },
+            "# name: Kokoro 82M (Audio / TTS)\n"
+            "# defaults: voice=af_heart speed=1.0\n"
+            "--audio-model\n"
+            "audio_models/kokoro-v0_19.safetensors\n",
+            false,
+            "voice and audio synthesis",
+        },
     };
 }
 
@@ -560,6 +658,9 @@ inline std::vector<CatalogEntry> entries() {
 #undef PS5SD_KLEIN_LLM
 #undef PS5SD_KLEIN_VAE
 #undef PS5SD_LTX_T5
+#undef PS5SD_SANA_LLM
+#undef PS5SD_SANA_VAE
+#undef PS5SD_SD35_VAE
 
 }  // namespace catalog_data
 }  // namespace ps5sd

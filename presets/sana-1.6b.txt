@@ -1,0 +1,11 @@
+# name: Sana 1.6B (1024px)
+# defaults: steps=18 cfg=4.5 width=1024 height=1024 sampler=euler
+--diffusion-model
+diffusion_models/sana_1600M_1024px.safetensors
+--llm
+text_encoders/gemma-2-2b-it-Q4_K_M.gguf
+--vae
+vae/dc-ae-f32c32-sana-1.0.safetensors
+--vae-tiling
+--vae-tile-size
+512

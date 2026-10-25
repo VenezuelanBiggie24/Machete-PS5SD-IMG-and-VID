@@ -36,6 +36,7 @@
             modelName(function (name, reachable) {
               st.infoBusy = false;
               if (!reachable) { setOnline(false); return; }
+              setOnline(true);
               var entry = st.mdl && st.mdl.loaded ? findModel(st.mdl.loaded) : null;
               // the same names as the Models tab (titleOf, readable: 13-models.js)
               st.label = entry ? titleOf(entry) : (name ? readable(name) : 'no model loaded');

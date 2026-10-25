@@ -146,3 +146,20 @@
     if (name === 'models') enterModels(); else dlSchedule(dlDelay());
   }
 
+  window.applyCameraMotion = function (action) {
+    var p = $('prompt');
+    if (!p) return;
+    var val = p.value;
+    var re = /\s*\[camera:\s*[^\]]+\]/gi;
+    val = val.replace(re, '');
+    if (action !== 'Clear') {
+      var tag = ' [camera: ' + action.toLowerCase() + ']';
+      val = val.trim() + tag;
+      toast('Director Camera: ' + action + ' added to prompt.');
+    } else {
+      toast('Director Camera direction cleared.');
+    }
+    p.value = val.trim();
+    persist();
+  };
+

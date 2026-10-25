@@ -37,6 +37,7 @@
   function checkAuth(then) {
     req('GET', '/ps5sd/v1/auth', null, function (code, data) {
       if (code === 200 && data && data.required && !data.authenticated) { showLogin(); return; }
+      if (code === 200) setOnline(true);
       then();
     }, 8000);
   }

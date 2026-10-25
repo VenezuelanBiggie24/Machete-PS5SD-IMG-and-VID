@@ -20,13 +20,16 @@ In a search, "err" gives an error and "none" gives no results.
 until a switch (Use) has loaded a model. It implies --mock-downloads.
 """
 import argparse
+import base64
 import http.client
 import json
 import os
 import re
+import struct
 import threading
 import time
 import urllib.parse
+import zlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -96,6 +99,38 @@ class MockDownloads:
          "description": "Tiny and very fast, for quick drafts.", "bytes": 683 * MB, "installed": True,
          "files": [{"url": "https://huggingface.co/example/sdxs-gguf/resolve/main/sdxs-512-tinySDdistilled_Q8_0.gguf",
                     "dest": "sdxs-512-tinySDdistilled_Q8_0.gguf", "bytes": 683 * MB}]},
+        {"id": "sana-1.6b", "name": "Sana 1.6B (1024px)", "preset": "sana-1.6b", "featured": True,
+         "description": "Linear attention diffusion model, fast 1024x1024 generation in 14-20 steps.",
+         "bytes": 1720 * MB + 1600 * MB + 100 * MB, "installed": False,
+         "files": [{"url": "https://huggingface.co/Efficient-Large-Model/Sana_1600M_1024px/resolve/main/checkpoints/Sana_1600M_1024px.safetensors",
+                    "dest": "diffusion_models/sana_1600M_1024px.safetensors", "bytes": 1720 * MB},
+                   {"url": "https://huggingface.co/google/gemma-2-2b-it-GGUF/resolve/main/gemma-2-2b-it-Q4_K_M.gguf",
+                    "dest": "text_encoders/gemma-2-2b-it-Q4_K_M.gguf", "bytes": 1600 * MB},
+                   {"url": "https://huggingface.co/mit-han-lab/dc-ae-f32c32-sana-1.0/resolve/main/model.safetensors",
+                    "dest": "vae/dc-ae-f32c32-sana-1.0.safetensors", "bytes": 100 * MB}]},
+        {"id": "sana-0.6b", "name": "Sana 0.6B (512px)", "preset": "sana-0.6b", "featured": False,
+         "description": "Ultra-lightweight linear attention model for fast 512x512 drafts.",
+         "bytes": 650 * MB + 1600 * MB + 100 * MB, "installed": False,
+         "files": [{"url": "https://huggingface.co/Efficient-Large-Model/Sana_600M_512px/resolve/main/checkpoints/Sana_600M_512px.safetensors",
+                    "dest": "diffusion_models/sana_600M_512px.safetensors", "bytes": 650 * MB},
+                   {"url": "https://huggingface.co/google/gemma-2-2b-it-GGUF/resolve/main/gemma-2-2b-it-Q4_K_M.gguf",
+                    "dest": "text_encoders/gemma-2-2b-it-Q4_K_M.gguf", "bytes": 1600 * MB},
+                   {"url": "https://huggingface.co/mit-han-lab/dc-ae-f32c32-sana-1.0/resolve/main/model.safetensors",
+                    "dest": "vae/dc-ae-f32c32-sana-1.0.safetensors", "bytes": 100 * MB}]},
+        {"id": "sd35-medium", "name": "SD 3.5 Medium (Q8_0)", "preset": "sd35-medium", "featured": True,
+         "description": "Stable Diffusion 3.5 Medium with MMDiT architecture and improved prompt following.",
+         "bytes": 2600 * MB + 3655 * MB + 160 * MB, "installed": False,
+         "files": [{"url": "https://huggingface.co/city96/StableDiffusion3.5-Medium-gguf/resolve/main/sd3.5_medium-Q8_0.gguf",
+                    "dest": "diffusion_models/sd3.5_medium-Q8_0.gguf", "bytes": 2600 * MB},
+                   {"url": "https://huggingface.co/city96/t5-v1_1-xxl-encoder-gguf/resolve/main/t5-v1_1-xxl-encoder-Q4_K_M.gguf",
+                    "dest": "text_encoders/t5-v1_1-xxl-encoder-Q4_K_M.gguf", "bytes": 3655 * MB},
+                   {"url": "https://huggingface.co/stabilityai/stable-diffusion-3.5-medium/resolve/main/vae/diffusion_pytorch_model.safetensors",
+                    "dest": "vae/sd3.5_vae.safetensors", "bytes": 160 * MB}]},
+        {"id": "kokoro-82m", "name": "Kokoro 82M (Audio / TTS)", "preset": "kokoro-82m", "featured": True,
+         "description": "Compact high-quality speech and audio generation model (82M parameters).",
+         "bytes": 340 * MB, "installed": False,
+         "files": [{"url": "https://huggingface.co/hexgrad/Kokoro-82M/resolve/main/kokoro-v0_19.safetensors",
+                    "dest": "audio_models/kokoro-v0_19.safetensors", "bytes": 340 * MB}]},
     ]
 
     def __init__(self):
@@ -233,6 +268,13 @@ class MockModels:
         "flux3/text_encoder.safetensors": 2500 * MB,
         "sd_turbo-f16-q8_0.gguf": 2023745376,
         "sdxs-512-tinySDdistilled_Q8_0.gguf": 682847200,
+        "sana_1600M_1024px.safetensors": 1720 * MB,
+        "text_encoders/gemma-2-2b-it-Q4_K_M.gguf": 1600 * MB,
+        "vae/dc-ae-f32c32-sana-1.0.safetensors": 100 * MB,
+        "diffusion_models/sd3.5_medium-Q8_0.gguf": 2600 * MB,
+        "text_encoders/t5-v1_1-xxl-encoder-Q4_K_M.gguf": 3655 * MB,
+        "vae/sd3.5_vae.safetensors": 160 * MB,
+        "audio_models/kokoro-v0_19.safetensors": 340 * MB,
     }
     SDXL_DEFAULTS = {"steps": "25", "cfg": "6", "width": "1024", "height": "1024", "sampler": "euler_a"}
 
@@ -251,6 +293,18 @@ class MockModels:
             {"id": "flux-klein", "name": "FLUX.3 Image Klein (int8)",
              "defaults": {"steps": "16", "cfg": "1", "width": "1024", "height": "1024", "sampler": "euler"},
              "files": ["flux3-klein-int8.safetensors", "flux3/text_encoder.safetensors", "flux3/ae.safetensors"]},
+            {"id": "sana-1.6b", "name": "Sana 1.6B (1024px)",
+             "defaults": {"steps": "18", "cfg": "4.5", "width": "1024", "height": "1024", "sampler": "euler"},
+             "files": ["sana_1600M_1024px.safetensors", "text_encoders/gemma-2-2b-it-Q4_K_M.gguf", "vae/dc-ae-f32c32-sana-1.0.safetensors"]},
+            {"id": "sana-0.6b", "name": "Sana 0.6B (512px)",
+             "defaults": {"steps": "14", "cfg": "4.5", "width": "512", "height": "512", "sampler": "euler"},
+             "files": ["sana_1600M_1024px.safetensors", "text_encoders/gemma-2-2b-it-Q4_K_M.gguf", "vae/dc-ae-f32c32-sana-1.0.safetensors"]},
+            {"id": "sd35-medium", "name": "SD 3.5 Medium (Q8_0)",
+             "defaults": {"steps": "24", "cfg": "4.5", "width": "1024", "height": "1024", "sampler": "euler"},
+             "files": ["diffusion_models/sd3.5_medium-Q8_0.gguf", "text_encoders/t5-v1_1-xxl-encoder-Q4_K_M.gguf", "vae/sd3.5_vae.safetensors"]},
+            {"id": "kokoro-82m", "name": "Kokoro 82M (Audio)",
+             "defaults": {"voice": "af_heart", "speed": "1.0"},
+             "files": ["audio_models/kokoro-v0_19.safetensors"]},
         ]
         self.active = "sdxl-base"
         self.loaded = "sdxl-base"
@@ -360,14 +414,258 @@ class MockModels:
         return 404, {"error": "not found"}
 
 
+def make_png(width=128, height=128, color=(45, 125, 230)):
+    """Generate a clean valid PNG binary buffer without external dependencies."""
+    raw = bytearray()
+    for y in range(height):
+        raw.append(0)
+        for x in range(width):
+            r = (color[0] + x) % 256
+            g = (color[1] + y) % 256
+            b = color[2]
+            raw.extend((r, g, b))
+    compressed = zlib.compress(bytes(raw))
+
+    def chunk(tag, data):
+        return struct.pack(">I", len(data)) + tag + data + struct.pack(">I", zlib.crc32(tag + data) & 0xFFFFFFFF)
+
+    return (
+        b"\x89PNG\r\n\x1a\n"
+        + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0))
+        + chunk(b"IDAT", compressed)
+        + chunk(b"IEND", b"")
+    )
+
+
+class MockBackend:
+    """Full offline backend answering samplers, schedulers, console stats, settings, jobs and gallery."""
+
+    def __init__(self, models=None):
+        self.lock = threading.Lock()
+        self.models = models
+        self.jobs = {}
+        self.gallery = []
+        self.labels = {}
+        self.next_job_id = 1
+        self.settings = {
+            "tv_images": True,
+            "tv_key": False,
+            "fan": "balanced",
+            "fan_target": 65,
+            "telegram_enabled": False,
+            "telegram_token": "",
+            "telegram_admin_id": 0,
+            "telegram_paired": False,
+        }
+
+    def handle(self, method, path, body):
+        route = path.split("?")[0]
+        with self.lock:
+            # 1. Server info & capabilities
+            if method == "GET" and route == "/sdapi/v1/samplers":
+                return 200, [
+                    {"name": "euler_a"},
+                    {"name": "euler"},
+                    {"name": "dpm++2m"},
+                    {"name": "dpm++2s_a"},
+                    {"name": "dpm2"},
+                    {"name": "lcm"},
+                    {"name": "ddim"},
+                ]
+            if method == "GET" and route == "/sdapi/v1/schedulers":
+                return 200, [
+                    {"name": "normal"},
+                    {"name": "karras"},
+                    {"name": "exponential"},
+                    {"name": "ays"},
+                    {"name": "sgm_uniform"},
+                    {"name": "simple"},
+                ]
+            if method == "GET" and route == "/sdcpp/v1/capabilities":
+                return 200, {
+                    "supported_modes": ["img_gen", "vid_gen"],
+                    "features": {"cancel_generating": True},
+                    "upscalers": ["RealESRGAN_x4plus", "ESRGAN_4x"],
+                    "limits": {"max_repeat": 10},
+                }
+            if method == "GET" and route == "/sdapi/v1/options":
+                active = self.models.active if self.models else "sdxl-base"
+                return 200, {"sd_model_checkpoint": active}
+            if method == "GET" and route == "/sdapi/v1/sd-models":
+                active = self.models.active if self.models else "sdxl-base"
+                return 200, [{"title": active, "model_name": active}]
+            if method == "GET" and route == "/v1/models":
+                active = self.models.active if self.models else "sdxl-base"
+                return 200, {"data": [{"id": active}]}
+            if method == "GET" and route == "/sdapi/v1/progress":
+                return 200, {
+                    "progress": 0.0,
+                    "eta_relative": 0.0,
+                    "state": {"job_count": len(self.jobs), "sampling_steps": 0},
+                }
+
+            # 2. App console, settings, auth, storage, companion
+            if method == "GET" and route == APP + "settings":
+                return 200, dict(self.settings)
+            if method == "POST" and route == APP + "settings":
+                try:
+                    patch = json.loads(body or b"{}")
+                    self.settings.update(patch)
+                except ValueError:
+                    return 400, {"error": "invalid json"}
+                return 200, dict(self.settings)
+            if method == "GET" and route == APP + "console":
+                return 200, {
+                    "soc_temp_c": 56,
+                    "fan_rpm": 1620,
+                    "fan_level": 52,
+                    "fan_mode": self.settings.get("fan", "balanced"),
+                    "mem_used_bytes": 4400000000,
+                    "mem_total_bytes": 16000000000,
+                    "vram_used_bytes": 3400000000,
+                    "vram_total_bytes": 12884901888,
+                }
+            if method == "GET" and route in (APP + "auth", "/ps5sd/v1/auth"):
+                return 200, {"required": False, "authenticated": True, "enabled": False, "key": "", "active": False}
+            if method == "POST" and route in (APP + "auth/login", "/ps5sd/v1/auth/login"):
+                return 200, {"ok": True}
+            if method == "POST" and route in (APP + "auth/logout", "/ps5sd/v1/auth/logout"):
+                return 200, {"ok": True}
+            if method == "GET" and route in (APP + "health", "/ps5sd/v1/health"):
+                return 200, {"status": "ok", "app": "PS5SD"}
+            if method == "GET" and route == APP + "loras":
+                return 200, {"loras": []}
+            if method == "GET" and route == APP + "upscalers":
+                return 200, {"upscalers": ["RealESRGAN_x4plus", "ESRGAN_4x"]}
+            if method == "GET" and route == APP + "storage/devices":
+                return 200, [
+                    {
+                        "mount": "/data/PS5SD",
+                        "label": "Internal NVMe",
+                        "total_bytes": 1000000000000,
+                        "free_bytes": 450000000000,
+                        "is_active": True,
+                        "is_usb": False,
+                        "has_models": True,
+                    }
+                ]
+            if method == "POST" and route == APP + "storage/select":
+                return 200, {"ok": True, "base_dir": "/data/PS5SD"}
+            if method == "GET" and route == APP + "face/status":
+                return 200, {"has_face": False, "face_name": ""}
+            if method == "GET" and route == APP + "companion/status":
+                return 200, {
+                    "enabled": self.settings.get("telegram_enabled", False),
+                    "has_token": bool(self.settings.get("telegram_token")),
+                    "running": False,
+                }
+            if method == "POST" and route == APP + "companion/send":
+                return 200, {"ok": True, "message": "Dispatched to Telegram companion bot."}
+            if method == "GET" and route == APP + "tags":
+                return 200, {"count": 0, "tags": []}
+            if method == "POST" and route == APP + "tags":
+                return 200, {"tags": []}
+            if method == "GET" and route == APP + "gallery/labels":
+                return 200, dict(self.labels)
+            if method == "POST" and route == APP + "gallery/labels":
+                try:
+                    j = json.loads(body or b"{}")
+                    name = j.get("name")
+                    if name:
+                        self.labels[name] = {"title": j.get("title", ""), "tags": j.get("tags", [])}
+                except ValueError:
+                    return 400, {"error": "invalid json"}
+                return 200, dict(self.labels)
+            if method == "POST" and route == APP + "fit":
+                return 200, {"fits": True, "headroom_bytes": 4000000000}
+
+            # 3. Gallery & Image Generation
+            if method == "GET" and (route == "/ps5sd/v1/gallery" or route == "/gallery"):
+                return 200, list(self.gallery)
+            if method == "POST" and (route == "/sdcpp/v1/img_gen" or route == "/sdcpp/v1/vid_gen"):
+                jid = "job_%d" % self.next_job_id
+                self.next_job_id += 1
+                img_name = "output_%d.png" % int(time.time())
+                self.jobs[jid] = {
+                    "id": jid,
+                    "created": time.time(),
+                    "duration": 1.5,
+                    "filename": img_name,
+                    "cancelled": False,
+                }
+                return 200, {"job_id": jid, "status": "queued"}
+            if method == "GET" and route.startswith("/sdcpp/v1/jobs/"):
+                jid = route.split("/")[-1]
+                job = self.jobs.get(jid)
+                if not job:
+                    return 404, {"error": "job not found"}
+                elapsed = time.time() - job["created"]
+                if elapsed < job["duration"] and not job["cancelled"]:
+                    return 200, {"job_id": jid, "status": "running", "progress": min(0.95, elapsed / job["duration"])}
+                if job["cancelled"]:
+                    return 200, {"job_id": jid, "status": "cancelled", "progress": 0.0}
+                if not any(g.get("name") == job["filename"] for g in self.gallery):
+                    self.gallery.insert(0, {
+                        "name": job["filename"],
+                        "url": "/outputs/" + job["filename"],
+                        "bytes": 8862,
+                        "created": int(job["created"]),
+                    })
+                return 200, {"job_id": jid, "status": "completed", "progress": 1.0, "output": [job["filename"]]}
+            if method == "POST" and route.endswith("/cancel") and "/sdcpp/v1/jobs/" in route:
+                jid = route.split("/")[-2]
+                if jid in self.jobs:
+                    self.jobs[jid]["cancelled"] = True
+                return 200, {"ok": True}
+            if method == "POST" and route in ("/sdapi/v1/txt2img", "/sdapi/v1/img2img"):
+                png = make_png()
+                b64 = base64.b64encode(png).decode("ascii")
+                img_name = "output_%d.png" % int(time.time())
+                self.gallery.insert(0, {
+                    "name": img_name,
+                    "url": "/outputs/" + img_name,
+                    "bytes": len(png),
+                    "created": int(time.time()),
+                })
+                return 200, {"images": [b64]}
+            if method == "POST" and route == "/sdapi/v1/interrupt":
+                for j in self.jobs.values():
+                    j["cancelled"] = True
+                return 200, {"ok": True}
+
+        return None
+
+
 class Handler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
     target = None
     mock = None
     models = None
+    backend = None
 
     def log_message(self, fmt, *args):
         pass
+
+    mock_all = False
+
+    def do_HEAD(self):
+        clean_path = self.path.split("?")[0]
+        if clean_path in ("/", "/index.html"):
+            body = bundle()
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            return
+        if clean_path.startswith("/outputs/") or clean_path.startswith("/data/PS5SD/outputs/"):
+            img = make_png()
+            self.send_response(200)
+            self.send_header("Content-Type", "image/png")
+            self.send_header("Content-Length", str(len(img)))
+            self.end_headers()
+            return
+        self._dispatch()
 
     def _page(self):
         body = bundle()
@@ -381,13 +679,24 @@ class Handler(BaseHTTPRequestHandler):
     def _proxy(self, body):
         t = urllib.parse.urlparse(self.target)
         try:
-            conn = http.client.HTTPConnection(t.hostname, t.port or 80, timeout=600)
+            conn = http.client.HTTPConnection(t.hostname, t.port or 80, timeout=2.5)
             headers = {k: v for k, v in self.headers.items()
                        if k.lower() not in ("host", "connection", "accept-encoding")}
             conn.request(self.command, self.path, body=body, headers=headers)
             r = conn.getresponse()
             data = r.read()
-        except Exception as e:  # server down: behave like a dropped connection
+        except Exception as e:
+            if self.backend is not None:
+                res = self.backend.handle(self.command, self.path, body)
+                if res is not None:
+                    if self.command == "HEAD":
+                        self.send_response(res[0])
+                        self.send_header("Content-Type", "application/json")
+                        self.send_header("Content-Length", "0")
+                        self.end_headers()
+                        return
+                    self._json(res[0], res[1])
+                    return
             msg = ("proxy error: %s" % e).encode()
             self.send_response(502)
             self.send_header("Content-Length", str(len(msg)))
@@ -401,7 +710,8 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header(k, v)
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
-        self.wfile.write(data)
+        if self.command != "HEAD":
+            self.wfile.write(data)
 
     def _json(self, code, obj):
         data = json.dumps(obj).encode()
@@ -409,16 +719,28 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
-        self.wfile.write(data)
+        if self.command != "HEAD":
+            self.wfile.write(data)
 
     def _dispatch(self):
-        if self.command == "GET" and self.path.split("?")[0] in ("/", "/index.html"):
+        clean_path = self.path.split("?")[0]
+        if self.command == "GET" and clean_path in ("/", "/index.html"):
             self._page()
             return
+        if self.command in ("GET", "HEAD") and (clean_path.startswith("/outputs/") or clean_path.startswith("/data/PS5SD/outputs/")):
+            img = make_png()
+            self.send_response(200)
+            self.send_header("Content-Type", "image/png")
+            self.send_header("Content-Length", str(len(img)))
+            self.end_headers()
+            if self.command == "GET":
+                self.wfile.write(img)
+            return
+
         length = int(self.headers.get("Content-Length") or 0)
         body = self.rfile.read(length) if length else None
         res = None
-        if self.models is not None and self.path.split("?")[0] == APP + "info":
+        if self.models is not None and clean_path == APP + "info":
             src = open(VERSION_HPP, encoding="utf-8").read()
             version = re.search(r'PS5SD_VERSION "([^"]*)"', src).group(1)
             self._json(200, {"name": "PS5SD", "version": version, "sd_cpp": {"version": "mock", "commit": "mock"}})
@@ -437,6 +759,13 @@ class Handler(BaseHTTPRequestHandler):
         if res is not None:
             self._json(res[0], res[1])
             return
+
+        if self.backend is not None and self.mock_all:
+            res = self.backend.handle(self.command, self.path, body)
+            if res is not None:
+                self._json(res[0], res[1])
+                return
+
         self._proxy(body)
 
     do_GET = do_POST = do_PUT = do_DELETE = do_OPTIONS = _dispatch
@@ -446,6 +775,8 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--port", type=int, default=8787)
     ap.add_argument("--target", default="http://10.0.0.101:7860")
+    ap.add_argument("--mock-all", action="store_true",
+                    help="run completely standalone with simulated models, downloads, generation and gallery")
     ap.add_argument("--mock-downloads", action="store_true",
                     help="answer catalog, downloads and Hugging Face search here (simulated)")
     ap.add_argument("--mock-models", action="store_true",
@@ -453,15 +784,19 @@ if __name__ == "__main__":
     ap.add_argument("--mock-standby", action="store_true",
                     help="start without a model, as sd-server --standby does; implies --mock-downloads")
     a = ap.parse_args()
-    a.mock_downloads = a.mock_downloads or a.mock_standby
+    a.mock_all = a.mock_all or (a.target == "http://10.0.0.101:7860" and not (a.mock_downloads or a.mock_models))
+    a.mock_downloads = a.mock_downloads or a.mock_standby or a.mock_all
+    a.mock_models = a.mock_models or a.mock_all
     Handler.target = a.target
+    Handler.mock_all = a.mock_all
     if a.mock_downloads:
         Handler.mock = MockDownloads()
     if a.mock_downloads or a.mock_models:
         Handler.models = MockModels(Handler.mock)
+    Handler.backend = MockBackend(Handler.models)
     if a.mock_standby:
         Handler.models.standby = True
         Handler.models.active = Handler.models.loaded = ""
     print("serving %s on http://127.0.0.1:%d -> %s%s" % (SRC, a.port, a.target,
-                                                      (" (mock downloads)" if a.mock_downloads else "") + (" (mock models)" if Handler.models else "")))
+                                                          (" (mock all)" if a.mock_all else (" (mock downloads)" if a.mock_downloads else "") + (" (mock models)" if Handler.models else ""))))
     ThreadingHTTPServer(("127.0.0.1", a.port), Handler).serve_forever()

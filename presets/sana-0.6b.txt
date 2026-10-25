@@ -1,0 +1,8 @@
+# name: Sana 0.6B (512px)
+# defaults: steps=14 cfg=4.5 width=512 height=512 sampler=euler
+--diffusion-model
+diffusion_models/sana_600M_512px.safetensors
+--llm
+text_encoders/gemma-2-2b-it-Q4_K_M.gguf
+--vae
+vae/dc-ae-f32c32-sana-1.0.safetensors

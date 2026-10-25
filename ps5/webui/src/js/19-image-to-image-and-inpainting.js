@@ -259,6 +259,80 @@
     drawInit();
   }
 
+  // Directional canvas outpainting / re-framing: expands the canvas in a chosen direction
+  // (left, right, up, down, or all) and automatically masks the expanded margins so
+  // Stable Diffusion outpaints the extended environment while keeping the original image intact.
+  function outpaintCanvas(dir, pct) {
+    var i = st.init;
+    if (!i || !i.canvas) {
+      toast('Load or select an image to outpaint first.');
+      return;
+    }
+    pct = pct || 0.25;
+    var curW = i.canvas.width;
+    var curH = i.canvas.height;
+    var addW = 0, addH = 0;
+    var offX = 0, offY = 0;
+
+    if (dir === 'left') {
+      addW = Math.max(64, Math.round(curW * pct / 64) * 64);
+      offX = addW;
+    } else if (dir === 'right') {
+      addW = Math.max(64, Math.round(curW * pct / 64) * 64);
+    } else if (dir === 'up') {
+      addH = Math.max(64, Math.round(curH * pct / 64) * 64);
+      offY = addH;
+    } else if (dir === 'down') {
+      addH = Math.max(64, Math.round(curH * pct / 64) * 64);
+    } else if (dir === 'all') {
+      addW = Math.max(64, Math.round(curW * (pct / 2) / 64) * 64) * 2;
+      addH = Math.max(64, Math.round(curH * (pct / 2) / 64) * 64) * 2;
+      offX = addW / 2;
+      offY = addH / 2;
+    }
+
+    var newW = curW + addW;
+    var newH = curH + addH;
+    if (Math.max(newW, newH) > INIT_MAX) {
+      toast('Expanded dimensions exceed maximum supported ' + INIT_MAX + 'px.');
+      return;
+    }
+
+    var newC = canvasOf(newW, newH);
+    var ctxC = newC.getContext('2d');
+    ctxC.drawImage(i.canvas, offX, offY);
+
+    var newM = canvasOf(newW, newH);
+    var ctxM = newM.getContext('2d');
+    if (i.mask) {
+      ctxM.drawImage(i.mask, offX, offY);
+    }
+    ctxM.fillStyle = 'rgba(255, 48, 48, 1.0)';
+    if (offX > 0) ctxM.fillRect(0, 0, offX, newH);
+    if (addW - offX > 0) ctxM.fillRect(curW + offX, 0, addW - offX, newH);
+    if (offY > 0) ctxM.fillRect(0, 0, newW, offY);
+    if (addH - offY > 0) ctxM.fillRect(0, curH + offY, newW, addH - offY);
+
+    var totalPix = newW * newH;
+    var outpaintPix = totalPix - (curW * curH);
+    var paintedShare = Math.min(1.0, outpaintPix / totalPix);
+
+    st.init = {
+      canvas: newC,
+      name: (i.name || 'image') + '-outpaint',
+      mask: newM,
+      painted: Math.max(0.1, paintedShare)
+    };
+
+    var f = fitArea(newW, newH, st.preset ? st.preset.w * st.preset.h : 1024 * 1024);
+    $('w').value = f.w;
+    $('h').value = f.h;
+    markPreset();
+    persist();
+    drawInit();
+    toast('Canvas expanded ' + dir + ' by ' + Math.round(pct * 100) + '%. Outer margins are masked for AI outpainting.');
+  }
+
   // ---- the request and putting the result back
   // The box around the painted part of the mask, or null.
   function maskBounds(m) {

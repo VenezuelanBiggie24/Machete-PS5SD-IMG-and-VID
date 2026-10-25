@@ -361,6 +361,13 @@ bool CompanionBot::send_photo(const std::string & chat_id, const std::string & p
     return true;
 }
 
+bool CompanionBot::send_to_paired(const std::string & photo_path, const std::string & caption) {
+    if (!running_ || token_.empty() || allowed_chat_id_.empty()) {
+        return false;
+    }
+    return send_photo(allowed_chat_id_, photo_path, caption);
+}
+
 void CompanionBot::poll_loop() {
     HttpClient client;
     client.set_timeout(20);
