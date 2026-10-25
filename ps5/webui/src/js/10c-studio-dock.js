@@ -5,8 +5,23 @@
     cyberpunk: ', cyberpunk neon aesthetic, volumetric fog, rainy reflections, intricate mechanical details, vibrant glowing palette',
     anime: ', anime visual masterpiece, makoto shinkai aesthetic, luminous color grading, clean linework, atmospheric depth',
     product: ', commercial studio product photography, pristine clean background, balanced softbox illumination, sharp focus, 8k',
-    fantasy: ', dark fantasy epic composition, ethereal bioluminescent glow, ornate medieval architecture, mythical atmosphere'
+    fantasy: ', dark fantasy epic composition, ethereal bioluminescent glow, ornate medieval architecture, mythical atmosphere',
+    retro: ', 90s vintage film photography, 35mm grain, nostalgic warm hues, disposable camera aesthetic, authentic color grading',
+    concept: ', digital concept art, matte painting, trending on artstation, masterpiece, intricate composition, cinematic vista'
   };
+
+  function syncAspectButtons(w, h) {
+    var aspectBtns = document.querySelectorAll('.aspect-btn');
+    for (var i = 0; i < aspectBtns.length; i++) {
+      var bw = parseInt(aspectBtns[i].getAttribute('data-w'), 10);
+      var bh = parseInt(aspectBtns[i].getAttribute('data-h'), 10);
+      if (bw === w && bh === h) {
+        aspectBtns[i].classList.add('on');
+      } else {
+        aspectBtns[i].classList.remove('on');
+      }
+    }
+  }
 
   function initStudioDock() {
     // Style chips
@@ -48,6 +63,51 @@
       };
     }
 
+    // Prompt clear button
+    var clrBtn = $('prompt-clear');
+    var promptEl = $('prompt');
+    function updateClearBtn() {
+      if (clrBtn && promptEl) {
+        clrBtn.style.display = promptEl.value.trim().length > 0 ? 'inline-block' : 'none';
+      }
+    }
+    if (promptEl) {
+      promptEl.addEventListener('input', updateClearBtn);
+      updateClearBtn();
+    }
+    if (clrBtn && promptEl) {
+      clrBtn.onclick = function () {
+        promptEl.value = '';
+        updateClearBtn();
+        // remove active state from style chips
+        var chips = document.querySelectorAll('.style-chip');
+        for (var c = 0; c < chips.length; c++) chips[c].classList.remove('on');
+        if (promptEl.dispatchEvent) promptEl.dispatchEvent(new Event('input'));
+        persist();
+      };
+    }
+
+    // Quick negative chips
+    var negChips = document.querySelectorAll('.neg-chip');
+    for (var n = 0; n < negChips.length; n++) {
+      (function (nBtn) {
+        nBtn.onclick = function () {
+          var negText = nBtn.getAttribute('data-neg');
+          if (!negText) return;
+          var negField = $('neg');
+          if (negField.value.indexOf(negText.trim()) === -1) {
+            negField.value = negField.value ? (negField.value.trim().replace(/,+$/, '') + ', ' + negText) : negText;
+            nBtn.classList.add('on');
+          } else {
+            negField.value = negField.value.replace(negText, '').replace(negText.trim(), '').replace(/,\s*,/g, ',').replace(/^,\s*|,\s*$/g, '');
+            nBtn.classList.remove('on');
+          }
+          if (negField.dispatchEvent) negField.dispatchEvent(new Event('input'));
+          persist();
+        };
+      })(negChips[n]);
+    }
+
     // Aspect ratio buttons
     var aspectBtns = document.querySelectorAll('.aspect-btn');
     for (var j = 0; j < aspectBtns.length; j++) {
@@ -58,14 +118,25 @@
           if (w && h) {
             $('w').value = w;
             $('h').value = h;
-            for (var k = 0; k < aspectBtns.length; k++) aspectBtns[k].classList.remove('on');
-            btn.classList.add('on');
+            syncAspectButtons(w, h);
             markPreset();
             persist();
             if ($('w').dispatchEvent) $('w').dispatchEvent(new Event('change'));
           }
         };
       })(aspectBtns[j]);
+    }
+
+    // Watch for size inputs to sync aspect buttons
+    var wInput = $('w');
+    var hInput = $('h');
+    if (wInput && hInput) {
+      var syncAspectFromInputs = function () {
+        syncAspectButtons(parseInt(wInput.value, 10), parseInt(hInput.value, 10));
+      };
+      wInput.addEventListener('change', syncAspectFromInputs);
+      hInput.addEventListener('change', syncAspectFromInputs);
+      syncAspectFromInputs();
     }
 
     // Face Studio Scenario Presets

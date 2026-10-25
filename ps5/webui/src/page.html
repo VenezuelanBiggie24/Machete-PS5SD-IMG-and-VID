@@ -117,16 +117,21 @@
       <button type="button" class="style-chip" data-style="anime">Anime Aesthetic</button>
       <button type="button" class="style-chip" data-style="product">Studio Product</button>
       <button type="button" class="style-chip" data-style="fantasy">Dark Fantasy</button>
+      <button type="button" class="style-chip" data-style="retro">Retro 90s</button>
+      <button type="button" class="style-chip" data-style="concept">Concept Art</button>
     </div>
 
     <label for="prompt">Prompt</label>
     <p class="hint starter" id="starter" style="display:none"></p>
-    <textarea id="prompt" class="big" rows="4" placeholder="Describe the masterpiece you want to create..."></textarea>
+    <div class="prompt-wrap">
+      <textarea id="prompt" class="big" rows="4" placeholder="Describe the masterpiece you want to create..."></textarea>
+    </div>
     <div class="tagbox" id="tagbox" role="listbox" aria-label="Tags" style="display:none"></div>
     <div class="linkrow">
       <button type="button" class="linkbtn magic-btn" id="magic-polish">Magic Polish</button>
       <button type="button" class="linkbtn" id="neg-toggle" aria-expanded="false" aria-controls="neg-box">+ Negative prompt</button>
       <span class="fill"></span>
+      <button type="button" class="linkbtn" id="prompt-clear" style="display:none">Clear</button>
       <button type="button" class="linkbtn" id="prompt-copy">Copy</button>
       <button type="button" class="linkbtn" id="prompt-paste" style="display:none">Paste</button>
     </div>
@@ -134,6 +139,12 @@
       <label for="neg">Negative prompt</label>
       <p class="hint starter" id="negstarter" style="display:none"></p>
       <textarea id="neg" rows="2" placeholder="What to avoid (optional)"></textarea>
+      <div class="neg-quick-row" id="neg-quick-row">
+        <span class="hint">Quick Filters:</span>
+        <button type="button" class="neg-chip" data-neg="blurry, low quality, distorted, extra limbs, bad anatomy">Quality Boost</button>
+        <button type="button" class="neg-chip" data-neg="bad hands, missing fingers, extra fingers, deformed hands">Anatomy Fix</button>
+        <button type="button" class="neg-chip" data-neg="watermark, signature, text, logo, username">No Watermarks</button>
+      </div>
       <div class="linkrow">
         <span class="fill"></span>
         <button type="button" class="linkbtn" id="neg-copy">Copy</button>
@@ -148,6 +159,7 @@
         <button type="button" class="aspect-btn" data-w="1280" data-h="720"><span class="aspect-glyph r-16-9"></span> 16:9 Wide</button>
         <button type="button" class="aspect-btn" data-w="720" data-h="1280"><span class="aspect-glyph r-9-16"></span> 9:16 Story</button>
         <button type="button" class="aspect-btn" data-w="1024" data-h="768"><span class="aspect-glyph r-4-3"></span> 4:3 Classic</button>
+        <button type="button" class="aspect-btn" data-w="1152" data-h="768"><span class="aspect-glyph r-3-2"></span> 3:2 Photo</button>
         <button type="button" class="aspect-btn" data-w="1344" data-h="576"><span class="aspect-glyph r-21-9"></span> 21:9 Cinema</button>
       </div>
     </div>
@@ -409,7 +421,13 @@
     <div class="runprompt" id="runprompt" style="display:none"></div>
     <div class="bar" id="bar"><div id="fill"></div></div>
     <p class="hint" id="runnote" style="display:none">Keep this page open: each image is put back into the picture here.</p>
-    <div class="stage" id="stage"><div class="empty">Your image appears here.</div></div>
+    <div class="stage" id="stage">
+      <div class="empty">
+        <div class="empty-icon"><svg viewBox="0 0 24 24" width="44" height="44" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="4"/><circle cx="8.5" cy="8.5" r="2"/><path d="M21 15l-5-5L5 21"/></svg></div>
+        <div class="empty-title">Studio Canvas Ready</div>
+        <div class="empty-desc">Enter a prompt above and select your style, then press Generate.</div>
+      </div>
+    </div>
     <div class="strip" id="strip" style="display:none"></div>
     <div class="actions" id="actions"></div>
   </section>
