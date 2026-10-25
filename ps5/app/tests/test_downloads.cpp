@@ -78,6 +78,18 @@ int main() {
               s.url == "https://huggingface.co/concedo/sdxs-512-tinySDdistilled-GGUF/resolve/main/"
                        "sdxs-512-tinySDdistilled_Q8_0.gguf",
           "HF resolve URL kept, query dropped");
+    check(classify_url("https://huggingface.co/city96/StableDiffusion3.5-Medium-gguf/resolve/main/sd3.5_medium-Q8_0.gguf",
+                       s, error) &&
+              s.url == "https://huggingface.co/city96/stable-diffusion-3.5-medium-gguf/resolve/main/sd3.5_medium-Q8_0.gguf",
+          "city96 SD 3.5 casing canonicalized");
+    check(classify_url("https://huggingface.co/hexgrad/Kokoro-82M/resolve/main/kokoro-v0_19.safetensors",
+                       s, error) &&
+              s.url == "https://huggingface.co/prince-canuma/Kokoro-82M/resolve/main/kokoro-v1_0.safetensors",
+          "kokoro v0_19 safetensors canonicalized");
+    check(classify_url("https://huggingface.co/TencentARC/PhotoMaker/resolve/main/photomaker-v1.safetensors",
+                       s, error) &&
+              s.url == "https://huggingface.co/bssrdf/PhotoMaker/resolve/main/photomaker-v1.safetensors",
+          "photomaker-v1 safetensors canonicalized");
     check(classify_url("https://huggingface.co/Comfy-Org/flux2-dev/blob/main/split_files/vae/flux2-vae.safetensors", s,
                        error) &&
               s.url == "https://huggingface.co/Comfy-Org/flux2-dev/resolve/main/split_files/vae/flux2-vae.safetensors" &&

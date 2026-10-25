@@ -193,10 +193,36 @@ std::string resolve_location(const Url & base, const std::string & location) {
     return url_string(u);
 }
 
+std::string canonicalize_model_url(const std::string & url) {
+    if (url.find("city96/StableDiffusion3.5-Medium-gguf/resolve/main/sd3.5_medium-Q8_0.gguf") != std::string::npos) {
+        return "https://huggingface.co/city96/stable-diffusion-3.5-medium-gguf/resolve/main/sd3.5_medium-Q8_0.gguf";
+    }
+    if (url.find("stabilityai/stable-diffusion-3.5-medium/resolve/main/vae/diffusion_pytorch_model.safetensors") != std::string::npos) {
+        return "https://huggingface.co/Shio-Koube/SD-3.5-vae/resolve/main/diffusion_pytorch_model.safetensors";
+    }
+    if (url.find("hexgrad/Kokoro-82M/resolve/main/kokoro-v0_19.safetensors") != std::string::npos) {
+        return "https://huggingface.co/prince-canuma/Kokoro-82M/resolve/main/kokoro-v1_0.safetensors";
+    }
+    if (url.find("TencentARC/PhotoMaker/resolve/main/photomaker-v1.safetensors") != std::string::npos) {
+        return "https://huggingface.co/bssrdf/PhotoMaker/resolve/main/photomaker-v1.safetensors";
+    }
+    if (url.find("google/gemma-2-2b-it-GGUF/resolve/main/gemma-2-2b-it-Q4_K_M.gguf") != std::string::npos) {
+        return "https://huggingface.co/bartowski/gemma-2-2b-it-GGUF/resolve/main/gemma-2-2b-it-Q4_K_M.gguf";
+    }
+    if (url.find("Efficient-Large-Model/Sana_1600M_1024px/resolve/main/checkpoints/Sana_1600M_1024px.safetensors") != std::string::npos) {
+        return "https://huggingface.co/Efficient-Large-Model/Sana_1600M_1024px_diffusers/resolve/main/transformer/diffusion_pytorch_model.safetensors";
+    }
+    if (url.find("Efficient-Large-Model/Sana_600M_512px/resolve/main/checkpoints/Sana_600M_512px.safetensors") != std::string::npos) {
+        return "https://huggingface.co/Efficient-Large-Model/Sana_600M_512px_diffusers/resolve/main/transformer/diffusion_pytorch_model.safetensors";
+    }
+    return url;
+}
+
 bool classify_url(const std::string & text, Source & out, std::string & error) {
+    const std::string canon_text = canonicalize_model_url(text);
     Url u;
-    if (!parse_url(text, u) || u.scheme != "https") {
-        error = "not an https URL: " + text;
+    if (!parse_url(canon_text, u) || u.scheme != "https") {
+        error = "not an https URL: " + canon_text;
         return false;
     }
     const size_t      q     = u.target.find('?');

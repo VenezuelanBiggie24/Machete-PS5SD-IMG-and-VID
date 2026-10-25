@@ -608,6 +608,7 @@ void run_one(Item & item) {
     DownloadRecord rec;
     {
         std::lock_guard<std::mutex> lock(g_mutex);
+        item.rec.url = canonicalize_model_url(item.rec.url);
         rec = item.rec;
     }
     const auto  t0 = clock_type::now();
@@ -820,7 +821,7 @@ int enqueue_locked(const std::string & url, const std::string & kind, const std:
         }
         // Cancelled or failed (or done and gone since): again, from what
         // .part holds (run_one checks it still fits).
-        item->rec.url     = url;
+        item->rec.url     = canonicalize_model_url(url);
         item->rec.catalog = catalog_id.empty() ? item->rec.catalog : catalog_id;
         item->rec.state   = "queued";
         item->rec.error.clear();
@@ -833,7 +834,7 @@ int enqueue_locked(const std::string & url, const std::string & kind, const std:
     }
     auto fresh          = std::make_unique<Item>();
     fresh->rec.id       = id;
-    fresh->rec.url      = url;
+    fresh->rec.url      = canonicalize_model_url(url);
     fresh->rec.dest     = dest;
     fresh->rec.kind     = kind;
     fresh->rec.catalog  = catalog_id;
@@ -1246,6 +1247,7 @@ void downloader_start(const DownloaderConfig & config) {
         for (const auto & r : loaded) {
             auto item = std::make_unique<Item>();
             item->rec = r;
+            item->rec.url = canonicalize_model_url(item->rec.url);
             g_items.push_back(std::move(item));
         }
         std::error_code ec;

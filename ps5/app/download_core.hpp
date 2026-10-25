@@ -36,6 +36,11 @@ struct Source {
     std::string civitai_file;     // fileId= of an api/download URL, or ""
 };
 
+// Canonicalizes model URLs to verified public mirrors and resolves known redirects/typos
+// (e.g. city96 SD 3.5 medium repo casing, Shio-Koube ungated SD 3.5 VAE, prince-canuma Kokoro safetensors,
+// bssrdf PhotoMaker safetensors, bartowski Gemma 2 LLM, and Sana diffusers safetensors).
+std::string canonicalize_model_url(const std::string & url);
+
 // Takes https://huggingface.co/<owner>/<repo>/resolve/<rev>/<path> (or /blob/,
 // rewritten to /resolve/), https://civitai.com/models/<id>[/<slug>]?modelVersionId=<v>
 // and https://civitai.com/api/download/models/<v>[?...]. False with a message otherwise.

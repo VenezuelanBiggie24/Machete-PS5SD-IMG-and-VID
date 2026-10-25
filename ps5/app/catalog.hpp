@@ -52,8 +52,7 @@ namespace catalog_data {
 // Qwen3-4B Instruct 2507, the text encoder of Z-Image Turbo and FLUX.2 Klein 4B (which was trained
 // with Qwen3-4B; the Instruct 2507 weights work as well, measured 2026-10-22).
 #define PS5SD_QWEN3_4B                                                                                    \
-    { "https://huggingface.co/unsloth/Qwen3-4B-Instruct-2507-GGUF/resolve/main/"                          \
-      "Qwen3-4B-Instruct-2507-Q4_K_M.gguf",                                                               \
+    { "https://huggingface.co/unsloth/Qwen3-4B-Instruct-2507-GGUF/resolve/main/Qwen3-4B-Instruct-2507-Q4_K_M.gguf", \
       "text_encoders/Qwen3-4B-Instruct-2507-Q4_K_M.gguf", 2497281120ull, 0 }
 
 #define PS5SD_LTX_T5                                                                                      \
@@ -61,16 +60,16 @@ namespace catalog_data {
       "text_encoders/t5-v1_1-xxl-encoder-Q4_K_M.gguf", 2896123072ull, 0 }
 
 #define PS5SD_SANA_LLM                                                                                    \
-    { "https://huggingface.co/google/gemma-2-2b-it-GGUF/resolve/main/gemma-2-2b-it-Q4_K_M.gguf",         \
-      "text_encoders/gemma-2-2b-it-Q4_K_M.gguf", 1677721600ull, 0 }
+    { "https://huggingface.co/bartowski/gemma-2-2b-it-GGUF/resolve/main/gemma-2-2b-it-Q4_K_M.gguf",      \
+      "text_encoders/gemma-2-2b-it-Q4_K_M.gguf", 1708582752ull, 0 }
 
 #define PS5SD_SANA_VAE                                                                                    \
     { "https://huggingface.co/mit-han-lab/dc-ae-f32c32-sana-1.0/resolve/main/model.safetensors",         \
       "vae/dc-ae-f32c32-sana-1.0.safetensors", 104857600ull, 0 }
 
 #define PS5SD_SD35_VAE                                                                                    \
-    { "https://huggingface.co/stabilityai/stable-diffusion-3.5-medium/resolve/main/vae/diffusion_pytorch_model.safetensors", \
-      "vae/sd3.5_vae.safetensors", 167772160ull, 0 }
+    { "https://huggingface.co/Shio-Koube/SD-3.5-vae/resolve/main/diffusion_pytorch_model.safetensors",    \
+      "vae/sd3.5_vae.safetensors", 167666902ull, 0 }
 
 // Presets that an older PS5SD wrote for a catalog entry, byte for byte as it wrote them.
 // update_catalog_presets gives such a preset the entry's current text; one that someone changed
@@ -283,8 +282,7 @@ inline std::vector<CatalogEntry> entries() {
             "SDXL Base 1.0 (Q8_0)",
             "SDXL already in Q8_0 (gpustack's GGUF), with the fp16-fix VAE; loads faster than the full one. About 30 s an image. 5.4 GB.",
             {
-                { "https://huggingface.co/gpustack/stable-diffusion-xl-base-1.0-GGUF/resolve/main/"
-                  "stable-diffusion-xl-base-1.0-Q8_0.gguf",
+                { "https://huggingface.co/gpustack/stable-diffusion-xl-base-1.0-GGUF/resolve/main/stable-diffusion-xl-base-1.0-Q8_0.gguf",
                   "stable-diffusion-xl-base-1.0-Q8_0.gguf", 5040957760ull, 0 },
                 PS5SD_SDXL_VAE,
             },
@@ -306,12 +304,11 @@ inline std::vector<CatalogEntry> entries() {
             "SDXL Base 1.0 + PhotoMaker Face Lock",
             "SDXL with PhotoMaker: upload a portrait photo and generate new scenes preserving facial identity. 6.0 GB.",
             {
-                { "https://huggingface.co/gpustack/stable-diffusion-xl-base-1.0-GGUF/resolve/main/"
-                  "stable-diffusion-xl-base-1.0-Q8_0.gguf",
+                { "https://huggingface.co/gpustack/stable-diffusion-xl-base-1.0-GGUF/resolve/main/stable-diffusion-xl-base-1.0-Q8_0.gguf",
                   "stable-diffusion-xl-base-1.0-Q8_0.gguf", 5040957760ull, 0 },
                 PS5SD_SDXL_VAE,
-                { "https://huggingface.co/TencentARC/PhotoMaker/resolve/main/photomaker-v1.safetensors",
-                  "models/photomaker-v1.safetensors", 562477380ull, 0 },
+                { "https://huggingface.co/bssrdf/PhotoMaker/resolve/main/photomaker-v1.safetensors",
+                  "models/photomaker-v1.safetensors", 933571072ull, 0 },
             },
             "# name: SDXL Base 1.0 + PhotoMaker Face Lock\n"
             "# defaults: steps=20 cfg=6 width=1024 height=1024 sampler=euler\n"
@@ -332,8 +329,7 @@ inline std::vector<CatalogEntry> entries() {
             "SDXL Base 1.0 (Q8_0) + Canny ControlNet",
             "SDXL with a ControlNet: the edges of a guide image (Canny) set the layout of the new one. 7.9 GB.",
             {
-                { "https://huggingface.co/gpustack/stable-diffusion-xl-base-1.0-GGUF/resolve/main/"
-                  "stable-diffusion-xl-base-1.0-Q8_0.gguf",
+                { "https://huggingface.co/gpustack/stable-diffusion-xl-base-1.0-GGUF/resolve/main/stable-diffusion-xl-base-1.0-Q8_0.gguf",
                   "stable-diffusion-xl-base-1.0-Q8_0.gguf", 5040957760ull, 0 },
                 PS5SD_SDXL_VAE,
                 // xinsir's Canny ControlNet for SDXL, V2 (Apache 2.0), in the diffusers layout sd.cpp reads.
@@ -570,9 +566,8 @@ inline std::vector<CatalogEntry> entries() {
             "Sana 1.6B (1024px)",
             "Linear attention diffusion model with Gemma 2B. Fast 1024x1024 generation in 14-20 steps. 3.4 GB.",
             {
-                { "https://huggingface.co/Efficient-Large-Model/Sana_1600M_1024px/resolve/main/checkpoints/"
-                  "Sana_1600M_1024px.safetensors",
-                  "diffusion_models/sana_1600M_1024px.safetensors", 1720000000ull, 0 },
+                { "https://huggingface.co/Efficient-Large-Model/Sana_1600M_1024px_diffusers/resolve/main/transformer/diffusion_pytorch_model.safetensors",
+                  "diffusion_models/sana_1600M_1024px.safetensors", 3208971656ull, 0 },
                 PS5SD_SANA_LLM,
                 PS5SD_SANA_VAE,
             },
@@ -595,9 +590,8 @@ inline std::vector<CatalogEntry> entries() {
             "Sana 0.6B (512px)",
             "Ultra-lightweight linear attention model for rapid 512x512 drafts in 12-14 steps. 2.4 GB.",
             {
-                { "https://huggingface.co/Efficient-Large-Model/Sana_600M_512px/resolve/main/checkpoints/"
-                  "Sana_600M_512px.safetensors",
-                  "diffusion_models/sana_600M_512px.safetensors", 650000000ull, 0 },
+                { "https://huggingface.co/Efficient-Large-Model/Sana_600M_512px_diffusers/resolve/main/transformer/diffusion_pytorch_model.safetensors",
+                  "diffusion_models/sana_600M_512px.safetensors", 2367054536ull, 0 },
                 PS5SD_SANA_LLM,
                 PS5SD_SANA_VAE,
             },
@@ -617,8 +611,8 @@ inline std::vector<CatalogEntry> entries() {
             "SD 3.5 Medium (Q8_0)",
             "Stable Diffusion 3.5 Medium with MMDiT architecture and improved prompt following. 6.4 GB.",
             {
-                { "https://huggingface.co/city96/StableDiffusion3.5-Medium-gguf/resolve/main/sd3.5_medium-Q8_0.gguf",
-                  "diffusion_models/sd3.5_medium-Q8_0.gguf", 2600000000ull, 0 },
+                { "https://huggingface.co/city96/stable-diffusion-3.5-medium-gguf/resolve/main/sd3.5_medium-Q8_0.gguf",
+                  "diffusion_models/sd3.5_medium-Q8_0.gguf", 2855825856ull, 0 },
                 PS5SD_LTX_T5,
                 PS5SD_SD35_VAE,
             },
@@ -639,10 +633,10 @@ inline std::vector<CatalogEntry> entries() {
         {
             "kokoro-82m",
             "Kokoro 82M (Audio / TTS)",
-            "Ultra-compact high-quality speech and audio synthesis model (82M parameters). 356 MB.",
+            "Ultra-compact high-quality speech and audio synthesis model (82M parameters). 327 MB.",
             {
-                { "https://huggingface.co/hexgrad/Kokoro-82M/resolve/main/kokoro-v0_19.safetensors",
-                  "audio_models/kokoro-v0_19.safetensors", 356000000ull, 0 },
+                { "https://huggingface.co/prince-canuma/Kokoro-82M/resolve/main/kokoro-v1_0.safetensors",
+                  "audio_models/kokoro-v0_19.safetensors", 327115152ull, 0 },
             },
             "# name: Kokoro 82M (Audio / TTS)\n"
             "# defaults: voice=af_heart speed=1.0\n"
