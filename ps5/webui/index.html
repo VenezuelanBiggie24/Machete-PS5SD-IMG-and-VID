@@ -4332,6 +4332,23 @@
     }
   }
   // ---------- Machete Studio Pro: Creative Dock & Presets ----------
+  function fireEvent(el, type) {
+    if (!el || !el.dispatchEvent) return;
+    try {
+      if (typeof Event === 'function') {
+        el.dispatchEvent(new Event(type));
+        return;
+      }
+    } catch (e) {}
+    try {
+      if (document.createEvent) {
+        var ev = document.createEvent('HTMLEvents');
+        ev.initEvent(type, true, true);
+        el.dispatchEvent(ev);
+      }
+    } catch (e) {}
+  }
+
   var STYLE_PRESETS = {
     cinematic: ', cinematic lighting, 8k resolution, photorealistic, dramatic atmosphere, octane render, unreal engine 5, ray tracing',
     photo: ', professional 35mm photograph, soft natural lighting, high dynamic range, f/1.8, bokeh, hyper-detailed skin texture',
@@ -4373,7 +4390,7 @@
             p.value = p.value.replace(textToAdd, '').replace(textToAdd.trim(), '');
             btn.classList.remove('on');
           }
-          if (p.dispatchEvent) p.dispatchEvent(new Event('input'));
+          fireEvent(p, 'input');
           persist();
         };
       })(chips[i]);
@@ -4388,7 +4405,7 @@
         if (p.value.indexOf('ultra-detailed masterpiece') === -1) {
           p.value = p.value ? (p.value.trim().replace(/,+$/, '') + polish) : polish.replace(/^,\s*/, '');
           toast('Prompt polished with AI descriptors.');
-          if (p.dispatchEvent) p.dispatchEvent(new Event('input'));
+          fireEvent(p, 'input');
           persist();
         } else {
           toast('Prompt already enhanced.');
@@ -4415,7 +4432,7 @@
         // remove active state from style chips
         var chips = document.querySelectorAll('.style-chip');
         for (var c = 0; c < chips.length; c++) chips[c].classList.remove('on');
-        if (promptEl.dispatchEvent) promptEl.dispatchEvent(new Event('input'));
+        fireEvent(promptEl, 'input');
         persist();
       };
     }
@@ -4435,7 +4452,7 @@
             negField.value = negField.value.replace(negText, '').replace(negText.trim(), '').replace(/,\s*,/g, ',').replace(/^,\s*|,\s*$/g, '');
             nBtn.classList.remove('on');
           }
-          if (negField.dispatchEvent) negField.dispatchEvent(new Event('input'));
+          fireEvent(negField, 'input');
           persist();
         };
       })(negChips[n]);
@@ -4454,7 +4471,7 @@
             syncAspectButtons(w, h);
             markPreset();
             persist();
-            if ($('w').dispatchEvent) $('w').dispatchEvent(new Event('change'));
+            fireEvent($('w'), 'change');
           }
         };
       })(aspectBtns[j]);
@@ -4486,7 +4503,7 @@
               toggleFaceStudio();
             }
             toast('Scenario applied. Face lock engaged.');
-            if ($('prompt').dispatchEvent) $('prompt').dispatchEvent(new Event('input'));
+            fireEvent($('prompt'), 'input');
             persist();
           }
         };
@@ -8258,6 +8275,161 @@
     document.addEventListener('visibilitychange', function () { if (!document.hidden) pollConsole(); });
     pollConsole();
   }
+  // ---------- the fan mode ----------
+  // AppSettings' "fan" and "fan_target" (GET/POST /ps5sd/v1/app/settings); the console route's
+  // "fan_control" says what the payload does with them (console_stats.hpp). Hidden on servers
+  // without them.
+  var fan = { mode: null, target: 85, timer: 0 };
+
+  function drawFanButtons() {
+    var fm = $('fan-mode');
+    if (!fm) return;
+    var bs = fm.getElementsByTagName('button');
+    for (var i = 0; i < bs.length; i++) {
+      var on = bs[i].getAttribute('data-fan') === fan.mode;
+      bs[i].className = on ? 'on' : '';
+      bs[i].setAttribute('aria-pressed', on ? 'true' : 'false');
+    }
+    show('fan-manual', fan.mode === 'manual');
+    if ($('fan-target')) $('fan-target').value = fan.target;
+  }
+
+  // What the mode does now, from the console route's fan_control.
+  function drawFan(fc) {
+    if (fan.mode === null) return;
+    var note;
+    var stock = fc && fc.stock !== null ? fc.stock : null;
+    if (fan.mode === 'quiet') {
+      note = 'The console\'s own fan control: the fan speeds up when the chip nears ' + (stock || 91) + ' °C.';
+    } else if (!fc || fc.state === 'starting' || (fc.state === 'running' && fc.target === null)) {
+      note = 'Starting ps5sd-fan…';
+    } else if (fc.state === 'no ELF loader') {
+      note = 'The fan modes need an ELF loader on port 9021; none answered.';
+    } else if (fc.state === 'not answering') {
+      note = 'ps5sd-fan was sent to the ELF loader three times and does not answer on port 9075.';
+    } else {
+      var want = fc.wanted !== null ? fc.wanted : null;
+      note = 'Target ' + fc.target + ' °C' + (stock ? ' (the console\'s own: ' + stock + ' °C)' : '') + '.';
+      if (want !== null && fc.target > want) note += ' It goes down one degree every 20 seconds, to ' + want + ' °C.';
+    }
+    text($('fan-note'), note);
+  }
+
+  function postFan(body) {
+    req('POST', APP + '/settings', body, function (code, data) {
+      if (code === 200 && data && typeof data.fan === 'string') {
+        fan.mode = data.fan;
+        fan.target = data.fan_target;
+        drawFanButtons();
+        drawFan(con.data ? con.data.fan_control : null);
+      } else {
+        toast('Could not change the fan mode' + (data && data.error ? ': ' + data.error : '.'), 6000);
+        loadFan();
+      }
+    });
+  }
+
+  function setFanMode(mode) {
+    if (mode === fan.mode) return;
+    fan.mode = mode;
+    drawFanButtons();
+    text($('fan-note'), '');
+    postFan({ fan: mode });
+  }
+
+  function setFanTarget(t) {
+    t = Math.max(70, Math.min(95, Math.round(t)));
+    if (isNaN(t)) t = fan.target;
+    fan.target = t;
+    $('fan-target').value = t;
+    clearTimeout(fan.timer);
+    fan.timer = setTimeout(function () { postFan({ fan_target: t }); }, 600);
+  }
+
+  function loadFan() {
+    req('GET', APP + '/settings', null, function (code, data) {
+      if (code !== 200 || !data || typeof data.fan !== 'string') return;
+      fan.mode = data.fan;
+      fan.target = data.fan_target;
+      drawFanButtons();
+      show('pnl-fan', true);
+    });
+  }
+
+  function initFan() {
+    var fm = $('fan-mode');
+    if (fm) {
+      var bs = fm.getElementsByTagName('button');
+      for (var i = 0; i < bs.length; i++) {
+        bs[i].onclick = function () { setFanMode(this.getAttribute('data-fan')); };
+      }
+    }
+    if ($('fan-target-')) $('fan-target-').onclick = function () { setFanTarget(fan.target - 1); };
+    if ($('fan-target+')) $('fan-target+').onclick = function () { setFanTarget(fan.target + 1); };
+    if ($('fan-target')) $('fan-target').onchange = function () { setFanTarget(parseInt(this.value, 10)); };
+    loadFan();
+  }
+  // ---------- appearance: the theme, the folded sidebar, the prompt that grows ----------
+  // The theme and the fold live in this browser (localStorage, read in <head> before the page draws);
+  // html[data-theme] picks the colours in app.css, no attribute follows the system.
+  function drawTheme() {
+    var t = load('theme') || 'auto';
+    var bs = $('theme').getElementsByTagName('button');
+    for (var i = 0; i < bs.length; i++) {
+      var on = bs[i].getAttribute('data-theme') === t;
+      bs[i].className = on ? 'on' : '';
+      bs[i].setAttribute('aria-pressed', on ? 'true' : 'false');
+    }
+  }
+
+  function setTheme(t) {
+    var h = document.documentElement;
+    if (t === 'light' || t === 'dark') { save('theme', t); h.setAttribute('data-theme', t); }
+    else { drop('theme'); h.removeAttribute('data-theme'); }
+    drawTheme();
+  }
+
+  function setSideMini(on) {
+    var h = document.documentElement;
+    h.className = (h.className || '').replace(/\s*\bside-mini\b/g, '') + (on ? ' side-mini' : '');
+    save('sideMini', on ? '1' : '0');
+    var sf = $('sidefold');
+    if (sf) {
+      sf.setAttribute('aria-pressed', on ? 'true' : 'false');
+      sf.title = on ? 'Show the sidebar with its names' : 'Fold the sidebar to its icons';
+    }
+  }
+
+  // The prompt grows with its text, up to about half the screen; past that it scrolls.
+  function growPrompt() {
+    var ta = $('prompt');
+    var max = Math.max(160, Math.round((window.innerHeight || 800) * 0.45));
+    ta.style.height = 'auto';
+    var want = ta.scrollHeight + 2;
+    ta.style.height = Math.min(want, max) + 'px';
+    ta.style.overflowY = want > max ? 'auto' : 'hidden';
+  }
+
+  function initAppearance() {
+    var th = $('theme');
+    if (th) {
+      var bs = th.getElementsByTagName('button');
+      for (var i = 0; i < bs.length; i++) bs[i].onclick = function () { setTheme(this.getAttribute('data-theme')); };
+      drawTheme();
+    }
+    var sf = $('sidefold');
+    if (sf) {
+      sf.onclick = function () { setSideMini(!/\bside-mini\b/.test(document.documentElement.className || '')); };
+    }
+    setSideMini(load('sideMini') === '1');
+    var ta = $('prompt');
+    if (ta) {
+      var old = ta.oninput;
+      ta.oninput = function (e) { if (old) old.call(ta, e); growPrompt(); };
+      window.addEventListener('resize', growPrompt);
+      growPrompt();
+    }
+  }
   // ---------- start up ----------
   // The app's version (an older app, or a plain sd-server, has no info route: nothing shown).
   function loadVersion() {
@@ -8298,14 +8470,14 @@
 
   function start() {
     auth.started = true;
-    loadVersion();
-    loadAuth();
-    buildPresets();
-    initStudioDock();
-    initSignal();
-    loadTvOption();
-    initFan();
-    initAppearance();
+    try { loadVersion(); } catch (e) {}
+    try { loadAuth(); } catch (e) {}
+    try { buildPresets(); } catch (e) {}
+    try { initStudioDock(); } catch (e) {}
+    try { initSignal(); } catch (e) {}
+    try { loadTvOption(); } catch (e) {}
+    try { initFan(); } catch (e) {}
+    try { initAppearance(); } catch (e) {}
     $('opt-tv').onchange = setTvOption;
     $('opt-tvkey').onchange = setTvKeyOption;
     $('hr-on').onchange = function () { drawHires(); persist(); };
@@ -8481,16 +8653,16 @@
     $('lb-prev').onclick = function () { lbStep(-1); };
     $('lb-next').onclick = function () { lbStep(1); };
     document.onkeydown = onKey;
-    markPreset();
-    summary();
-    setPill();
-    health();
-    queueWatch();
-    loadGallery(null);
-    drawModels();
-    dlPoll();
-    initFaceStudio();
-    initStorageAndCompanion();
+    try { markPreset(); } catch (e) {}
+    try { summary(); } catch (e) {}
+    try { setPill(); } catch (e) {}
+    try { health(); } catch (e) {}
+    try { queueWatch(); } catch (e) {}
+    try { loadGallery(null); } catch (e) {}
+    try { drawModels(); } catch (e) {}
+    try { dlPoll(); } catch (e) {}
+    try { initFaceStudio(); } catch (e) {}
+    try { initStorageAndCompanion(); } catch (e) {}
     // The tab open last time comes back; an address with #models, #help or #settings wins over it.
     var last = load('tab');
     if (last === 'gallery' || last === 'models' || last === 'settings' || last === 'help') setView(last);

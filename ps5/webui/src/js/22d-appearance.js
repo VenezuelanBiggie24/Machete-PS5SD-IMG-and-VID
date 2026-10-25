@@ -20,10 +20,13 @@
 
   function setSideMini(on) {
     var h = document.documentElement;
-    h.className = h.className.replace(/\s*\bside-mini\b/g, '') + (on ? ' side-mini' : '');
+    h.className = (h.className || '').replace(/\s*\bside-mini\b/g, '') + (on ? ' side-mini' : '');
     save('sideMini', on ? '1' : '0');
-    $('sidefold').setAttribute('aria-pressed', on ? 'true' : 'false');
-    $('sidefold').title = on ? 'Show the sidebar with its names' : 'Fold the sidebar to its icons';
+    var sf = $('sidefold');
+    if (sf) {
+      sf.setAttribute('aria-pressed', on ? 'true' : 'false');
+      sf.title = on ? 'Show the sidebar with its names' : 'Fold the sidebar to its icons';
+    }
   }
 
   // The prompt grows with its text, up to about half the screen; past that it scrolls.
@@ -37,14 +40,22 @@
   }
 
   function initAppearance() {
-    var bs = $('theme').getElementsByTagName('button');
-    for (var i = 0; i < bs.length; i++) bs[i].onclick = function () { setTheme(this.getAttribute('data-theme')); };
-    drawTheme();
-    $('sidefold').onclick = function () { setSideMini(!/\bside-mini\b/.test(document.documentElement.className)); };
+    var th = $('theme');
+    if (th) {
+      var bs = th.getElementsByTagName('button');
+      for (var i = 0; i < bs.length; i++) bs[i].onclick = function () { setTheme(this.getAttribute('data-theme')); };
+      drawTheme();
+    }
+    var sf = $('sidefold');
+    if (sf) {
+      sf.onclick = function () { setSideMini(!/\bside-mini\b/.test(document.documentElement.className || '')); };
+    }
     setSideMini(load('sideMini') === '1');
     var ta = $('prompt');
-    var old = ta.oninput;
-    ta.oninput = function (e) { if (old) old.call(ta, e); growPrompt(); };
-    window.addEventListener('resize', growPrompt);
-    growPrompt();
+    if (ta) {
+      var old = ta.oninput;
+      ta.oninput = function (e) { if (old) old.call(ta, e); growPrompt(); };
+      window.addEventListener('resize', growPrompt);
+      growPrompt();
+    }
   }

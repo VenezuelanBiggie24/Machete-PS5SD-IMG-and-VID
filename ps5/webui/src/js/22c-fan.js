@@ -5,14 +5,16 @@
   var fan = { mode: null, target: 85, timer: 0 };
 
   function drawFanButtons() {
-    var bs = $('fan-mode').getElementsByTagName('button');
+    var fm = $('fan-mode');
+    if (!fm) return;
+    var bs = fm.getElementsByTagName('button');
     for (var i = 0; i < bs.length; i++) {
       var on = bs[i].getAttribute('data-fan') === fan.mode;
       bs[i].className = on ? 'on' : '';
       bs[i].setAttribute('aria-pressed', on ? 'true' : 'false');
     }
     show('fan-manual', fan.mode === 'manual');
-    $('fan-target').value = fan.target;
+    if ($('fan-target')) $('fan-target').value = fan.target;
   }
 
   // What the mode does now, from the console route's fan_control.
@@ -78,12 +80,15 @@
   }
 
   function initFan() {
-    var bs = $('fan-mode').getElementsByTagName('button');
-    for (var i = 0; i < bs.length; i++) {
-      bs[i].onclick = function () { setFanMode(this.getAttribute('data-fan')); };
+    var fm = $('fan-mode');
+    if (fm) {
+      var bs = fm.getElementsByTagName('button');
+      for (var i = 0; i < bs.length; i++) {
+        bs[i].onclick = function () { setFanMode(this.getAttribute('data-fan')); };
+      }
     }
-    $('fan-target-').onclick = function () { setFanTarget(fan.target - 1); };
-    $('fan-target+').onclick = function () { setFanTarget(fan.target + 1); };
-    $('fan-target').onchange = function () { setFanTarget(parseInt(this.value, 10)); };
+    if ($('fan-target-')) $('fan-target-').onclick = function () { setFanTarget(fan.target - 1); };
+    if ($('fan-target+')) $('fan-target+').onclick = function () { setFanTarget(fan.target + 1); };
+    if ($('fan-target')) $('fan-target').onchange = function () { setFanTarget(parseInt(this.value, 10)); };
     loadFan();
   }

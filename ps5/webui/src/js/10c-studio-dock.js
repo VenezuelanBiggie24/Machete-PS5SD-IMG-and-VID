@@ -1,4 +1,21 @@
   // ---------- Machete Studio Pro: Creative Dock & Presets ----------
+  function fireEvent(el, type) {
+    if (!el || !el.dispatchEvent) return;
+    try {
+      if (typeof Event === 'function') {
+        el.dispatchEvent(new Event(type));
+        return;
+      }
+    } catch (e) {}
+    try {
+      if (document.createEvent) {
+        var ev = document.createEvent('HTMLEvents');
+        ev.initEvent(type, true, true);
+        el.dispatchEvent(ev);
+      }
+    } catch (e) {}
+  }
+
   var STYLE_PRESETS = {
     cinematic: ', cinematic lighting, 8k resolution, photorealistic, dramatic atmosphere, octane render, unreal engine 5, ray tracing',
     photo: ', professional 35mm photograph, soft natural lighting, high dynamic range, f/1.8, bokeh, hyper-detailed skin texture',
@@ -40,7 +57,7 @@
             p.value = p.value.replace(textToAdd, '').replace(textToAdd.trim(), '');
             btn.classList.remove('on');
           }
-          if (p.dispatchEvent) p.dispatchEvent(new Event('input'));
+          fireEvent(p, 'input');
           persist();
         };
       })(chips[i]);
@@ -55,7 +72,7 @@
         if (p.value.indexOf('ultra-detailed masterpiece') === -1) {
           p.value = p.value ? (p.value.trim().replace(/,+$/, '') + polish) : polish.replace(/^,\s*/, '');
           toast('Prompt polished with AI descriptors.');
-          if (p.dispatchEvent) p.dispatchEvent(new Event('input'));
+          fireEvent(p, 'input');
           persist();
         } else {
           toast('Prompt already enhanced.');
@@ -82,7 +99,7 @@
         // remove active state from style chips
         var chips = document.querySelectorAll('.style-chip');
         for (var c = 0; c < chips.length; c++) chips[c].classList.remove('on');
-        if (promptEl.dispatchEvent) promptEl.dispatchEvent(new Event('input'));
+        fireEvent(promptEl, 'input');
         persist();
       };
     }
@@ -102,7 +119,7 @@
             negField.value = negField.value.replace(negText, '').replace(negText.trim(), '').replace(/,\s*,/g, ',').replace(/^,\s*|,\s*$/g, '');
             nBtn.classList.remove('on');
           }
-          if (negField.dispatchEvent) negField.dispatchEvent(new Event('input'));
+          fireEvent(negField, 'input');
           persist();
         };
       })(negChips[n]);
@@ -121,7 +138,7 @@
             syncAspectButtons(w, h);
             markPreset();
             persist();
-            if ($('w').dispatchEvent) $('w').dispatchEvent(new Event('change'));
+            fireEvent($('w'), 'change');
           }
         };
       })(aspectBtns[j]);
@@ -153,7 +170,7 @@
               toggleFaceStudio();
             }
             toast('Scenario applied. Face lock engaged.');
-            if ($('prompt').dispatchEvent) $('prompt').dispatchEvent(new Event('input'));
+            fireEvent($('prompt'), 'input');
             persist();
           }
         };

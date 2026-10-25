@@ -38,14 +38,14 @@
 
   function start() {
     auth.started = true;
-    loadVersion();
-    loadAuth();
-    buildPresets();
-    initStudioDock();
-    initSignal();
-    loadTvOption();
-    initFan();
-    initAppearance();
+    try { loadVersion(); } catch (e) {}
+    try { loadAuth(); } catch (e) {}
+    try { buildPresets(); } catch (e) {}
+    try { initStudioDock(); } catch (e) {}
+    try { initSignal(); } catch (e) {}
+    try { loadTvOption(); } catch (e) {}
+    try { initFan(); } catch (e) {}
+    try { initAppearance(); } catch (e) {}
     $('opt-tv').onchange = setTvOption;
     $('opt-tvkey').onchange = setTvKeyOption;
     $('hr-on').onchange = function () { drawHires(); persist(); };
@@ -221,16 +221,16 @@
     $('lb-prev').onclick = function () { lbStep(-1); };
     $('lb-next').onclick = function () { lbStep(1); };
     document.onkeydown = onKey;
-    markPreset();
-    summary();
-    setPill();
-    health();
-    queueWatch();
-    loadGallery(null);
-    drawModels();
-    dlPoll();
-    initFaceStudio();
-    initStorageAndCompanion();
+    try { markPreset(); } catch (e) {}
+    try { summary(); } catch (e) {}
+    try { setPill(); } catch (e) {}
+    try { health(); } catch (e) {}
+    try { queueWatch(); } catch (e) {}
+    try { loadGallery(null); } catch (e) {}
+    try { drawModels(); } catch (e) {}
+    try { dlPoll(); } catch (e) {}
+    try { initFaceStudio(); } catch (e) {}
+    try { initStorageAndCompanion(); } catch (e) {}
     // The tab open last time comes back; an address with #models, #help or #settings wins over it.
     var last = load('tab');
     if (last === 'gallery' || last === 'models' || last === 'settings' || last === 'help') setView(last);
