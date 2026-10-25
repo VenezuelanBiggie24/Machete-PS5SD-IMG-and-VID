@@ -240,17 +240,19 @@ std::string id_from_json(const std::string & body);
 // The app's own settings: GET and POST /ps5sd/v1/app/settings, kept in
 // <data_dir>/settings.json.
 struct AppSettings {
-    bool        tv_images             = true;   // the TV shows the images and the prompts
-    bool        tv_api_key            = true;   // the TV shows the API key (when there is one)
-    bool        usb_storage_enabled   = false;  // external USB storage enabled
-    std::string usb_mount             = "";     // active USB mount (e.g. /mnt/usb0)
-    bool        screensaver_mode      = true;   // ambient gallery screensaver when idle
-    int         screensaver_timeout_s = 60;     // idle seconds before screensaver
-    bool        telegram_enabled      = false;  // remote Telegram companion bot
-    std::string telegram_token        = "";     // Telegram Bot token
-    std::string telegram_chat_id      = "";     // Telegram Chat ID restriction
-    int         thermal_warn_temp     = 80;     // APU temperature threshold for thermal warning
-    bool        face_studio_enabled   = false;  // PhotoMaker / Face identity preservation
+    bool        tv_images             = true;     // the TV shows the images and the prompts
+    bool        tv_api_key            = true;     // the TV shows the API key (when there is one)
+    std::string fan                   = "quiet";  // "quiet" (the console's own), "balanced", "cool", "manual"
+    int         fan_target            = 85;       // manual's target temperature, 70..95 C (ps5/fan/fan_policy.h)
+    bool        usb_storage_enabled   = false;    // external USB storage enabled
+    std::string usb_mount             = "";       // active USB mount (e.g. /mnt/usb0)
+    bool        screensaver_mode      = true;     // ambient gallery screensaver when idle
+    int         screensaver_timeout_s = 60;       // idle seconds before screensaver
+    bool        telegram_enabled      = false;    // remote Telegram companion bot
+    std::string telegram_token        = "";       // Telegram Bot token
+    std::string telegram_chat_id      = "";       // Telegram Chat ID restriction
+    int         thermal_warn_temp     = 80;       // APU temperature threshold for thermal warning
+    bool        face_studio_enabled   = false;    // PhotoMaker / Face identity preservation
 };
 
 // {"tv_images": true, "tv_api_key": true}.

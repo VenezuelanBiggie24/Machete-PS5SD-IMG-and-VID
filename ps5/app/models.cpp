@@ -1118,6 +1118,8 @@ std::string settings_json(const AppSettings & settings) {
     return nlohmann::json{
         { "tv_images", settings.tv_images },
         { "tv_api_key", settings.tv_api_key },
+        { "fan", settings.fan },
+        { "fan_target", settings.fan_target },
         { "usb_storage_enabled", settings.usb_storage_enabled },
         { "usb_mount", settings.usb_mount },
         { "screensaver_mode", settings.screensaver_mode },
@@ -1150,6 +1152,22 @@ bool apply_settings(const std::string & body, AppSettings & settings, std::strin
             return false;
         }
         next.tv_api_key = j["tv_api_key"].get<bool>();
+    }
+    if (j.contains("fan")) {
+        const auto & f = j["fan"];
+        if (!f.is_string() || (f != "quiet" && f != "balanced" && f != "cool" && f != "manual")) {
+            error = "fan must be \"quiet\", \"balanced\", \"cool\" or \"manual\"";
+            return false;
+        }
+        next.fan = f.get<std::string>();
+    }
+    if (j.contains("fan_target")) {
+        const auto & t = j["fan_target"];
+        if (!t.is_number_integer() || t.get<int>() < 70 || t.get<int>() > 95) {
+            error = "fan_target must be a whole number from 70 to 95";
+            return false;
+        }
+        next.fan_target = t.get<int>();
     }
     if (j.contains("usb_storage_enabled") && j["usb_storage_enabled"].is_boolean()) {
         next.usb_storage_enabled = j["usb_storage_enabled"].get<bool>();

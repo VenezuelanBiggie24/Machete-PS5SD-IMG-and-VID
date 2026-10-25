@@ -648,3 +648,38 @@
   .face-presets-grid { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.5rem; }
   .face-preset-chip { min-height: 2.2rem; padding: 0 0.8rem; font-size: 0.8rem; border-radius: 8px; background: var(--field); border: 1px solid rgba(255, 255, 255, 0.08); color: var(--body); }
   .face-preset-chip:hover { background: rgba(139, 92, 246, 0.18); border-color: rgba(139, 92, 246, 0.45); color: #fff; }
+
+  /* Upstream light theme and UI improvements */
+  body.modal-open { overflow: hidden; }
+  button.danger.armed { color: #fff; background: var(--bad); }
+  .fanmodes { max-width: 30rem; }
+  .themes { max-width: 22rem; }
+  .fanstep { max-width: 14rem; }
+  .sidefold { display: none; }
+  @media (min-width: 900px) {
+    html.side-mini { --side: 4.25rem; }
+    .sidefold { display: flex; margin-top: auto !important; color: var(--faint); background: transparent; }
+    .sidefold svg { transition: transform 0.2s ease-out; }
+    html.side-mini .sidefold svg { transform: rotate(180deg); }
+    html.side-mini .tabs { padding: 0.5rem 0.45rem; }
+    html.side-mini .tabs button { justify-content: center; padding: 0; }
+    html.side-mini .tabs button > span, html.side-mini .brand, html.side-mini .ver, html.side-mini .pro-tag { display: none; }
+    html.side-mini .tabs svg { margin: 0; }
+    html.side-mini .brandbox { justify-content: center; padding: 0; }
+  }
+  html.tv .sidefold { display: none; }
+
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      --bg: #f2f2f7; --surface: #fff; --raised: #e9e9ee; --field: #f4f4f7;
+      --border: #d1d1d6; --text: #1d1d1f; --body: #1d1d1f; --muted: #6e6e73; --faint: #6e6e73;
+      --accent: #007aff; --accent-hi: #0066d6; --ok: #1f8a3b; --bad: #d70015; --warn: #a05a00;
+      color-scheme: light;
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #f2f2f7; --surface: #fff; --raised: #e9e9ee; --field: #f4f4f7;
+    --border: #d1d1d6; --text: #1d1d1f; --body: #1d1d1f; --muted: #6e6e73; --faint: #6e6e73;
+    --accent: #007aff; --accent-hi: #0066d6; --ok: #1f8a3b; --bad: #d70015; --warn: #a05a00;
+    color-scheme: light;
+  }

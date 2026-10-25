@@ -682,6 +682,36 @@ void log_memory(const char * when) {
     g_status.set_memory(free / kGiB, pool / kGiB);
 }
 
+// The last lines of a title that ends on an exception nothing caught: libc++
+// prints its type, this adds what it said and where memory stood, which is
+// what explained the one in docs/CONSOLE.md ("PS5SD ended by a full CPU heap").
+// No locks (the thread that threw may hold g_status's) and as little
+// allocation as can be: the cause may be a full heap.
+[[noreturn]] void on_terminate() {
+    static char what[256];
+    std::snprintf(what, sizeof what, "%s", "no exception (std::terminate was called)");
+    if (const std::exception_ptr e = std::current_exception()) {
+        try {
+            std::rethrow_exception(e);
+        } catch (const std::exception & x) {
+            std::snprintf(what, sizeof what, "%s", x.what());
+        } catch (...) {
+            std::snprintf(what, sizeof what, "%s", "an exception that is not a std::exception");
+        }
+    }
+    std::printf("ps5sd: ending on an uncaught exception: %s\n", what);
+    int64_t       at   = 0;
+    size_t        free = 0;
+    const int64_t pool = sceKernelGetDirectMemorySize();
+    sceKernelAvailableDirectMemorySize(0, pool, 2 * 1024 * 1024, &at, &free);
+    struct ps5_heap_stats heap = {};
+    ps5_heap_stats(&heap);
+    std::printf("ps5sd: memory at the end: pool free %.2f of %.2f GiB (the largest part), cpu heap %.2f GiB (peak %.2f)\n",
+                free / kGiB, pool / kGiB, heap.mapped_bytes / kGiB, heap.peak_bytes / kGiB);
+    std::fflush(stdout);
+    std::abort();
+}
+
 // stable-diffusion.cpp's and ggml's log: to app.log, and the readable part to
 // the screen.
 void on_log(enum sd_log_level_t level, const char * text, void *) {
@@ -916,6 +946,13 @@ bool server_plan(ServerPlan & plan, std::string & error) {
     }
     if (!names({ "--auto-fit" })) {
         args.insert(args.end(), { "--auto-fit", "off" });
+    }
+    // The text encoder's result for the last prompt only (sd.cpp keeps 4): the
+    // same prompt with a new seed still skips the encoder. Each entry is CPU heap,
+    // which comes from the same pool as the model: about 30 MB for FLUX.2 Klein 9B
+    // (Qwen3-8B), and 4 of them rose the heap by 0.1 GiB on the console.
+    if (!names({ "--conditioning-cache-size" })) {
+        args.insert(args.end(), { "--conditioning-cache-size", "1" });
     }
     // Directories sd-server looks in (`<lora:name:1>` in a prompt, textual
     // inversions); they need not exist. Never left empty: the server checks
@@ -1380,6 +1417,7 @@ void load_settings() {
         std::printf("ps5sd: %s: %s; using the defaults\n", kSettings.c_str(), error.c_str());
     }
     g_status.set_tv_images(g_settings.tv_images);
+    g_console.set_fan(g_settings.fan, g_settings.fan_target);
 }
 
 // Writes the settings to a temporary file and renames it over the old one.
@@ -2022,6 +2060,7 @@ extern "C" int sd_app_request(const char * method, const char * path, const char
         } else {
             g_settings = next;
             g_status.set_tv_images(next.tv_images);
+            g_console.set_fan(next.fan, next.fan_target);
             std::lock_guard<std::mutex> key_lock(g_key_mutex);
             show_api_key(g_api_key, next);
 
@@ -2417,6 +2456,7 @@ int main(int, char **) {
     }
     install_crash_handlers();
     std::printf("ps5sd: version " PS5SD_VERSION ", stable-diffusion.cpp %s (%s)\n", sd_version(), sd_commit());
+    std::set_terminate(on_terminate);
     load_settings();
     load_api_key();
     start_companion_bot();

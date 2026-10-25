@@ -41,6 +41,19 @@
          DELETE .../downloads/<id>, POST .../app/hf/search
   SPDX-License-Identifier: MIT
 -->
+<script>
+  // Before the page draws: the PS5's browser keeps the large controls its cursor needs (html.tv); the
+  // theme and the folded sidebar this browser chose (Settings, Appearance; 22d-appearance.js).
+  (function () {
+    var h = document.documentElement;
+    if (/PlayStation/i.test(navigator.userAgent || '')) h.className += ' tv';
+    try {
+      var t = localStorage.getItem('ps5sd.theme');
+      if (t === 'light' || t === 'dark') h.setAttribute('data-theme', t);
+      if (localStorage.getItem('ps5sd.sideMini') === '1') h.className += ' side-mini';
+    } catch (e) {}
+  })();
+</script>
 <style>
   :root {
     --bg: #07090e; --surface: #101626; --raised: #18233a; --field: #0a0e18;
@@ -692,9 +705,44 @@
   .face-presets-grid { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.5rem; }
   .face-preset-chip { min-height: 2.2rem; padding: 0 0.8rem; font-size: 0.8rem; border-radius: 8px; background: var(--field); border: 1px solid rgba(255, 255, 255, 0.08); color: var(--body); }
   .face-preset-chip:hover { background: rgba(139, 92, 246, 0.18); border-color: rgba(139, 92, 246, 0.45); color: #fff; }
+
+  /* Upstream light theme and UI improvements */
+  body.modal-open { overflow: hidden; }
+  button.danger.armed { color: #fff; background: var(--bad); }
+  .fanmodes { max-width: 30rem; }
+  .themes { max-width: 22rem; }
+  .fanstep { max-width: 14rem; }
+  .sidefold { display: none; }
+  @media (min-width: 900px) {
+    html.side-mini { --side: 4.25rem; }
+    .sidefold { display: flex; margin-top: auto !important; color: var(--faint); background: transparent; }
+    .sidefold svg { transition: transform 0.2s ease-out; }
+    html.side-mini .sidefold svg { transform: rotate(180deg); }
+    html.side-mini .tabs { padding: 0.5rem 0.45rem; }
+    html.side-mini .tabs button { justify-content: center; padding: 0; }
+    html.side-mini .tabs button > span, html.side-mini .brand, html.side-mini .ver, html.side-mini .pro-tag { display: none; }
+    html.side-mini .tabs svg { margin: 0; }
+    html.side-mini .brandbox { justify-content: center; padding: 0; }
+  }
+  html.tv .sidefold { display: none; }
+
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      --bg: #f2f2f7; --surface: #fff; --raised: #e9e9ee; --field: #f4f4f7;
+      --border: #d1d1d6; --text: #1d1d1f; --body: #1d1d1f; --muted: #6e6e73; --faint: #6e6e73;
+      --accent: #007aff; --accent-hi: #0066d6; --ok: #1f8a3b; --bad: #d70015; --warn: #a05a00;
+      color-scheme: light;
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #f2f2f7; --surface: #fff; --raised: #e9e9ee; --field: #f4f4f7;
+    --border: #d1d1d6; --text: #1d1d1f; --body: #1d1d1f; --muted: #6e6e73; --faint: #6e6e73;
+    --accent: #007aff; --accent-hi: #0066d6; --ok: #1f8a3b; --bad: #d70015; --warn: #a05a00;
+    color-scheme: light;
+  }
 </style>
 </head>
-<body>
+<body class="v-create">
 <header class="top">
   <div class="brandbox">
     <span class="logo"></span>
@@ -712,6 +760,7 @@
   <button type="button" id="tab-models"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 8l-9-5-9 5v8l9 5 9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg><span>Models<span class="tabdot" id="mdot"></span></span></button>
   <button type="button" id="tab-settings"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg><span>Settings</span></button>
   <button type="button" id="tab-help"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14"/><path d="M12 17.5h.01"/></svg><span>Help</span></button>
+  <button type="button" class="sidefold" id="sidefold" aria-pressed="false" title="Fold the sidebar to its icons"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg><span>Fold</span></button>
 </nav>
 
 <div class="main" id="view-create">
@@ -759,7 +808,7 @@
     <textarea id="prompt" class="big" rows="4" placeholder="Describe the masterpiece you want to create..."></textarea>
     <div class="tagbox" id="tagbox" role="listbox" aria-label="Tags" style="display:none"></div>
     <div class="linkrow">
-      <button type="button" class="linkbtn magic-btn" id="magic-polish">✨ Magic Polish</button>
+      <button type="button" class="linkbtn magic-btn" id="magic-polish">Magic Polish</button>
       <button type="button" class="linkbtn" id="neg-toggle" aria-expanded="false" aria-controls="neg-box">+ Negative prompt</button>
       <span class="fill"></span>
       <button type="button" class="linkbtn" id="prompt-copy">Copy</button>
@@ -814,11 +863,11 @@
         <div class="face-scenario-row" id="face-scenario-row" style="margin-top:0.8rem">
           <span class="hint" style="margin-bottom:0.3rem">Instant 1-Click Scenarios:</span>
           <div class="face-presets-grid">
-            <button type="button" class="face-preset-chip" data-prompt="as a corporate executive in a luxury modern office, tailored suit, studio lighting, photorealistic 8k">💼 Executive</button>
-            <button type="button" class="face-preset-chip" data-prompt="as a cyberpunk samurai warrior, glowing neon katana, rain-slicked Tokyo street, volumetric fog, octane render">🦾 Cyberpunk</button>
-            <button type="button" class="face-preset-chip" data-prompt="on a tropical golden hour beach, ocean breeze, warm sunset glow, relaxed portrait, 8k photography">🏖️ Golden Beach</button>
-            <button type="button" class="face-preset-chip" data-prompt="as a medieval royal monarch, velvet cape with ornate gold embroidery, ancient castle hall, dramatic cinematic portrait">🛡️ Royalty</button>
-            <button type="button" class="face-preset-chip" data-prompt="as an astronaut floating in deep space, Earth reflecting in the helmet visor, cosmic nebula, hyper-detailed 8k">🚀 Astronaut</button>
+            <button type="button" class="face-preset-chip" data-prompt="as a corporate executive in a luxury modern office, tailored suit, studio lighting, photorealistic 8k">Executive</button>
+            <button type="button" class="face-preset-chip" data-prompt="as a cyberpunk samurai warrior, glowing neon katana, rain-slicked Tokyo street, volumetric fog, octane render">Cyberpunk</button>
+            <button type="button" class="face-preset-chip" data-prompt="on a tropical golden hour beach, ocean breeze, warm sunset glow, relaxed portrait, 8k photography">Golden Beach</button>
+            <button type="button" class="face-preset-chip" data-prompt="as a medieval royal monarch, velvet cape with ornate gold embroidery, ancient castle hall, dramatic cinematic portrait">Royalty</button>
+            <button type="button" class="face-preset-chip" data-prompt="as an astronaut floating in deep space, Earth reflecting in the helmet visor, cosmic nebula, hyper-detailed 8k">Astronaut</button>
           </div>
         </div>
       </div>
@@ -938,7 +987,7 @@
           <div class="row" id="cliprow">
             <div>
               <label for="clipskip">CLIP skip</label>
-              <select id="clipskip"><option value="-1">Auto</option><option value="1">1</option><option value="2">2</option><option value="3">3</option></select>
+              <div class="step"><button type="button" id="clipskip-" aria-label="CLIP skip lower">&minus;</button><input id="clipskip" type="number" min="1" max="12" step="1" placeholder="Auto" inputmode="numeric" aria-label="CLIP skip"><button type="button" id="clipskip+" aria-label="CLIP skip higher">+</button></div>
             </div>
             <div></div>
           </div>
@@ -1144,6 +1193,29 @@
       </div>
       <div class="cgrid" id="con-charts"></div>
       <p class="hint" id="con-note"></p>
+    </section>
+    <section class="panel" id="pnl-fan" style="display:none">
+      <div class="ph"><h2>Fan</h2><button type="button" class="info" data-help="help-fan" aria-label="More about the fan modes">&#9432;</button></div>
+      <div class="mseg crange fanmodes" id="fan-mode" role="group" aria-label="Fan mode">
+        <button type="button" data-fan="quiet" aria-pressed="false">Quiet</button>
+        <button type="button" data-fan="balanced" aria-pressed="false">Balanced</button>
+        <button type="button" data-fan="cool" aria-pressed="false">Cool</button>
+        <button type="button" data-fan="manual" aria-pressed="false">Manual</button>
+      </div>
+      <div id="fan-manual" style="display:none">
+        <label for="fan-target">Target temperature, &deg;C</label>
+        <div class="step fanstep"><button type="button" id="fan-target-" aria-label="Lower">&minus;</button><input id="fan-target" type="number" min="70" max="95" step="1" value="85"><button type="button" id="fan-target+" aria-label="Higher">+</button></div>
+      </div>
+      <p class="hint" id="fan-note"></p>
+    </section>
+    <section class="panel">
+      <div class="ph"><h2>Appearance</h2></div>
+      <div class="mseg crange themes" id="theme" role="group" aria-label="Theme">
+        <button type="button" data-theme="auto" aria-pressed="false">Auto</button>
+        <button type="button" data-theme="light" aria-pressed="false">Light</button>
+        <button type="button" data-theme="dark" aria-pressed="false">Dark</button>
+      </div>
+      <p class="hint">Auto follows the device. It is kept in this browser.</p>
     </section>
     <section class="panel">
       <div class="ph"><h2>When an image is done</h2></div>
@@ -1478,7 +1550,15 @@
 
   function clear(node) { while (node.firstChild) node.removeChild(node.firstChild); }
   function text(node, value) { node.textContent = value; }
-  function show(id, on, how) { $(id).style.display = on ? (how || 'block') : 'none'; }
+  // An overlay (viewer, mask, preset editor, dialog, login) puts body.modal-open on: the page behind it
+  // stays where it is (app.css).
+  function show(id, on, how) {
+    $(id).style.display = on ? (how || 'block') : 'none';
+    if (/^(lb|me|pe|dlg|login)$/.test(id)) {
+      var b = document.body;
+      b.className = b.className.replace(/\s*\bmodal-open\b/g, '') + (overlayOpen() ? ' modal-open' : '');
+    }
+  }
 
   // Text to the clipboard. The page comes over plain HTTP from the console, where browsers give no
   // navigator.clipboard; a selected text field and the copy command work there too.
@@ -1765,8 +1845,6 @@
     if (d.scheduler) { p.scheduler = d.scheduler; any = true; }
     n = parseInt(d.clip_skip, 10);
     if (n > 0) { p.clip = n; any = true; }
-    n = parseInt(d.clip_skip, 10);
-    if (n > 0) { p.clip = n; any = true; }
     if (d.loras) { p.loras = parseLoras(d.loras); any = true; }
     n = parseFloat(d.hires_scale);
     if (n >= 1) {
@@ -1847,7 +1925,7 @@
       w: size8('w', 512), h: size8('h', 512),
       steps: Math.round(num('steps', 20, 1, 150)), cfg: num('cfg', 7, 0, 30),
       sampler: $('sampler').value, scheduler: $('scheduler').value,
-      clip: clipSkipShown() && parseInt($('clipskip').value, 10) > 0 ? parseInt($('clipskip').value, 10) : -1,
+      clip: clipSkipShown() ? clipValue() : -1,
       shift: parseFloat($('shift').value) > 0 ? Math.min(20, parseFloat($('shift').value)) : 0,
       seed: parseInt($('seed').value, 10),
       loras: loraSel.slice(),
@@ -1906,8 +1984,7 @@
     if (o.cfg !== undefined && o.cfg !== null) $('cfg').value = o.cfg;
     setSelect('sampler', o.sampler || 'default');
     setSelect('scheduler', o.scheduler || 'default');
-    setSelect('clipskip', String(o.clip > 0 ? o.clip : -1), '-1');
-    if ($('clipskip').options[$('clipskip').selectedIndex].disabled) $('clipskip').value = '-1';   // a 1 kept for SDXL
+    $('clipskip').value = o.clip > 0 ? o.clip : '';
     $('shift').value = o.shift > 0 ? o.shift : '';
     if (o.seed !== undefined && o.seed !== null && !isNaN(o.seed)) $('seed').value = o.seed;
     loraSel = [];
@@ -1936,22 +2013,43 @@
   // with it an SDXL model makes noise, so the server ignores a 1 there.
   function clipSkipShown() { return $('cliprow').style.display !== 'none'; }
 
+  // The CLIP skip field: a whole number from 1 to 12, or -1 for Auto (empty).
+  function clipValue() {
+    var v = parseInt($('clipskip').value, 10);
+    return v >= 1 && v <= 12 ? v : -1;
+  }
+
+  // - and + from Auto start at what Auto is for the model (1 for SD 1.5, else 2); under 1 is Auto again.
+  function clipStep(d) {
+    var v = clipValue();
+    if (v < 0) v = st.clipAuto || 2;
+    v += d;
+    $('clipskip').value = v < 1 ? '' : Math.min(12, v);
+    persist();
+  }
+
+  // a number past 12 is 12; nothing, 0 or text is Auto
+  function clipTyped() {
+    var n = parseInt($('clipskip').value, 10);
+    $('clipskip').value = n > 12 ? 12 : n >= 1 ? n : '';
+    persist();
+  }
+
   function drawClipSkip(entry) {
     var fam = entry ? familyOf(entry, entry.base ? findModel(entry.base) : null) : '';
     var sd1 = fam === 'SD 1.5', on = fam === '' || sd1 || fam === 'SD 2.1' || fam === 'SDXL';
     $('cliprow').style.display = on ? '' : 'none';
     show('cliphint', on);
-    var sel = $('clipskip'), one = sd1 || fam === '';
-    sel.options[0].text = sd1 ? 'Auto (1)' : fam ? 'Auto (2)' : 'Auto';
-    sel.options[1].hidden = sel.options[1].disabled = !one;
-    if (!one && sel.value === '1') sel.value = '-1';
-    text($('cliphint-t'), sd1 ? 'Auto is 1 for SD 1.5; some anime models want 2.'
-      : fam === 'SDXL' ? 'Auto is 2 for SDXL (Pony and Illustrious too); 1 makes noise there, so it is not offered.'
-      : fam ? 'Auto is 2 for ' + fam + '; the server ignores a 1 for it, so it is not offered.'
-      : 'Auto is 1 for SD 1.5 and 2 for SDXL.');
+    st.clipAuto = sd1 ? 1 : 2;
+    $('clipskip').placeholder = sd1 ? 'Auto (1)' : fam ? 'Auto (2)' : 'Auto';
+    text($('cliphint-t'), sd1 ? 'Empty is Auto, 1 for SD 1.5; some anime models want 2.'
+      : fam === 'SDXL' ? 'Empty is Auto, 2 for SDXL (Pony and Illustrious too). A 1 counts as Auto here: it makes noise on SDXL.'
+      : fam ? 'Empty is Auto, 2 for ' + fam + '. A 1 counts as Auto for it.'
+      : 'Empty is Auto: 1 for SD 1.5, 2 for SDXL.');
   }
 
   function persist() {
+    growPrompt();
     save('prompt', $('prompt').value);
     save('neg', $('neg').value);
     save('set.' + (st.mkey || '_'), JSON.stringify(getForm()));
@@ -1966,7 +2064,7 @@
     text($('grp-size-s'), parseInt($('w').value, 10) + '×' + parseInt($('h').value, 10));
     text($('grp-quality-s'), steps + (steps === 1 ? ' step' : ' steps') + ' · CFG ' + num('cfg', 7, 0, 30) +
       ($('sampler').value !== 'default' ? ' · ' + $('sampler').value : '') +
-      (clipSkipShown() && parseInt($('clipskip').value, 10) > 0 ? ' · CLIP skip ' + $('clipskip').value : ''));
+      (clipSkipShown() && clipValue() > 0 ? ' · CLIP skip ' + clipValue() : ''));
     text($('grp-style-s'), loraSel.length ? loraSel.length + (loraSel.length === 1 ? ' LoRA' : ' LoRAs') : 'none');
     text($('hr-sect-s'), !$('hr-on').checked ? 'off' : scale === 1 ? 'refine pass' : '×' + scale);
     text($('grp-seed-s'), isNaN(seed) || seed < 0 ? 'random' : String(seed));
@@ -2375,6 +2473,59 @@
       if (!st.video) box.appendChild(actionButton('Edit', function () { setInit(r && r.url ? r.url : href, r ? r.name : ''); }));
       if (!st.video && st.cnModel) box.appendChild(actionButton('Guide', function () { setGuide(r && r.url ? r.url : href, r ? r.name : ''); }));
     }
+    // a file on the console (in the gallery, or not kept yet): Delete, a second press to be sure
+    if (openHref && name) {
+      var db = actionButton('Delete', function () { deleteResult(name, db); });
+      db.className = 'danger';
+      box.appendChild(db);
+    }
+  }
+
+  // Delete under the result: the first press asks ("Delete?") for 4 s, the second deletes the file.
+  // The image leaves the stage, the strip and the gallery; the next one of the run shows, if any.
+  function deleteResult(name, b) {
+    if (!b.armed) {
+      b.armed = true;
+      text(b, 'Delete? Press again');
+      b.className = 'danger armed';
+      b.armTimer = setTimeout(function () { b.armed = false; text(b, 'Delete'); b.className = 'danger'; }, 4000);
+      return;
+    }
+    clearTimeout(b.armTimer);
+    b.disabled = true;
+    req('DELETE', '/ps5sd/v1/app/gallery/' + encodeURIComponent(name), null, function (code, data) {
+      if (code !== 200 && code !== 404) {
+        b.disabled = false;
+        b.armed = false;
+        text(b, 'Delete');
+        b.className = 'danger';
+        toast(errText(code, data, 'Could not delete ' + name), 5000);
+        return;
+      }
+      for (var g = 0; g < galleryList.length; g++) {
+        if (galleryList[g].name === name) { galleryList.splice(g, 1); break; }
+      }
+      drawGallery();
+      var list = st.results, at = -1;
+      for (var i = 0; list && i < list.length; i++) if (list[i].name === name) { at = i; break; }
+      if (at >= 0) list.splice(at, 1);
+      if (st.vidResult && st.vidResult.name === name) st.vidResult = null;
+      toast('Deleted ' + name + '.');
+      if (list && list.length) {
+        var next = Math.min(at < 0 ? st.pick : at, list.length - 1);
+        drawStrip();
+        pickResult(next);
+        return;
+      }
+      if (list) stripBox(false);
+      freeVideo();
+      var stage = $('stage');
+      clear(stage);
+      stage.appendChild(el('div', 'empty', 'Deleted. Your next image appears here.'));
+      clear($('actions'));
+      status('Deleted.');
+      text($('sub'), '');
+    }, 30000);
   }
 
   // ---------- run state ----------
@@ -3795,6 +3946,8 @@
     var tabs = ['create', 'gallery', 'models', 'settings', 'help'];
     st.view = name;
     save('tab', name);
+    document.body.className = document.body.className.replace(/\s*\bv-\w+/g, '') + ' v-' + name;  // app.css: per view
+    if (window.scrollTo) window.scrollTo(0, 0);  // another tab starts at its top
     show('view-create', name === 'create', 'flex');
     show('view-models', name === 'models', 'flex');
     show('view-settings', name === 'settings', 'flex');
@@ -7761,6 +7914,7 @@
             ? 'Temperature, power and fan: ps5-exporter was sent to the ELF loader twice and does not answer on port 9100.'
             : 'Starting ps5-exporter for the temperature, power and fan…';
     text($('con-note'), note);
+    drawFan(d ? d.fan_control : null);
   }
 
   function initConsole() {
@@ -7817,6 +7971,8 @@
     initStudioDock();
     initSignal();
     loadTvOption();
+    initFan();
+    initAppearance();
     $('opt-tv').onchange = setTvOption;
     $('opt-tvkey').onchange = setTvKeyOption;
     $('hr-on').onchange = function () { drawHires(); persist(); };
@@ -7971,7 +8127,9 @@
     show('neg-paste', canPaste(), 'inline-block');
     $('prompt-paste').onclick = function () { pasteInto('prompt'); };
     $('neg-paste').onclick = function () { pasteInto('neg'); };
-    $('clipskip').onchange = persist;
+    $('clipskip').onchange = clipTyped;
+    $('clipskip-').onclick = function () { clipStep(-1); };
+    $('clipskip+').onclick = function () { clipStep(1); };
     tagInit();
     $('nokeep').checked = load('nokeep') === '1';
     $('nokeep').onchange = function () { save('nokeep', $('nokeep').checked ? '1' : '0'); };

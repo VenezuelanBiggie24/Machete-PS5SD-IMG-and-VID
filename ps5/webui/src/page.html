@@ -41,11 +41,24 @@
          DELETE .../downloads/<id>, POST .../app/hf/search
   SPDX-License-Identifier: MIT
 -->
+<script>
+  // Before the page draws: the PS5's browser keeps the large controls its cursor needs (html.tv); the
+  // theme and the folded sidebar this browser chose (Settings, Appearance; 22d-appearance.js).
+  (function () {
+    var h = document.documentElement;
+    if (/PlayStation/i.test(navigator.userAgent || '')) h.className += ' tv';
+    try {
+      var t = localStorage.getItem('ps5sd.theme');
+      if (t === 'light' || t === 'dark') h.setAttribute('data-theme', t);
+      if (localStorage.getItem('ps5sd.sideMini') === '1') h.className += ' side-mini';
+    } catch (e) {}
+  })();
+</script>
 <style>
 @@include app.css
 </style>
 </head>
-<body>
+<body class="v-create">
 <header class="top">
   <div class="brandbox">
     <span class="logo"></span>
@@ -63,6 +76,7 @@
   <button type="button" id="tab-models"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 8l-9-5-9 5v8l9 5 9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg><span>Models<span class="tabdot" id="mdot"></span></span></button>
   <button type="button" id="tab-settings"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg><span>Settings</span></button>
   <button type="button" id="tab-help"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14"/><path d="M12 17.5h.01"/></svg><span>Help</span></button>
+  <button type="button" class="sidefold" id="sidefold" aria-pressed="false" title="Fold the sidebar to its icons"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg><span>Fold</span></button>
 </nav>
 
 <div class="main" id="view-create">
@@ -110,7 +124,7 @@
     <textarea id="prompt" class="big" rows="4" placeholder="Describe the masterpiece you want to create..."></textarea>
     <div class="tagbox" id="tagbox" role="listbox" aria-label="Tags" style="display:none"></div>
     <div class="linkrow">
-      <button type="button" class="linkbtn magic-btn" id="magic-polish">✨ Magic Polish</button>
+      <button type="button" class="linkbtn magic-btn" id="magic-polish">Magic Polish</button>
       <button type="button" class="linkbtn" id="neg-toggle" aria-expanded="false" aria-controls="neg-box">+ Negative prompt</button>
       <span class="fill"></span>
       <button type="button" class="linkbtn" id="prompt-copy">Copy</button>
@@ -165,11 +179,11 @@
         <div class="face-scenario-row" id="face-scenario-row" style="margin-top:0.8rem">
           <span class="hint" style="margin-bottom:0.3rem">Instant 1-Click Scenarios:</span>
           <div class="face-presets-grid">
-            <button type="button" class="face-preset-chip" data-prompt="as a corporate executive in a luxury modern office, tailored suit, studio lighting, photorealistic 8k">💼 Executive</button>
-            <button type="button" class="face-preset-chip" data-prompt="as a cyberpunk samurai warrior, glowing neon katana, rain-slicked Tokyo street, volumetric fog, octane render">🦾 Cyberpunk</button>
-            <button type="button" class="face-preset-chip" data-prompt="on a tropical golden hour beach, ocean breeze, warm sunset glow, relaxed portrait, 8k photography">🏖️ Golden Beach</button>
-            <button type="button" class="face-preset-chip" data-prompt="as a medieval royal monarch, velvet cape with ornate gold embroidery, ancient castle hall, dramatic cinematic portrait">🛡️ Royalty</button>
-            <button type="button" class="face-preset-chip" data-prompt="as an astronaut floating in deep space, Earth reflecting in the helmet visor, cosmic nebula, hyper-detailed 8k">🚀 Astronaut</button>
+            <button type="button" class="face-preset-chip" data-prompt="as a corporate executive in a luxury modern office, tailored suit, studio lighting, photorealistic 8k">Executive</button>
+            <button type="button" class="face-preset-chip" data-prompt="as a cyberpunk samurai warrior, glowing neon katana, rain-slicked Tokyo street, volumetric fog, octane render">Cyberpunk</button>
+            <button type="button" class="face-preset-chip" data-prompt="on a tropical golden hour beach, ocean breeze, warm sunset glow, relaxed portrait, 8k photography">Golden Beach</button>
+            <button type="button" class="face-preset-chip" data-prompt="as a medieval royal monarch, velvet cape with ornate gold embroidery, ancient castle hall, dramatic cinematic portrait">Royalty</button>
+            <button type="button" class="face-preset-chip" data-prompt="as an astronaut floating in deep space, Earth reflecting in the helmet visor, cosmic nebula, hyper-detailed 8k">Astronaut</button>
           </div>
         </div>
       </div>
@@ -289,7 +303,7 @@
           <div class="row" id="cliprow">
             <div>
               <label for="clipskip">CLIP skip</label>
-              <select id="clipskip"><option value="-1">Auto</option><option value="1">1</option><option value="2">2</option><option value="3">3</option></select>
+              <div class="step"><button type="button" id="clipskip-" aria-label="CLIP skip lower">&minus;</button><input id="clipskip" type="number" min="1" max="12" step="1" placeholder="Auto" inputmode="numeric" aria-label="CLIP skip"><button type="button" id="clipskip+" aria-label="CLIP skip higher">+</button></div>
             </div>
             <div></div>
           </div>
@@ -495,6 +509,29 @@
       </div>
       <div class="cgrid" id="con-charts"></div>
       <p class="hint" id="con-note"></p>
+    </section>
+    <section class="panel" id="pnl-fan" style="display:none">
+      <div class="ph"><h2>Fan</h2><button type="button" class="info" data-help="help-fan" aria-label="More about the fan modes">&#9432;</button></div>
+      <div class="mseg crange fanmodes" id="fan-mode" role="group" aria-label="Fan mode">
+        <button type="button" data-fan="quiet" aria-pressed="false">Quiet</button>
+        <button type="button" data-fan="balanced" aria-pressed="false">Balanced</button>
+        <button type="button" data-fan="cool" aria-pressed="false">Cool</button>
+        <button type="button" data-fan="manual" aria-pressed="false">Manual</button>
+      </div>
+      <div id="fan-manual" style="display:none">
+        <label for="fan-target">Target temperature, &deg;C</label>
+        <div class="step fanstep"><button type="button" id="fan-target-" aria-label="Lower">&minus;</button><input id="fan-target" type="number" min="70" max="95" step="1" value="85"><button type="button" id="fan-target+" aria-label="Higher">+</button></div>
+      </div>
+      <p class="hint" id="fan-note"></p>
+    </section>
+    <section class="panel">
+      <div class="ph"><h2>Appearance</h2></div>
+      <div class="mseg crange themes" id="theme" role="group" aria-label="Theme">
+        <button type="button" data-theme="auto" aria-pressed="false">Auto</button>
+        <button type="button" data-theme="light" aria-pressed="false">Light</button>
+        <button type="button" data-theme="dark" aria-pressed="false">Dark</button>
+      </div>
+      <p class="hint">Auto follows the device. It is kept in this browser.</p>
     </section>
     <section class="panel">
       <div class="ph"><h2>When an image is done</h2></div>
